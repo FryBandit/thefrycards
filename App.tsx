@@ -1,12 +1,37 @@
 
 import React, { useEffect, useState } from 'react';
-import GameBoard, { PlayerInfoPanel } from './components/GameBoard';
+import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
 import { useGameState } from './hooks/useGameState';
 import { checkDiceCost } from './hooks/useGameState';
-import { CardInGame, TurnPhase, CardType } from './game/types';
+import { CardInGame, TurnPhase, CardType, Player } from './game/types';
+
+
+export const PlayerInfoPanel: React.FC<{ player: Player, isCurrent: boolean, isOpponent?: boolean }> = ({ player, isCurrent, isOpponent = false }) => (
+    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan' : 'border-cyber-border'}`}>
+        <div>
+            <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
+            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink`}>{player.command} <span className="text-lg opacity-75">Command</span></p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-sm font-semibold">
+            <div>
+                <div className="font-bold text-lg text-neon-yellow">{player.deck.length}</div>
+                <div className="opacity-75">Deck</div>
+            </div>
+            <div>
+                <div className="font-bold text-lg text-neon-yellow">{player.hand.length}</div>
+                <div className="opacity-75">Hand</div>
+            </div>
+            <div>
+                <div className="font-bold text-lg text-neon-yellow">{player.graveyard.length}</div>
+                <div className="opacity-75">Grave</div>
+            </div>
+        </div>
+    </div>
+);
+
 
 const App: React.FC = () => {
   const { state, dispatch, aiAction } = useGameState();
@@ -182,8 +207,6 @@ const App: React.FC = () => {
     return <HowToPlay onPlay={handleStartGame} />;
   }
   
-  const currentPlayer = state.players[state.currentPlayerId];
-  const opponentPlayer = state.players[1 - state.currentPlayerId];
   const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
@@ -208,15 +231,15 @@ const App: React.FC = () => {
       />
 
       {/* HUD Elements */}
-      <div className="absolute top-4 left-4 h-1/3">
+      <div className="absolute top-4 left-4 h-1/3 z-10 pointer-events-none">
         <GameLog log={state.log} />
       </div>
 
-      <div className="absolute bottom-4 left-4 h-40">
+      <div className="absolute bottom-4 left-4 h-40 z-10 pointer-events-none">
         <PlayerInfoPanel player={state.players[0]} isCurrent={isPlayerCurrent} />
       </div>
 
-      <div className="absolute top-4 right-4 h-40">
+      <div className="absolute top-4 right-4 h-40 z-10 pointer-events-none">
         <PlayerInfoPanel player={state.players[1]} isCurrent={!isPlayerCurrent} isOpponent={true} />
       </div>
       

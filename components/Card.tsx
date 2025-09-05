@@ -37,7 +37,7 @@ const Card: React.FC<CardProps> = ({
 
   const baseClasses = `relative w-40 h-56 bg-cyber-surface/80 backdrop-blur-sm rounded-lg p-2 border-2 flex flex-col justify-between shadow-lg text-white transition-all duration-200 transform ${typeColor} ${originClasses} ${tokenClasses}`;
   const interactiveClasses = onClick ? "cursor-pointer" : "";
-  const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan scale-105" : "border-cyber-border";
+  const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : "border-cyber-border";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse" : "";
 
   let strengthClasses = 'text-cyber-bg';

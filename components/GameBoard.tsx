@@ -5,31 +5,6 @@ import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveSt
 import DiceTray from './DiceTray';
 import Card from './Card';
 
-
-// This component is now exported so App.tsx can use it for the HUD
-export const PlayerInfoPanel: React.FC<{ player: Player, isCurrent: boolean, isOpponent?: boolean }> = ({ player, isCurrent, isOpponent = false }) => (
-    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan' : 'border-cyber-border'}`}>
-        <div>
-            <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
-            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink`}>{player.command} <span className="text-lg opacity-75">Command</span></p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center text-sm font-semibold">
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.deck.length}</div>
-                <div className="opacity-75">Deck</div>
-            </div>
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.hand.length}</div>
-                <div className="opacity-75">Hand</div>
-            </div>
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.graveyard.length}</div>
-                <div className="opacity-75">Grave</div>
-            </div>
-        </div>
-    </div>
-);
-
 // New sub-component for cards on the field
 const FieldArea: React.FC<{ 
     player: Player;
@@ -115,28 +90,21 @@ const HandArea: React.FC<{
     }
     
     // Player's Fanned Hand
-    const scavengeableCards = player.graveyard.filter(isCardScavengeable);
+    const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
+    const scavengeableCards = player.graveyard.filter(isCardScavengeable).map(c => ({ ...c, source: 'graveyard' as const }));
+    const allPlayableCards = [...scavengeableCards, ...handCards];
+
 
     return (
         <div className="h-64 flex-shrink-0 flex justify-center items-end pb-4">
             <div className="flex justify-center items-end -space-x-16">
-                 {scavengeableCards.map(card => (
-                    <div 
-                        key={card.instanceId}
-                        className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-20 origin-bottom hover:!rotate-0"
-                    >
-                        <Card
-                            card={card}
-                            inHand={true}
-                            isPlayable={isCurrentPlayer && isCardScavengeable(card)}
-                            onClick={() => onGraveyardCardClick(card)}
-                            origin="graveyard"
-                        />
-                    </div>
-                 ))}
-                 {player.hand.map((card, i) => {
-                    const numCards = player.hand.length;
-                    const rotation = (i - (numCards - 1) / 2) * 4;
+                 {allPlayableCards.map((card, i) => {
+                    const numCards = allPlayableCards.length;
+                    const rotation = (i - (numCards - 1) / 2) * 5;
+                    
+                    const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardScavengeable(card);
+                    const clickHandler = card.source === 'hand' ? onCardClick : onGraveyardCardClick;
+
                     return (
                         <div 
                             key={card.instanceId} 
@@ -146,13 +114,13 @@ const HandArea: React.FC<{
                             <Card
                                 card={card}
                                 inHand={true}
-                                isPlayable={isCurrentPlayer && isCardPlayable(card)}
-                                onClick={() => onCardClick(card)}
-                                onChannel={card.keywords?.channel && isCurrentPlayer ? () => onChannelClick(card) : undefined}
+                                isPlayable={isCurrentPlayer && isPlayableFromSource}
+                                onClick={() => clickHandler(card)}
+                                onChannel={card.keywords?.channel && card.source === 'hand' && isCurrentPlayer ? () => onChannelClick(card) : undefined}
                                 isChannelable={isCurrentPlayer && isCardChannelable(card)}
-                                onAmplify={card.keywords?.amplify && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
+                                onAmplify={card.keywords?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
                                 isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
-                                origin="hand"
+                                origin={card.source}
                             />
                         </div>
                     )
