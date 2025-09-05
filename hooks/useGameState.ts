@@ -224,6 +224,87 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
              }
              return { canPay: false, diceToSpend: [], remainingDice: availableDice };
         }
+        case DiceCostType.TWO_PAIR: {
+            const counts: {[key: number]: number} = {};
+            for (const val of diceValues) { counts[val] = (counts[val] || 0) + 1; }
+            const pairs = Object.keys(counts).filter(k => counts[parseInt(k)] >= 2);
+            if (pairs.length < 2) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+            
+            const diceToSpend: Die[] = [];
+            let tempDice = [...availableDice];
+
+            const val1 = parseInt(pairs[0]);
+            let dieIndex1 = tempDice.findIndex(d => d.value === val1);
+            diceToSpend.push(tempDice.splice(dieIndex1, 1)[0]);
+            let dieIndex2 = tempDice.findIndex(d => d.value === val1);
+            diceToSpend.push(tempDice.splice(dieIndex2, 1)[0]);
+            
+            const val2 = parseInt(pairs[1]);
+            let dieIndex3 = tempDice.findIndex(d => d.value === val2);
+            diceToSpend.push(tempDice.splice(dieIndex3, 1)[0]);
+            let dieIndex4 = tempDice.findIndex(d => d.value === val2);
+            diceToSpend.push(tempDice.splice(dieIndex4, 1)[0]);
+
+            return { canPay: true, diceToSpend, remainingDice: tempDice };
+        }
+        case DiceCostType.FULL_HOUSE: {
+            const counts: {[key: number]: number} = {};
+            for (const val of diceValues) { counts[val] = (counts[val] || 0) + 1; }
+            
+            const threeValStr = Object.keys(counts).find(k => counts[parseInt(k)] >= 3);
+            if (!threeValStr) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+            
+            const threeVal = parseInt(threeValStr);
+            const pairValStr = Object.keys(counts).find(k => counts[parseInt(k)] >= 2 && parseInt(k) !== threeVal);
+            if (!pairValStr) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+
+            const pairVal = parseInt(pairValStr);
+
+            const threeOfAKindDice = availableDice.filter(d => d.value === threeVal).slice(0, 3);
+            const pairDice = availableDice.filter(d => d.value === pairVal).slice(0, 2);
+            
+            const diceToSpend = [...threeOfAKindDice, ...pairDice];
+            const spentIds = new Set(diceToSpend.map(d => d.id));
+            const remainingDice = availableDice.filter(d => !spentIds.has(d.id));
+
+            return { canPay: true, diceToSpend, remainingDice };
+        }
+        case DiceCostType.STRAIGHT_4: {
+             const uniqueSorted = [...new Set(diceValues)];
+             if (uniqueSorted.length < 4) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+             for (let i = 0; i <= uniqueSorted.length - 4; i++) {
+                 if (uniqueSorted[i+1] === uniqueSorted[i] + 1 && uniqueSorted[i+2] === uniqueSorted[i] + 2 && uniqueSorted[i+3] === uniqueSorted[i] + 3) {
+                     const vals = uniqueSorted.slice(i, i+4);
+                     const diceToSpend: Die[] = [];
+                     let tempDice = [...availableDice];
+                     for(const v of vals) {
+                         const dieIndex = tempDice.findIndex(d => d.value === v);
+                         diceToSpend.push(tempDice[dieIndex]);
+                         tempDice.splice(dieIndex, 1);
+                     }
+                     return { canPay: true, diceToSpend, remainingDice: tempDice };
+                 }
+             }
+             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+        }
+        case DiceCostType.STRAIGHT_5: {
+             const uniqueSorted = [...new Set(diceValues)];
+             if (uniqueSorted.length < 5) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+             for (let i = 0; i <= uniqueSorted.length - 5; i++) {
+                 if (uniqueSorted[i+1] === uniqueSorted[i] + 1 && uniqueSorted[i+2] === uniqueSorted[i] + 2 && uniqueSorted[i+3] === uniqueSorted[i] + 3 && uniqueSorted[i+4] === uniqueSorted[i] + 4) {
+                     const vals = uniqueSorted.slice(i, i+5);
+                     const diceToSpend: Die[] = [];
+                     let tempDice = [...availableDice];
+                     for(const v of vals) {
+                         const dieIndex = tempDice.findIndex(d => d.value === v);
+                         diceToSpend.push(tempDice[dieIndex]);
+                         tempDice.splice(dieIndex, 1);
+                     }
+                     return { canPay: true, diceToSpend, remainingDice: tempDice };
+                 }
+             }
+             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+        }
         default:
             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
     }

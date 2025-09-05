@@ -1,53 +1,97 @@
+
 import { CardDefinition, CardType } from './types';
 import { supabase } from '../lib/supabaseClient';
 
+// Helper to shuffle arrays
+const shuffle = <T,>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
+    // The raw data from Supabase might have 'abilities' as a JSON string
+    // which needs to be parsed into the 'keywords' object.
+    type RawCardData = Omit<CardDefinition, 'keywords'> & {
+      abilities?: string | { [key: string]: any };
+      keywords?: string | { [key: string]: any };
+    };
+
+    // FIX: The Supabase client handles auth headers automatically.
+    // The previous manual implementation used a deprecated `supabase.options` property, which caused a crash.
+    // Relying on the client's default behavior is safer and cleaner.
     const { data, error } = await supabase.functions.invoke('get-all-cards');
+
 
     if (error) {
         console.error('Error invoking get-all-cards function:', error);
         throw new Error(`Failed to fetch card definitions: ${error.message}`);
     }
+    
+    const rawCards = data?.cards as RawCardData[];
 
-    if (!data || !data.cards) {
+    if (!rawCards) {
         console.error('Invalid data format from function response:', data);
         throw new Error('Failed to parse card definitions from function response.');
     }
 
-    // The data from the function is expected to be in the correct format.
-    return data.cards;
+    // Process the raw data to match the CardDefinition type
+    return rawCards.map(rawCard => {
+        const { abilities, keywords, ...rest } = rawCard;
+        const card: CardDefinition = { ...rest, keywords: {} };
+
+        const abilitiesSource = keywords || abilities;
+
+        if (typeof abilitiesSource === 'string') {
+            try {
+                card.keywords = JSON.parse(abilitiesSource);
+            } catch (e) {
+                console.error(`Failed to parse abilities for card ${card.name}:`, abilitiesSource);
+                card.keywords = {};
+            }
+        } else if (typeof abilitiesSource === 'object' && abilitiesSource !== null) {
+            card.keywords = abilitiesSource;
+        }
+
+        return card;
+    });
 };
 
-// Helper to build a valid deck from the full card list
+// Helper to build a valid, randomized deck from the full card list
 export const buildDeckFromCards = (allCards: CardDefinition[]): CardDefinition[] => {
-    const findCard = (id: number): CardDefinition | undefined => {
-        return allCards.find(c => c.id === id);
-    };
-
     const deck: CardDefinition[] = [];
-    const cardIds = [
-        // 2 Locations
-        11, 12,
-        // 8 Units
-        41, 31, 46, 17, 40, 43, 44, 45,
-        // 5 Events
-        42, 19, 38, 39, 16,
-        // 2 Artifacts
-        30, 24,
-    ];
+    const requiredComposition = {
+        [CardType.LOCATION]: 2,
+        [CardType.UNIT]: 8,
+        [CardType.EVENT]: 5,
+        [CardType.ARTIFACT]: 2,
+    };
+    
+    const totalCards = Object.values(requiredComposition).reduce((a, b) => a + b, 0);
 
-    for (const id of cardIds) {
-        const card = findCard(id);
-        if (card) {
-            deck.push(card);
-        } else {
-            console.warn(`Card with ID ${id} not found for deck building.`);
+    for (const [cardType, count] of Object.entries(requiredComposition)) {
+        const availableCards = allCards.filter(c => c.type === (cardType as CardType));
+        const shuffled = shuffle(availableCards);
+        const cardsToAdd = shuffled.slice(0, count);
+        
+        if (cardsToAdd.length < count) {
+            console.warn(`Not enough cards of type ${cardType} to build a full deck. Found ${cardsToAdd.length}, needed ${count}.`);
         }
+        
+        deck.push(...cardsToAdd);
     }
     
-    if (deck.length !== cardIds.length) {
-        console.error("Deck is incomplete! Some cards were not found.");
+    if (deck.length < totalCards) {
+        console.error(`Deck is incomplete! Only found ${deck.length}/${totalCards} cards.`);
+        // As a fallback, fill the rest with random cards to prevent crashes
+        const remainingNeeded = totalCards - deck.length;
+        const allOtherCards = allCards.filter(c => !deck.some(dc => dc.id === c.id));
+        const fallbackCards = shuffle(allOtherCards).slice(0, remainingNeeded);
+        deck.push(...fallbackCards);
     }
 
-    return deck;
+    return shuffle(deck); // Shuffle the final deck
 }

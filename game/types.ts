@@ -1,7 +1,4 @@
 
-
-
-
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -18,6 +15,10 @@ export enum DiceCostType {
   THREE_OF_A_KIND = 'THREE_OF_A_KIND',
   FOUR_OF_A_KIND = 'FOUR_OF_A_KIND',
   STRAIGHT_3 = 'STRAIGHT_3',
+  TWO_PAIR = 'TWO_PAIR',
+  FULL_HOUSE = 'FULL_HOUSE',
+  STRAIGHT_4 = 'STRAIGHT_4',
+  STRAIGHT_5 = 'STRAIGHT_5',
 }
 
 export interface DiceCost {

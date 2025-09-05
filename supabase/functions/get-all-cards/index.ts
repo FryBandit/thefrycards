@@ -1,5 +1,5 @@
-// FIX: Replaced the Deno types reference with a more reliable CDN link to resolve "Cannot find name 'Deno'" errors.
-/// <reference types="https://esm.sh/@types/deno" />
+// FIX: Use a version-pinned Supabase edge-runtime types reference to resolve "Cannot find name 'Deno'" errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'
