@@ -1,3 +1,4 @@
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -31,7 +32,7 @@ export interface CardDefinition {
   dice_cost: DiceCost[];
   strength?: number;
   durability?: number;
-  commandNumber: number;
+  commandNumber?: number;
   text: string;
   abilities: { [key: string]: any; };
   imageUrl?: string;

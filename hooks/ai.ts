@@ -162,7 +162,7 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     }
 
     // Base value
-    score += card.commandNumber;
+    score += card.commandNumber ?? 0;
     
     // Drawbacks
     if (card.abilities?.malice) score -= card.abilities.malice * 2;

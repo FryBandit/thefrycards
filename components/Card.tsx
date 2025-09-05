@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { CardInGame, CardType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -54,9 +55,11 @@ const Card: React.FC<CardProps> = ({
       <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
         <div className="flex justify-between items-start text-sm font-bold">
             <span className="truncate pr-2">{card.name}</span>
-            <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
-            {card.commandNumber}
-            </span>
+            {card.commandNumber !== undefined && (
+              <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
+                {card.commandNumber}
+              </span>
+            )}
         </div>
         <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
             <KeywordText text={card.text} />

@@ -454,7 +454,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                             } 
                             
                             if (standardPenaltyApplies && player.id !== sourcePlayerId) {
-                                damagePlayer(player, unit.commandNumber, `${unit.name}'s destruction`, 'loss');
+                                damagePlayer(player, unit.commandNumber ?? 0, `${unit.name}'s destruction`, 'loss');
                             }
                         }
                     }
@@ -480,13 +480,13 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         playerUnitsToVoid.forEach(u => {
           player.void.push(u);
           log(`${u.name} is voided.`);
-          damagePlayer(player, u.commandNumber, `${u.name}'s voiding`, 'loss');
+          damagePlayer(player, u.commandNumber ?? 0, `${u.name}'s voiding`, 'loss');
         });
 
         opponentUnitsToVoid.forEach(u => {
           opponent.void.push(u);
           log(`${u.name} is voided.`);
-          damagePlayer(opponent, u.commandNumber, `${u.name}'s voiding`, 'loss');
+          damagePlayer(opponent, u.commandNumber ?? 0, `${u.name}'s voiding`, 'loss');
         });
     };
 
@@ -508,7 +508,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if (player.deck.length > 0) {
                 const topCardDef = player.deck.pop()!; // Card is removed from deck
                 log(`${card.name}'s Resonance reveals and discards ${topCardDef.name}.`);
-                if (topCardDef.commandNumber >= card.abilities.resonance.value) {
+                if ((topCardDef.commandNumber ?? 0) >= card.abilities.resonance.value) {
                     const effect = card.abilities.resonance.effect;
                     if (effect.type === 'BUFF_STRENGTH') {
                         const cardInPlay = player.units.find(u => u.instanceId === card.instanceId);
@@ -653,7 +653,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         
         // AI Mulligan Logic
         const aiHand = ai.hand;
-        const hasLowCost = aiHand.some(c => c.commandNumber <= 3);
+        const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
         const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
         const shouldAiMulligan = !hasLowCost || !hasUnit;
 

@@ -20,11 +20,18 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing required Supabase environment variables.');
+    }
+
     const authHeader = req.headers.get('Authorization');
 
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       // Pass auth header to the client if it exists.
       // This will ensure that RLS policies are applied correctly for authenticated users,
       // and falls back to the anon key for public users.
@@ -42,9 +49,10 @@ Deno.serve(async (req) => {
       status: 200,
     })
   } catch (error) {
+    const isConfigError = error.message.includes('Supabase environment variables');
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: isConfigError ? 500 : 400,
     })
   }
 })
