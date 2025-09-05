@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dice Command</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'cyber-bg': '#0d0221',
+              'cyber-surface': '#1a093a',
+              'cyber-border': '#2a1a5e',
+              'cyber-primary': '#531cb3',
+              'cyber-secondary': '#7e22ce',
+              'neon-pink': '#f038ff',
+              'neon-cyan': '#00f5d4',
+              'neon-yellow': '#fef08a',
+              'unit': '#7e22ce',
+              'event': '#f038ff',
+              'location': '#00f5d4',
+              'artifact': '#fef08a',
+            },
+            fontFamily: {
+              'sans': ['Rajdhani', 'sans-serif'],
+            },
+            boxShadow: {
+              'neon-cyan': '0 0 5px #00f5d4, 0 0 10px #00f5d4, 0 0 15px #00f5d4',
+              'neon-pink': '0 0 5px #f038ff, 0 0 10px #f038ff, 0 0 15px #f038ff',
+            }
+          },
+        },
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+  }
+}
+</script>
+<style>
+    body {
+        background-image: url('https://i.imgur.com/rPVo3I9.jpg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+</style>
+</head>
+  <body class="bg-cyber-bg">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

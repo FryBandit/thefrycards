@@ -1,0 +1,35 @@
+import React from 'react';
+import type { Die as DieType } from '../game/types';
+import Die from './Die';
+
+interface DiceTrayProps {
+  dice: DieType[];
+  rollCount: number;
+  onDieClick: (id: number) => void;
+  onRoll: () => void;
+  canRoll: boolean;
+}
+
+const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, onDieClick, onRoll, canRoll }) => {
+  return (
+    <div className="bg-cyber-surface/70 backdrop-blur-sm p-4 rounded-lg flex items-center justify-center space-x-4 border-2 border-cyber-border">
+      <div className="flex space-x-3">
+        {dice.map((die) => (
+          <Die key={die.id} die={die} onClick={() => onDieClick(die.id)} />
+        ))}
+      </div>
+      <div className="flex flex-col items-center space-y-2">
+        <button
+          onClick={onRoll}
+          disabled={!canRoll}
+          className="w-24 h-16 bg-cyber-primary text-white font-bold rounded-lg shadow-md hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed border-2 border-cyber-border"
+        >
+          ROLL
+        </button>
+        <div className="text-neon-yellow text-sm font-semibold">Rolls left: {3 - rollCount}</div>
+      </div>
+    </div>
+  );
+};
+
+export default DiceTray;

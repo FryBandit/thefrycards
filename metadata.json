@@ -1,0 +1,5 @@
+{
+  "name": "Dice Command",
+  "description": "A fast-paced, strategic 1v1 card game where players manipulate Command Dice to vie for control in a hostile universe. Build a synergistic deck, skillfully manage your dice, and adapt to the unpredictable nature of fate to reduce your opponent's Command from 20 to 0.",
+  "requestFramePermissions": []
+}
