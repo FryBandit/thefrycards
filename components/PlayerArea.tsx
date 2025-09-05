@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Player } from '../game/types';
 import Card from './Card';
@@ -22,13 +23,16 @@ const PlayerArea: React.FC<PlayerAreaProps> = ({ player, isCurrentPlayer, isOppo
       <div className="h-1/2 w-full bg-black/20 flex items-center justify-center p-2">
         <div className="flex gap-4">
           {player.units.map(card => (
-            <Card key={card.instanceId} card={card} />
+            // FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view.
+            <Card key={card.instanceId} card={card} onExamine={() => {}} />
           ))}
            {player.locations.map(card => (
-            <Card key={card.instanceId} card={card} />
+            // FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view.
+            <Card key={card.instanceId} card={card} onExamine={() => {}} />
           ))}
            {player.artifacts.map(card => (
-            <Card key={card.instanceId} card={card} />
+            // FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view.
+            <Card key={card.instanceId} card={card} onExamine={() => {}} />
           ))}
         </div>
       </div>
@@ -49,11 +53,13 @@ const PlayerArea: React.FC<PlayerAreaProps> = ({ player, isCurrentPlayer, isOppo
         <div className="w-3/4 h-full bg-black/20 flex items-center justify-center p-2 space-x-2">
           {player.hand.map(card => (
             <div key={card.instanceId} className={isOpponent ? 'transform -translate-y-2' : ''}>
+                 {/* FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view. */}
                  <Card
                     card={card}
                     inHand={!isOpponent}
                     isPlayable={!isOpponent && isCurrentPlayer && isCardPlayable(card)}
                     onClick={() => !isOpponent && onCardClick(card)}
+                    onExamine={() => {}}
                 />
             </div>
           ))}

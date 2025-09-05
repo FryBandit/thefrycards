@@ -2,28 +2,20 @@ import { CardDefinition, CardType } from './types';
 import { supabase } from '../lib/supabaseClient';
 
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
-    const { data, error } = await supabase
-        .from('cards')
-        .select('*');
+    const { data, error } = await supabase.functions.invoke('get-all-cards');
 
     if (error) {
-        console.error('Error fetching cards:', error);
+        console.error('Error invoking get-all-cards function:', error);
         throw new Error(`Failed to fetch card definitions: ${error.message}`);
     }
-    
-    // Transform Supabase data to CardDefinition
-    return data.map((card: any) => ({
-        id: card.id,
-        name: card.name,
-        type: card.type as CardType,
-        cost: card.cost, // Assuming 'cost' column is JSONB matching DiceCost[]
-        strength: card.strength,
-        durability: card.durability,
-        commandNumber: card.command_number,
-        text: card.text,
-        keywords: card.keywords, // Assuming 'keywords' column is JSONB matching keywords object
-        imageUrl: card.image_url,
-    }));
+
+    if (!data || !data.cards) {
+        console.error('Invalid data format from function response:', data);
+        throw new Error('Failed to parse card definitions from function response.');
+    }
+
+    // The data from the function is expected to be in the correct format.
+    return data.cards;
 };
 
 // Helper to build a valid deck from the full card list

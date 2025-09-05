@@ -25,7 +25,8 @@ const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose
           {cards.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {cards.map(card => (
-                <Card key={card.instanceId} card={card} />
+                // FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view.
+                <Card key={card.instanceId} card={card} onExamine={() => {}} />
               ))}
             </div>
           ) : (

@@ -60,6 +60,11 @@ export interface CardDefinition {
   };
   imageUrl?: string;
   faction?: string; // For Synergy
+  // New fields for Examine modal
+  rarity?: string;
+  flavor_text?: string;
+  card_set?: string;
+  author?: string;
 }
 
 export interface CardInGame extends CardDefinition {

@@ -7,6 +7,7 @@ import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
 import PlayerInfoPanel from './components/PlayerInfoPanel';
 import CardViewerModal from './components/CardViewerModal';
+import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
 import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
   const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
+  const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -71,6 +73,7 @@ const App: React.FC = () => {
     setView('game');
     setTargetingInfo(null);
     setViewingZone(null);
+    setExaminingCard(null);
   };
 
   const handleLogin = async () => {
@@ -226,6 +229,10 @@ const App: React.FC = () => {
         dispatch({ type: 'ADVANCE_PHASE', payload: { assault } });
       }
   };
+  
+  const handleExamineCard = (card: CardInGame) => {
+    setExaminingCard(card);
+  };
 
   // Main game loop and AI logic
   useEffect(() => {
@@ -299,6 +306,7 @@ const App: React.FC = () => {
         isCardActivatable={isCardActivatable}
         onActivateCard={handleActivateCard}
         lastActivatedCardId={lastActivatedCardId}
+        onExamineCard={handleExamineCard}
       />
 
       {/* HUD Elements */}
@@ -345,6 +353,12 @@ const App: React.FC = () => {
             cards={viewingZone.player[viewingZone.zone]}
             onClose={() => setViewingZone(null)}
           />
+      )}
+      {examiningCard && (
+        <CardDetailsModal 
+            card={examiningCard}
+            onClose={() => setExaminingCard(null)}
+        />
       )}
       {state.winner && (
         <Modal title="Game Over" onClose={handleStartGame} onShowRules={() => setView('howToPlay')}>

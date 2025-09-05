@@ -16,7 +16,8 @@ const FieldArea: React.FC<{
     onActivateCard: (card: CardInGame) => void;
     phase: TurnPhase;
     lastActivatedCardId: string | null;
-}> = ({ player, players, currentPlayerId, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, phase, lastActivatedCardId }) => {
+    onExamineCard: (card: CardInGame) => void;
+}> = ({ player, players, currentPlayerId, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, phase, lastActivatedCardId, onExamineCard }) => {
     
     return (
         <div className="flex-grow w-full flex items-center justify-center p-2 min-h-[12rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
@@ -41,6 +42,7 @@ const FieldArea: React.FC<{
                             effectiveDurability={effectiveDurability}
                             isActivating={lastActivatedCardId === card.instanceId}
                             rallyBonus={rallyBonus}
+                            onExamine={onExamineCard}
                         />
                     );
                 })}
@@ -65,10 +67,11 @@ const HandArea: React.FC<{
     onChannelClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
     onAmplifyClick: (card: CardInGame) => void;
-    isCurrentPlayer: boolean
+    isCurrentPlayer: boolean;
+    onExamineCard: (card: CardInGame) => void;
 }> = ({ 
     player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardScavengeable, 
-    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer 
+    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard
 }) => {
     if (isOpponent) {
         const numCards = player.hand.length;
@@ -134,6 +137,7 @@ const HandArea: React.FC<{
                                 onAmplify={card.keywords?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
                                 isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
                                 origin={card.source}
+                                onExamine={onExamineCard}
                             />
                         </div>
                     )
@@ -162,6 +166,7 @@ interface GameBoardProps {
   isCardActivatable: (card: CardInGame) => boolean;
   onActivateCard: (card: CardInGame) => void;
   lastActivatedCardId: string | null;
+  onExamineCard: (card: CardInGame) => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -169,7 +174,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
-    lastActivatedCardId
+    lastActivatedCardId, onExamineCard
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -209,6 +214,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onActivateCard={onActivateCard}
             phase={phase}
             lastActivatedCardId={lastActivatedCardId}
+            onExamineCard={onExamineCard}
         />
         <HandArea 
             player={opponentPlayer}
@@ -222,6 +228,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCardAmplifiable={() => false}
             onAmplifyClick={() => {}}
             isCurrentPlayer={currentPlayerId === opponentPlayer.id}
+            onExamineCard={onExamineCard}
         />
       </div>
 
@@ -290,6 +297,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onActivateCard={onActivateCard}
             phase={phase}
             lastActivatedCardId={lastActivatedCardId}
+            onExamineCard={onExamineCard}
         />
         <HandArea 
             player={currentPlayer}
@@ -303,6 +311,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCardAmplifiable={isCardAmplifiable}
             onAmplifyClick={onAmplifyClick}
             isCurrentPlayer={currentPlayerId === currentPlayer.id}
+            onExamineCard={onExamineCard}
         />
       </div>
     </div>
