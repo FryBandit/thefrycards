@@ -1,4 +1,5 @@
 
+
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { checkDiceCost } from './useGameState';
 
@@ -86,6 +87,8 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
 
 
     // --- IMMEDIATE ADVANTAGE ---
+    if (card.keywords?.annihilate) score += opponentUnits.length * 8; // Huge value
+    if (card.keywords?.riftwalk) score += 8; // Good, but delayed
     if (card.keywords?.warp) score += 20; // Extra turn is huge
     if (card.keywords?.echo) score += 15; // Very high priority
     if (card.keywords?.draw) {
@@ -94,6 +97,10 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     if (card.id === 15) { // System-Killer KAIJU
         score += opponentUnits.length * 5; // Board wipe value
     }
+
+    // --- DEFENSIVE / UTILITY ---
+    if (card.keywords?.fortify && aiPlayer.command < 12) score += 15; // High value when low on health
+    if (card.keywords?.landmark && !aiPlayer.locations.some(l => l.keywords?.landmark)) score += 5;
 
     // --- GENERAL KEYWORD VALUE ---
     if (card.keywords?.executioner) score += 5;
@@ -108,6 +115,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     if (card.keywords?.phasing) score += (getEffectiveStats(card, aiPlayer).strength) * 1.5;
     if (card.keywords?.haunt) score += card.keywords.haunt;
     if (card.keywords?.siphon) score += card.keywords.siphon * 2;
+    if (card.keywords?.synergy) {
+        score += aiPlayer.units.filter(u => u.faction === card.keywords?.synergy?.faction).length * 2;
+    }
 
 
     // Card Type priorities
@@ -120,6 +130,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     // Drawbacks
     if (card.keywords?.malice) score -= card.keywords.malice * 2;
     if (card.keywords?.decay) score -= 2;
+    if (card.keywords?.bounty) score -= card.keywords.bounty.amount * 2.5;
+    if (card.keywords?.instability) score -= 8;
+
 
     return score;
 }
@@ -221,7 +234,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
     if (phase === TurnPhase.ROLL_SPEND) {
         // -1. Check for scavenge plays
         const scavengeableCards = aiPlayer.graveyard
-            .filter(c => c.keywords?.scavenge && checkDiceCost({ cost: c.keywords.scavenge.cost }, availableDice).canPay)
+            .filter(c => c.keywords?.scavenge && checkDiceCost({ ...c, cost: c.keywords.scavenge.cost }, availableDice).canPay)
             .sort((a,b) => b.commandNumber - a.commandNumber); // Prioritize higher value units
         
         if (scavengeableCards.length > 0) {
@@ -232,13 +245,18 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const activatableCards = [...aiPlayer.artifacts, ...aiPlayer.units, ...aiPlayer.locations].filter(c => c.keywords?.activate);
         for (const card of activatableCards) {
             const activationCost = card.keywords.activate.cost;
-            if (checkDiceCost({ cost: activationCost }, availableDice).canPay) {
+            if (checkDiceCost({ ...card, cost: activationCost }, availableDice).canPay) {
+                const effect = card.keywords.activate.effect.type;
+                 // Always reconstruct a valuable damaged unit
+                if (effect === 'reconstruct' && card.type === CardType.UNIT && card.damage > 0 && (card.strength || 0) > 2) {
+                    return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
+                }
                 // Activate Repulsor Field defensively
-                if (card.keywords.activate.effect === 'fortify_command') {
+                if (effect === 'fortify_command') {
                     return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
                 }
                  // Activate Dice Calibrator if it might help and there's a die to improve
-                if (card.keywords.activate.effect === 'spike' && availableDice.some(d => d.value < 6)) {
+                if (effect === 'spike' && availableDice.some(d => d.value < 6)) {
                     return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
                 }
             }
@@ -247,7 +265,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         // 0.5 Check for high-value amplify plays
         for (const card of aiPlayer.hand) {
             if (card.keywords?.amplify) {
-                const combinedCost = { cost: card.cost.concat(card.keywords.amplify.cost) };
+                const combinedCost = { ...card, cost: card.cost.concat(card.keywords.amplify.cost) };
                 if (checkDiceCost(combinedCost, availableDice).canPay) {
                     const validTargets = humanPlayer.units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted));
                     if (card.keywords.amplify.effect.type === 'DEAL_DAMAGE' && validTargets.length > 0) {
@@ -266,7 +284,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         // 1. Check if any card can be played with current dice
         for (const card of aiPlayer.hand) {
             // Check Channel first, as it's often a utility play
-            if (card.keywords?.channel && checkDiceCost({ cost: card.keywords.channel.cost }, availableDice).canPay) {
+            if (card.keywords?.channel && checkDiceCost({ ...card, cost: card.keywords.channel.cost }, availableDice).canPay) {
                 // If hand is small, prioritize drawing
                 if (aiPlayer.hand.length <= 2) {
                      return { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } };
@@ -280,7 +298,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         
         if (playableCards.length > 0) {
             for (const cardToPlay of playableCards) {
-                const needsTarget = cardToPlay.keywords?.requiresTarget;
+                const needsTarget = cardToPlay.keywords?.requiresTarget || cardToPlay.keywords?.augment;
                 if (needsTarget) {
                     if (cardToPlay.keywords?.recall) {
                         const damagedUnits = aiPlayer.units
@@ -290,6 +308,16 @@ export const getAiAction = (state: GameState): AIAction | null => {
                             return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: damagedUnits[0].instanceId } };
                         }
                         continue; // No good recall target, try next card
+                    }
+
+                    if (cardToPlay.keywords?.augment) {
+                         const bestUnitToAugment = aiPlayer.units
+                            .filter(u => !u.keywords?.immutable) // Don't augment already super-protected units
+                            .sort((a,b) => getUnitThreat(b, aiPlayer) - getUnitThreat(a, aiPlayer))[0];
+                         if (bestUnitToAugment) {
+                             return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: bestUnitToAugment.instanceId }};
+                         }
+                         continue;
                     }
                     
                     const validTargets = humanPlayer.units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted));

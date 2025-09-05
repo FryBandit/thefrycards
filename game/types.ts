@@ -1,6 +1,7 @@
 
 
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -34,8 +35,31 @@ export interface CardDefinition {
   durability?: number;
   commandNumber: number;
   text: string;
-  keywords?: { [key: string]: any; immutable?: boolean; resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; overload?: { per: number, amount: number }; echo?: boolean; executioner?: { amount: number }; shield?: boolean; };
+  keywords?: { 
+    [key: string]: any; 
+    immutable?: boolean; 
+    resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; 
+    amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; 
+    overload?: { per: number, amount: number }; 
+    echo?: boolean; 
+    executioner?: { amount: number }; 
+    shield?: boolean; 
+    // New Keywords
+    annihilate?: boolean;
+    riftwalk?: { turns: number };
+    augment?: { cost: DiceCost[] };
+    consume?: { initial: number };
+    fortify?: { value: number };
+    generator?: { type: 'GAIN_COMMAND' | 'DRAW_CARD', value: number };
+    landmark?: boolean;
+    bounty?: { amount: number };
+    instability?: boolean;
+    synergy?: { faction: string, effect: { type: 'BUFF_STRENGTH' | 'BUFF_DURABILITY', amount: number } };
+    wild?: boolean;
+    activate?: { cost: DiceCost[], effect: { type: 'fortify_command' | 'spike' | 'reconstruct', value?: any } };
+  };
   imageUrl?: string;
+  faction?: string; // For Synergy
 }
 
 export interface CardInGame extends CardDefinition {
@@ -47,6 +71,8 @@ export interface CardInGame extends CardDefinition {
   isScavenged?: boolean;
   isToken?: boolean;
   shieldUsedThisTurn?: boolean;
+  counters?: number; // For Consume
+  attachments?: CardInGame[]; // For Augment
 }
 
 export interface Player {
@@ -60,6 +86,7 @@ export interface Player {
   artifacts: CardInGame[];
   graveyard: CardInGame[];
   void: CardInGame[];
+  riftwalkZone: { card: CardInGame, turnsRemaining: number }[]; // For Riftwalk
   diceModifier: number;
   shieldUsedThisTurn: boolean;
   isCommandFortified: boolean;
@@ -112,6 +139,27 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     if (card.keywords?.overload) {
         const bonus = Math.floor(owner.graveyard.length / card.keywords.overload.per) * card.keywords.overload.amount;
         strength += bonus;
+    }
+
+    // Synergy keyword
+    if (card.keywords?.synergy) {
+        const faction = card.keywords.synergy.faction;
+        const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
+            .filter(c => c.instanceId !== card.instanceId && c.faction === faction)
+            .length;
+        if (synergyCount > 0) {
+            const effect = card.keywords.synergy.effect;
+            const totalBonus = synergyCount * effect.amount;
+            if (effect.type === 'BUFF_STRENGTH') strength += totalBonus;
+            if (effect.type === 'BUFF_DURABILITY') durability += totalBonus;
+        }
+    }
+
+    // Augment keyword (from attachments)
+    if (card.attachments && card.attachments.length > 0) {
+        // Generic buff from any attachment for now, can be specified later
+        strength += card.attachments.length;
+        durability += card.attachments.length;
     }
 
     // Buffs from player's other cards

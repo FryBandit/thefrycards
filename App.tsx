@@ -9,7 +9,7 @@ import PlayerInfoPanel from './components/PlayerInfoPanel';
 import CardViewerModal from './components/CardViewerModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
-import { CardInGame, TurnPhase, Player, CardDefinition } from './game/types';
+import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
 import { fetchCardDefinitions } from './game/cards';
 
 
@@ -108,7 +108,7 @@ const App: React.FC = () => {
 
     if (!isCardPlayable(card)) return;
 
-    if (card.keywords?.requiresTarget) {
+    if (card.keywords?.requiresTarget || card.keywords?.augment) {
         setTargetingInfo({ card, isAmplify: false });
         return;
     }
@@ -129,7 +129,7 @@ const App: React.FC = () => {
       
       const { card, isAmplify } = targetingInfo;
       const player = state.players[0];
-      const targetOwner = state.players.find(p => p.units.some(u => u.instanceId === targetCard.instanceId))!;
+      const targetOwner = state.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(u => u.instanceId === targetCard.instanceId))!;
       
       if (isCardTargetable(card, targetCard, player, targetOwner)) {
           dispatch({ type: 'PLAY_CARD', payload: { card, targetInstanceId: targetCard.instanceId, options: { isAmplified: isAmplify } } });
@@ -140,12 +140,23 @@ const App: React.FC = () => {
   const isCardPlayable = (card: CardInGame): boolean => {
     if (state.phase !== TurnPhase.ROLL_SPEND) return false;
     
-    const canPayCost = checkDiceCost(card, state.dice).canPay;
+    let cost = card.cost;
+    // Augment has a different cost and is handled like a targeted ability
+    if (card.keywords?.augment) {
+        cost = card.keywords.augment.cost;
+    }
+
+    const canPayCost = checkDiceCost({ ...card, cost }, state.dice).canPay;
     if (!canPayCost) return false;
 
-    if (card.keywords?.requiresTarget) {
+    // Landmark rule: can only play if you don't already have one (replacement is handled in reducer)
+    // if (card.keywords?.landmark && state.players[0].locations.some(l => l.keywords?.landmark)) {
+    //     return false; // Decided to handle replacement in reducer instead, making it always "playable" if cost is met
+    // }
+
+    if (card.keywords?.requiresTarget || card.keywords?.augment) {
         const opponentHasTargets = state.players[1].units.some(u => isCardTargetable(card, u, state.players[0], state.players[1]));
-        const playerHasTargets = card.keywords?.recall ? state.players[0].units.some(u => isCardTargetable(card, u, state.players[0], state.players[0])) : false;
+        const playerHasTargets = card.keywords?.recall || card.keywords?.augment ? state.players[0].units.some(u => isCardTargetable(card, u, state.players[0], state.players[0])) : false;
         return opponentHasTargets || playerHasTargets;
     }
 
@@ -156,21 +167,21 @@ const App: React.FC = () => {
     if (!card.keywords?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    return checkDiceCost({ cost: card.keywords.activate.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, cost: card.keywords.activate.cost }, state.dice).canPay;
   };
 
   const isCardChannelable = (card: CardInGame): boolean => {
     if (!card.keywords?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    return checkDiceCost({ cost: card.keywords.channel.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, cost: card.keywords.channel.cost }, state.dice).canPay;
   }
 
   const isCardAmplifiable = (card: CardInGame): boolean => {
     if (!card.keywords?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    const combinedCost = { cost: card.cost.concat(card.keywords.amplify.cost) };
+    const combinedCost = { ...card, cost: card.cost.concat(card.keywords.amplify.cost) };
     return checkDiceCost(combinedCost, state.dice).canPay;
   };
 
@@ -178,7 +189,7 @@ const App: React.FC = () => {
       if (!card.keywords?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
           return false;
       }
-      return checkDiceCost({ cost: card.keywords.scavenge.cost }, state.dice).canPay;
+      return checkDiceCost({ ...card, cost: card.keywords.scavenge.cost }, state.dice).canPay;
   }
 
   const handleActivateCard = (card: CardInGame) => {

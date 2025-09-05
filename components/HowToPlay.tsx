@@ -88,6 +88,33 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onL
             </div>
           </Section>
 
+          <Section title="High-Rarity & Mythic Keywords">
+             <div className="space-y-2">
+                <p><strong>Annihilate:</strong> When a unit with Annihilate enters the battlefield, it voids all other units. The opponent loses command equal to the command number of each of their voided units. Immutable units are immune. Annihilate bypasses on-destruction effects like Haunt or Martyrdom.</p>
+                <p><strong>Riftwalk (X):</strong> When a unit with this keyword enters the battlefield, it is voided. It then returns to the battlefield under your control at the start of your Xth next turn, triggering any Arrival abilities again.</p>
+             </div>
+          </Section>
+
+           <Section title="Location & Artifact Keywords">
+             <div className="space-y-2">
+                <p><strong>Augment [Cost]:</strong> An artifact with this keyword can be attached to a unit you control by paying a specified dice cost, granting it a bonus.</p>
+                <p><strong>Consume (X):</strong> An artifact with this keyword enters play with X "charge counters." Its activated ability requires removing a counter as a cost, and it is sacrificed when it has no counters left.</p>
+                <p><strong>Fortify (X):</strong> A location with this keyword prevents your command total from being reduced below X by damage. This does not prevent command loss from effects like Malice or a unit's destruction penalty.</p>
+                <p><strong>Generator (Effect):</strong> At the start of your turn, a location with this keyword provides a specified recurring effect (e.g., drawing a card, gaining command).</p>
+                <p><strong>Landmark:</strong> A player can only control one card with the Landmark keyword at a time. Playing a new Landmark will destroy the one you already control.</p>
+            </div>
+          </Section>
+          
+          <Section title="Other New Keywords">
+             <div className="space-y-2">
+                <p><strong>Bounty (X):</strong> A negative keyword. When a unit with Bounty is destroyed by an opponent, that opponent gains X command.</p>
+                <p><strong>Instability:</strong> A negative keyword. When you play a card with this keyword, you roll one fewer command die on your next turn. This effect can stack.</p>
+                <p><strong>Reconstruct [Cost]:</strong> A unit with this keyword has an activated ability that allows the player to pay a dice cost to remove all damage from it.</p>
+                <p><strong>Synergy (Faction):</strong> A card with this keyword gains a bonus for each other card you control from the specified faction.</p>
+                <p><strong>Wild:</strong> The cost for a card with this keyword can be paid with a die of any value, making it much easier to play.</p>
+            </div>
+          </Section>
+
           <Section title="Advanced Action Keywords">
              <div className="space-y-2">
                 <p><strong>Amplify [Cost]:</strong> Offers tactical flexibility. You may play the card for its base effect, or pay an additional Amplify cost to get a more powerful version of the effect.</p>

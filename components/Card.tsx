@@ -93,9 +93,18 @@ const Card: React.FC<CardProps> = ({
                 </div>
             )}
         </div>
-        {rallyBonus > 0 && (
-            <div className="absolute top-1 right-9 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
-                +{rallyBonus}
+        {(rallyBonus > 0 || card.counters !== undefined) && (
+            <div className="absolute top-1 right-9 flex flex-col space-y-1 items-end">
+                {rallyBonus > 0 && (
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
+                        +{rallyBonus}
+                    </div>
+                )}
+                {card.counters !== undefined && (
+                     <div className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`Counters: ${card.counters}`}>
+                        {card.counters}
+                    </div>
+                )}
             </div>
         )}
         
