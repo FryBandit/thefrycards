@@ -1,4 +1,4 @@
-import { CardDefinition, CardType, DiceCost } from './types';
+import { CardDefinition, CardType, DiceCost, DiceCostType } from './types';
 import { supabase } from '../lib/supabaseClient';
 
 // Helper to shuffle arrays
@@ -11,17 +11,70 @@ const shuffle = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
+const parseAbilities = (abilitiesString: string | undefined): { [key: string]: any } => {
+    if (!abilitiesString) return {};
+    const abilities: { [key: string]: any } = {};
+    const parts = abilitiesString.split(',').map(s => s.trim()).filter(Boolean);
+    for (const part of parts) {
+        const match = part.match(/(\w+)(?:\((\d+)\))?/);
+        if (match) {
+            const [, name, value] = match;
+            abilities[name.toLowerCase()] = value !== undefined ? parseInt(value, 10) : true;
+        }
+    }
+    return abilities;
+};
+
+const parseDiceCost = (diceCostString: string | undefined): DiceCost[] => {
+    if (!diceCostString) return [];
+    const costs: DiceCost[] = [];
+    const parts = diceCostString.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    for (const part of parts) {
+        const sumMatch = part.match(/^sum\((\d+),\s*(\d+)\)$/);
+        if (sumMatch) {
+            costs.push({ type: DiceCostType.SUM_OF_X_DICE, value: parseInt(sumMatch[1], 10), count: parseInt(sumMatch[2], 10) });
+            continue;
+        }
+        const straightMatch = part.match(/^straight\((\d+)\)$/);
+        if (straightMatch) {
+            costs.push({ type: DiceCostType.STRAIGHT, count: parseInt(straightMatch[1], 10) });
+            continue;
+        }
+        const exactMatch = part.match(/^(\d+)x(\d+)$/);
+        if (exactMatch) {
+            costs.push({ type: DiceCostType.EXACT_VALUE, count: parseInt(exactMatch[1], 10), value: parseInt(exactMatch[2], 10) });
+            continue;
+        }
+        const minMatch = part.match(/^(\d+)\+$/);
+        if (minMatch) {
+            costs.push({ type: DiceCostType.MIN_VALUE, value: parseInt(minMatch[1], 10), count: 1 });
+            continue;
+        }
+        
+        switch(part) {
+            case 'anypair': costs.push({ type: DiceCostType.ANY_PAIR }); break;
+            case 'twopair': costs.push({ type: DiceCostType.TWO_PAIR }); break;
+            case 'threeofakind': costs.push({ type: DiceCostType.THREE_OF_A_KIND }); break;
+            case 'fourofakind': costs.push({ type: DiceCostType.FOUR_OF_A_KIND }); break;
+            case 'fullhouse': costs.push({ type: DiceCostType.FULL_HOUSE }); break;
+            default:
+                console.warn(`Unrecognized dice cost part: ${part}`);
+        }
+    }
+    return costs;
+};
+
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
     // This type represents the raw data structure from the Supabase 'cards' table
     type RawCardData = {
       id: number;
       title: string;
       type: CardType;
-      dice_cost: DiceCost[];
+      dice_cost: string;
       strength?: number;
       durability?: number;
       command_number: number;
-      abilities?: { [key: string]: any };
+      abilities?: string;
       image_url?: string;
       rarity?: string;
       flavor_text?: string;
@@ -71,8 +124,8 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
             imageUrl: fullImageUrl, // Use the fully constructed public URL
             card_set: set, // Rename 'set' to 'card_set'
             commandNumber: command_number, // Rename 'command_number' to 'commandNumber'
-            abilities: rawCard.abilities || {},
-            dice_cost: rawCard.dice_cost || [],
+            abilities: parseAbilities(rawCard.abilities),
+            dice_cost: parseDiceCost(rawCard.dice_cost),
         };
         return card;
     });

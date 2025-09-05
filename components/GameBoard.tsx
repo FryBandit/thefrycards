@@ -20,10 +20,12 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
     }
     
     switch (cost.type) {
-        case DiceCostType.EXACTLY_X:
+        // FIX: Corrected enum member from EXACTLY_X to EXACT_VALUE.
+        case DiceCostType.EXACT_VALUE:
             return diceByValue.get(cost.value!) || [];
             
-        case DiceCostType.ANY_X_PLUS:
+        // FIX: Corrected enum member from ANY_X_PLUS to MIN_VALUE.
+        case DiceCostType.MIN_VALUE:
             return availableDice.filter(d => d.value >= cost.value!);
 
         case DiceCostType.ANY_PAIR:
@@ -47,7 +49,8 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             }
             return [];
 
-        case DiceCostType.STRAIGHT_3: {
+        // FIX: Corrected enum member from STRAIGHT_3 to STRAIGHT.
+        case DiceCostType.STRAIGHT: {
             const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
             if (uniqueSorted.length < 2) return [];
             for (let i = 0; i < uniqueSorted.length - 1; i++) {
@@ -60,7 +63,8 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
         }
 
-        case DiceCostType.SUM_OF_X_PLUS:
+        // FIX: Corrected enum member from SUM_OF_X_PLUS to SUM_OF_X_DICE.
+        case DiceCostType.SUM_OF_X_DICE:
             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
         
         case DiceCostType.ANY_X_DICE:

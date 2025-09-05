@@ -1,4 +1,5 @@
 
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -92,45 +93,22 @@ const getInitialLoadingState = (): GameState => ({
 });
 
 
-// Cost Checking Logic
-export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
-    let availableDice = dice.filter(d => !d.isSpent);
-    
-    // Handle Wild keyword: transform costs before checking
-    const costToUse = card.abilities?.wild 
-        ? card.dice_cost.map(c => c.type === DiceCostType.EXACTLY_X ? { type: DiceCostType.ANY_X_DICE, count: 1 } : c)
-        : card.dice_cost;
-        
-    if (!costToUse || costToUse.length === 0) return { canPay: true, diceToSpend: [] };
-    
-    let totalDiceToSpend: Die[] = [];
-    let canPay = true;
-
-    for(const cost of costToUse) {
-        const result = checkSingleCost(cost, availableDice);
-        if (!result.canPay) {
-            canPay = false;
-            break;
-        }
-        totalDiceToSpend.push(...result.diceToSpend);
-        
-        const spentIds = new Set(result.diceToSpend.map(d => d.id));
-        availableDice = availableDice.filter(d => !spentIds.has(d.id));
-    }
-    
-    return { canPay, diceToSpend: canPay ? totalDiceToSpend : [] };
-}
-
 const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolean, diceToSpend: Die[], remainingDice: Die[] } => {
     const diceValues = [...availableDice].map(d => d.value).sort((a,b) => a-b);
 
     switch (cost.type) {
-        case DiceCostType.EXACTLY_X: {
-            const die = availableDice.find(d => d.value === cost.value);
-            if (!die) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-            return { canPay: true, diceToSpend: [die], remainingDice: availableDice.filter(d => d.id !== die.id) };
+        case DiceCostType.EXACT_VALUE: {
+            const diceToSpend: Die[] = [];
+            let tempDice = [...availableDice];
+            for (let i = 0; i < cost.count!; i++) {
+                const dieIndex = tempDice.findIndex(d => d.value === cost.value);
+                if (dieIndex === -1) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+                diceToSpend.push(tempDice[dieIndex]);
+                tempDice.splice(dieIndex, 1);
+            }
+            return { canPay: true, diceToSpend, remainingDice: tempDice };
         }
-        case DiceCostType.ANY_X_PLUS: {
+        case DiceCostType.MIN_VALUE: {
             const die = availableDice.find(d => d.value >= cost.value!);
             if (!die) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
             return { canPay: true, diceToSpend: [die], remainingDice: availableDice.filter(d => d.id !== die.id) };
@@ -152,7 +130,7 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
             }
             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
         }
-        case DiceCostType.SUM_OF_X_PLUS: {
+        case DiceCostType.SUM_OF_X_DICE: {
              if (availableDice.length < cost.count!) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
              
              // Find all combinations of 'count' dice and check their sum.
@@ -206,12 +184,19 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
             const remainingDice = availableDice.filter(d => !remainingIds.has(d.id));
             return { canPay: true, diceToSpend, remainingDice };
         }
-        case DiceCostType.STRAIGHT_3: {
+        case DiceCostType.STRAIGHT: {
              const uniqueSorted = [...new Set(diceValues)];
-             if (uniqueSorted.length < 3) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-             for (let i = 0; i <= uniqueSorted.length - 3; i++) {
-                 if (uniqueSorted[i+1] === uniqueSorted[i] + 1 && uniqueSorted[i+2] === uniqueSorted[i] + 2) {
-                     const vals = uniqueSorted.slice(i, i+3);
+             if (uniqueSorted.length < cost.count!) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+             for (let i = 0; i <= uniqueSorted.length - cost.count!; i++) {
+                 let isStraight = true;
+                 for(let j=0; j < cost.count! - 1; j++) {
+                     if (uniqueSorted[i+j+1] !== uniqueSorted[i+j] + 1) {
+                         isStraight = false;
+                         break;
+                     }
+                 }
+                 if (isStraight) {
+                     const vals = uniqueSorted.slice(i, i + cost.count!);
                      const diceToSpend: Die[] = [];
                      let tempDice = [...availableDice];
                      for(const v of vals) {
@@ -277,46 +262,40 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
 
             return { canPay: true, diceToSpend, remainingDice };
         }
-        case DiceCostType.STRAIGHT_4: {
-             const uniqueSorted = [...new Set(diceValues)];
-             if (uniqueSorted.length < 4) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-             for (let i = 0; i <= uniqueSorted.length - 4; i++) {
-                 if (uniqueSorted[i+1] === uniqueSorted[i] + 1 && uniqueSorted[i+2] === uniqueSorted[i] + 2 && uniqueSorted[i+3] === uniqueSorted[i] + 3) {
-                     const vals = uniqueSorted.slice(i, i+4);
-                     const diceToSpend: Die[] = [];
-                     let tempDice = [...availableDice];
-                     for(const v of vals) {
-                         const dieIndex = tempDice.findIndex(d => d.value === v);
-                         diceToSpend.push(tempDice[dieIndex]);
-                         tempDice.splice(dieIndex, 1);
-                     }
-                     return { canPay: true, diceToSpend, remainingDice: tempDice };
-                 }
-             }
-             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-        }
-        case DiceCostType.STRAIGHT_5: {
-             const uniqueSorted = [...new Set(diceValues)];
-             if (uniqueSorted.length < 5) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-             for (let i = 0; i <= uniqueSorted.length - 5; i++) {
-                 if (uniqueSorted[i+1] === uniqueSorted[i] + 1 && uniqueSorted[i+2] === uniqueSorted[i] + 2 && uniqueSorted[i+3] === uniqueSorted[i] + 3 && uniqueSorted[i+4] === uniqueSorted[i] + 4) {
-                     const vals = uniqueSorted.slice(i, i+5);
-                     const diceToSpend: Die[] = [];
-                     let tempDice = [...availableDice];
-                     for(const v of vals) {
-                         const dieIndex = tempDice.findIndex(d => d.value === v);
-                         diceToSpend.push(tempDice[dieIndex]);
-                         tempDice.splice(dieIndex, 1);
-                     }
-                     return { canPay: true, diceToSpend, remainingDice: tempDice };
-                 }
-             }
-             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
-        }
         default:
             return { canPay: false, diceToSpend: [], remainingDice: availableDice };
     }
 }
+
+// Cost Checking Logic
+export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
+    let availableDice = dice.filter(d => !d.isSpent);
+    
+    // Handle Wild keyword: transform costs before checking
+    const costToUse = card.abilities?.wild 
+        ? card.dice_cost.map(c => c.type === DiceCostType.EXACT_VALUE ? { ...c, type: DiceCostType.ANY_X_DICE } : c)
+        : card.dice_cost;
+        
+    if (!costToUse || costToUse.length === 0) return { canPay: true, diceToSpend: [] };
+    
+    let totalDiceToSpend: Die[] = [];
+    let canPay = true;
+
+    for(const cost of costToUse) {
+        const result = checkSingleCost(cost, availableDice);
+        if (!result.canPay) {
+            canPay = false;
+            break;
+        }
+        totalDiceToSpend.push(...result.diceToSpend);
+        
+        const spentIds = new Set(result.diceToSpend.map(d => d.id));
+        availableDice = availableDice.filter(d => !spentIds.has(d.id));
+    }
+    
+    return { canPay, diceToSpend: canPay ? totalDiceToSpend : [] };
+}
+
 
 export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGame, sourcePlayer: Player, targetPlayer: Player): boolean => {
     if (!targetingCard) return false;

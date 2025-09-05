@@ -1,7 +1,7 @@
-// FIX: The Deno type reference was failing to resolve. Using a specific, version-pinned URL for the types to fix this.
+// FIX: The Deno global was not available because types were not being loaded correctly. Using a URL-based import for the Supabase client and ensuring the Deno type reference is present resolves this.
 /// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {

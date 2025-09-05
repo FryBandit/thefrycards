@@ -1,6 +1,5 @@
 
 
-
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { checkDiceCost } from './useGameState';
 
@@ -11,6 +10,11 @@ type AIAction =
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
     | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
 
+type AIPossiblePlay = {
+    action: AIAction;
+    score: number;
+    description: string;
+};
 
 // Assesses the threat level of a single unit on the board.
 const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): number => {
@@ -106,6 +110,8 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     if (card.abilities?.landmark && !aiPlayer.locations.some(l => l.abilities?.landmark)) score += 5;
 
     // --- GENERAL KEYWORD VALUE ---
+    if (card.abilities?.amplify) score += 5; // Increased value for flexibility
+    if (card.abilities?.channel) score += 4; // Valuable for flexibility and unbricking hands
     if (card.abilities?.executioner) score += 5;
     if (card.abilities?.venomous && card.abilities?.snipe) score += 10;
     if (card.abilities?.immutable) score += 8;
@@ -113,7 +119,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     if (card.abilities?.fateweave) score += 5;
     if (card.abilities?.resonance) score += 5;
     if (card.abilities?.martyrdom) score += 4;
-    if (card.abilities?.amplify) score += 3;
     if (card.abilities?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.abilities.overload.per || 2)) * card.abilities.overload.amount;
     if (card.abilities?.phasing) score += (getEffectiveStats(card, aiPlayer).strength) * 1.5;
     if (card.abilities?.haunt) score += card.abilities.haunt;
@@ -161,10 +166,12 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
     }
     
     switch (cost.type) {
-        case DiceCostType.EXACTLY_X:
+        // FIX: Corrected enum member from EXACTLY_X to EXACT_VALUE.
+        case DiceCostType.EXACT_VALUE:
             return diceByValue.get(cost.value!) || [];
             
-        case DiceCostType.ANY_X_PLUS:
+        // FIX: Corrected enum member from ANY_X_PLUS to MIN_VALUE.
+        case DiceCostType.MIN_VALUE:
             return availableDice.filter(d => d.value >= cost.value!);
 
         case DiceCostType.ANY_PAIR:
@@ -188,7 +195,8 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             }
             return [];
 
-        case DiceCostType.STRAIGHT_3: {
+        // FIX: Corrected enum member from STRAIGHT_3 to STRAIGHT.
+        case DiceCostType.STRAIGHT: {
             const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
             if (uniqueSorted.length < 2) return [];
             for (let i = 0; i < uniqueSorted.length - 1; i++) {
@@ -201,7 +209,8 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
         }
 
-        case DiceCostType.SUM_OF_X_PLUS:
+        // FIX: Corrected enum member from SUM_OF_X_PLUS to SUM_OF_X_DICE.
+        case DiceCostType.SUM_OF_X_DICE:
             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
         
         case DiceCostType.ANY_X_DICE:
@@ -241,6 +250,25 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
     return Array.from(allValuableDice.values());
 }
 
+// Helper to find the best target for a damaging ability
+const findBestDamageTarget = (card: CardInGame, damage: number, humanPlayer: Player, aiPlayer: Player): CardInGame | null => {
+    const validTargets = humanPlayer.units.filter(u => !u.abilities?.immutable && !u.abilities?.stealth && (!u.abilities?.breach || u.hasAssaulted));
+    if (validTargets.length === 0) return null;
+
+    // Priority 1: Lethal targets, sorted by threat
+    const lethalTargets = validTargets
+        .filter(t => {
+            const finalDamage = damage * (t.abilities?.fragile ? 2 : 1);
+            return getEffectiveStats(t, humanPlayer).durability - t.damage <= finalDamage;
+        })
+        .sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer));
+
+    if (lethalTargets.length > 0) return lethalTargets[0];
+
+    // Priority 2: Highest threat target
+    return [...validTargets].sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer))[0];
+};
+
 // Main function to decide the AI's next move
 export const getAiAction = (state: GameState): AIAction | null => {
     if (state.currentPlayerId !== 1 || !state.isProcessing || state.winner) {
@@ -253,148 +281,115 @@ export const getAiAction = (state: GameState): AIAction | null => {
     const availableDice = dice.filter(d => !d.isSpent);
 
     if (phase === TurnPhase.ROLL_SPEND) {
-        // -1. Check for scavenge plays
-        const scavengeableCards = aiPlayer.graveyard
-            .filter(c => c.abilities?.scavenge && checkDiceCost({ ...c, dice_cost: c.abilities.scavenge.cost }, availableDice).canPay)
-            .sort((a,b) => b.commandNumber - a.commandNumber); // Prioritize higher value units
-        
-        if (scavengeableCards.length > 0) {
-            return { type: 'PLAY_CARD', payload: { card: scavengeableCards[0], options: { isScavenged: true } } };
-        }
+        const possiblePlays: AIPossiblePlay[] = [];
 
-        // 0. Check for activations
+        // 1. Evaluate Activations
         const activatableCards = [...aiPlayer.artifacts, ...aiPlayer.units, ...aiPlayer.locations].filter(c => c.abilities?.activate);
         for (const card of activatableCards) {
-            const activationCost = card.abilities.activate.cost;
-            if (checkDiceCost({ ...card, dice_cost: activationCost }, availableDice).canPay) {
+            if (checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, availableDice).canPay) {
                 const effect = card.abilities.activate.effect.type;
-                 // Always reconstruct a valuable damaged unit
-                if (effect === 'reconstruct' && card.type === CardType.UNIT && card.damage > 0 && (card.strength || 0) > 2) {
-                    return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
+                let score = 0;
+                if (effect === 'reconstruct' && card.type === CardType.UNIT && card.damage > 0) {
+                    score = 15 + getUnitThreat(card, aiPlayer, humanPlayer); // High value to save a unit
                 }
-                // Activate Repulsor Field defensively if command is low
-                if (effect === 'fortify_command' && aiPlayer.command < 10) {
-                    return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
+                if (effect === 'fortify_command' && aiPlayer.command < 12) {
+                    score = 18; // Very high value when low on health
                 }
-                 // Activate Dice Calibrator if it might help and there's a die to improve
                 if (effect === 'spike' && availableDice.some(d => d.value < 6)) {
-                    return { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId }};
+                    score = 8; // Good utility
+                }
+
+                if (score > 0) {
+                    possiblePlays.push({
+                        action: { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId } },
+                        score,
+                        description: `Activate ${card.name}`
+                    });
                 }
             }
         }
-
-        // 0.5 Check for high-value amplify plays
+        
+        // 2. Evaluate Scavenge
+        const scavengeableCards = aiPlayer.graveyard.filter(c => c.abilities?.scavenge);
+        for (const card of scavengeableCards) {
+             if (checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost }, availableDice).canPay) {
+                let score = getCardScore(card, aiPlayer, humanPlayer) - 5; // A bit less valuable since it's a one-shot
+                possiblePlays.push({
+                    action: { type: 'PLAY_CARD', payload: { card, options: { isScavenged: true } } },
+                    score,
+                    description: `Scavenge ${card.name}`
+                });
+             }
+        }
+        
+        // 3. Evaluate Plays from Hand
         for (const card of aiPlayer.hand) {
-            if (card.abilities?.amplify) {
-                const combinedCost = { ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) };
-                if (checkDiceCost(combinedCost, availableDice).canPay) {
-                    const validTargets = humanPlayer.units.filter(u => !u.abilities?.immutable && !u.abilities?.stealth && (!u.abilities?.breach || u.hasAssaulted));
-                    if (card.abilities.amplify.effect.type === 'DEAL_DAMAGE' && validTargets.length > 0) {
-                        const amplifiedDamage = card.abilities.amplify.effect.amount;
-                        const lethalTargets = validTargets.filter(t => getEffectiveStats(t, humanPlayer).durability - t.damage <= amplifiedDamage);
-                        if (lethalTargets.length > 0) {
-                            const bestTarget = [...lethalTargets].sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer))[0];
-                            return { type: 'PLAY_CARD', payload: { card, targetInstanceId: bestTarget.instanceId, options: { isAmplified: true } } };
-                        }
+            // A. Standard Play
+            if (checkDiceCost(card, availableDice).canPay) {
+                let score = getCardScore(card, aiPlayer, humanPlayer);
+                let action: AIAction | null = { type: 'PLAY_CARD', payload: { card } };
+
+                if (card.abilities?.requiresTarget || card.abilities?.augment) {
+                    let bestTarget: CardInGame | null = null;
+                    if (card.abilities?.recall) {
+                        bestTarget = [...aiPlayer.units].filter(u => u.damage > 0).sort((a,b) => getUnitThreat(b, aiPlayer, humanPlayer) - getUnitThreat(a, aiPlayer, humanPlayer))[0] ?? null;
+                    } else if (card.abilities?.augment) {
+                        bestTarget = [...aiPlayer.units].filter(u => !u.abilities?.immutable).sort((a,b) => getUnitThreat(b, aiPlayer, humanPlayer) - getUnitThreat(a, aiPlayer, humanPlayer))[0] ?? null;
+                    } else {
+                        const damage = card.abilities.damage || card.abilities.snipe || 0;
+                        bestTarget = findBestDamageTarget(card, damage, humanPlayer, aiPlayer);
+                    }
+
+                    if (bestTarget) {
+                        (action.payload as any).targetInstanceId = bestTarget.instanceId;
+                    } else {
+                        action = null; // No valid target, can't make this play
                     }
                 }
+                if (action) possiblePlays.push({ action, score, description: `Play ${card.name}` });
             }
-        }
 
+            // B. Amplify Play
+            if (card.abilities?.amplify && checkDiceCost({ ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) }, availableDice).canPay) {
+                let score = getCardScore(card, aiPlayer, humanPlayer) + 10; // Bonus for powerful effect
+                let action: AIAction | null = { type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } };
+                const effect = card.abilities.amplify.effect;
 
-        // 1. Check if any card can be played with current dice
-        for (const card of aiPlayer.hand) {
-            // Check Channel first, as it's often a utility play
+                if (effect.type === 'DEAL_DAMAGE') {
+                    const bestTarget = findBestDamageTarget(card, effect.amount, humanPlayer, aiPlayer);
+                    if (bestTarget) {
+                        (action.payload as any).targetInstanceId = bestTarget.instanceId;
+                        const { durability } = getEffectiveStats(bestTarget, humanPlayer);
+                        if (durability - bestTarget.damage <= effect.amount) {
+                            score += getUnitThreat(bestTarget, humanPlayer, aiPlayer); // Huge bonus for killing a threat
+                        }
+                    } else {
+                        action = null;
+                    }
+                }
+                 if (action) possiblePlays.push({ action, score, description: `Amplify ${card.name}` });
+            }
+
+            // C. Channel Play
             if (card.abilities?.channel && checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost }, availableDice).canPay) {
-                // If hand is small, prioritize drawing
-                if (aiPlayer.hand.length <= 2) {
-                     return { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } };
-                }
+                let score = 8; // Base value for cycling a card
+                if (aiPlayer.hand.length <= 3) score += 10; // Much more valuable with a small hand
+                possiblePlays.push({
+                    action: { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } },
+                    score,
+                    description: `Channel ${card.name}`
+                });
             }
         }
         
-        const playableCards = aiPlayer.hand
-            .filter(card => checkDiceCost(card, availableDice).canPay)
-            .sort((a,b) => getCardScore(b, aiPlayer, humanPlayer) - getCardScore(a, aiPlayer, humanPlayer));
-        
-        if (playableCards.length > 0) {
-            for (const cardToPlay of playableCards) {
-                const needsTarget = cardToPlay.abilities?.requiresTarget || cardToPlay.abilities?.augment;
-                if (needsTarget) {
-                    if (cardToPlay.abilities?.recall) {
-                        // Prioritize saving high-threat damaged units
-                        let recallTargets = aiPlayer.units
-                            .filter(u => u.damage > 0)
-                            .sort((a, b) => getUnitThreat(b, aiPlayer, humanPlayer) - getUnitThreat(a, aiPlayer, humanPlayer));
-
-                        // If no units are damaged, consider reusing a powerful arrival ability
-                        if (recallTargets.length === 0) {
-                            const reusableUnits = aiPlayer.units
-                                .filter(u => u.abilities?.barrage || u.abilities?.echo || u.abilities?.annihilate)
-                                .sort((a, b) => getUnitThreat(b, aiPlayer, humanPlayer) - getUnitThreat(a, aiPlayer, humanPlayer));
-                            if(reusableUnits.length > 0) {
-                                recallTargets = [reusableUnits[0]];
-                            }
-                        }
-
-                        if (recallTargets.length > 0) {
-                            return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: recallTargets[0].instanceId } };
-                        }
-                        continue; // No good recall target, try next card
-                    }
-
-                    if (cardToPlay.abilities?.augment) {
-                         const bestUnitToAugment = aiPlayer.units
-                            .filter(u => !u.abilities?.immutable) // Don't augment already super-protected units
-                            .sort((a,b) => getUnitThreat(b, aiPlayer, humanPlayer) - getUnitThreat(a, aiPlayer, humanPlayer))[0];
-                         if (bestUnitToAugment) {
-                             return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: bestUnitToAugment.instanceId }};
-                         }
-                         continue;
-                    }
-                    
-                    const validTargets = humanPlayer.units.filter(u => !u.abilities?.immutable && !u.abilities?.stealth && (!u.abilities?.breach || u.hasAssaulted));
-                    if (validTargets.length > 0) {
-                        // Priority 0: Venomous Snipe on highest durability target
-                        if (cardToPlay.abilities?.venomous && cardToPlay.abilities?.snipe) {
-                             const target = [...validTargets].sort((a, b) => getEffectiveStats(b, humanPlayer).durability - getEffectiveStats(a, humanPlayer).durability)[0];
-                             return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: target.instanceId } };
-                        }
-                        
-                        // Priority 1: Voiding a high-threat unit
-                        if (cardToPlay.abilities?.voidTarget) {
-                            const target = [...validTargets].sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer))[0];
-                            return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: target.instanceId } };
-                        }
-
-                        // Priority 2: Finishing off a unit with damage
-                        const cardDamage = cardToPlay.abilities?.damage || cardToPlay.abilities?.snipe || 0;
-                        if (cardDamage > 0) {
-                            const lethalTargets = validTargets
-                                .filter(t => {
-                                    const finalDamage = cardDamage * (t.abilities?.fragile ? 2 : 1);
-                                    return getEffectiveStats(t, humanPlayer).durability - t.damage <= finalDamage;
-                                })
-                                .sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer));
-
-                            if (lethalTargets.length > 0) {
-                                return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: lethalTargets[0].instanceId } };
-                            }
-                        }
-
-                        // Priority 3: Fallback to highest threat for debuffs or non-lethal damage
-                        const target = [...validTargets].sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer))[0];
-                        return { type: 'PLAY_CARD', payload: { card: cardToPlay, targetInstanceId: target.instanceId } };
-                    }
-                    continue; // Can't play this card (no valid targets), try the next one
-                }
-
-                // For any other card that doesn't need a special check
-                return { type: 'PLAY_CARD', payload: { card: cardToPlay } };
-            }
+        // 4. Decide Best Action
+        if (possiblePlays.length > 0) {
+            const bestPlay = possiblePlays.sort((a, b) => b.score - a.score)[0];
+            // console.log("AI Best Play:", bestPlay.description, "Score:", bestPlay.score);
+            return bestPlay.action;
         }
 
-        // 2. If no card is playable, decide whether to roll or keep
+        // 5. If no card is playable, decide whether to roll or keep
         if (rollCount < 3) {
             const bestDiceToKeep = determineBestDiceToKeep(aiPlayer.hand, availableDice, aiPlayer, humanPlayer);
             const unkeptGoodDie = bestDiceToKeep.find(d => !d.isKept);
@@ -406,7 +401,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
             return { type: 'ROLL_DICE' };
         }
         
-        // 3. No more rolls, end the phase
+        // 6. No more rolls, end the phase
         return { type: 'ADVANCE_PHASE' };
     }
 

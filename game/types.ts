@@ -9,18 +9,16 @@ export enum CardType {
 }
 
 export enum DiceCostType {
-  ANY_X_PLUS = 'ANY_X_PLUS',
-  EXACTLY_X = 'EXACTLY_X',
+  EXACT_VALUE = 'EXACT_VALUE',
+  MIN_VALUE = 'MIN_VALUE',
   ANY_PAIR = 'ANY_PAIR',
-  SUM_OF_X_PLUS = 'SUM_OF_X_PLUS',
-  ANY_X_DICE = 'ANY_X_DICE',
+  SUM_OF_X_DICE = 'SUM_OF_X_DICE',
   THREE_OF_A_KIND = 'THREE_OF_A_KIND',
   FOUR_OF_A_KIND = 'FOUR_OF_A_KIND',
-  STRAIGHT_3 = 'STRAIGHT_3',
+  STRAIGHT = 'STRAIGHT',
+  ANY_X_DICE = 'ANY_X_DICE',
   TWO_PAIR = 'TWO_PAIR',
   FULL_HOUSE = 'FULL_HOUSE',
-  STRAIGHT_4 = 'STRAIGHT_4',
-  STRAIGHT_5 = 'STRAIGHT_5',
 }
 
 export interface DiceCost {
@@ -38,7 +36,7 @@ export interface CardDefinition {
   durability?: number;
   commandNumber: number;
   text: string;
-  abilities?: { [key: string]: any; };
+  abilities: { [key: string]: any; };
   imageUrl?: string;
   faction?: string;
   rarity?: string;
