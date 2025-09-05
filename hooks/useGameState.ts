@@ -1,6 +1,7 @@
 
 
 
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -229,25 +230,33 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
         case DiceCostType.TWO_PAIR: {
             const counts: {[key: number]: number} = {};
             for (const val of diceValues) { counts[val] = (counts[val] || 0) + 1; }
-            const pairs = Object.keys(counts).filter(k => counts[parseInt(k)] >= 2);
-            if (pairs.length < 2) return { canPay: false, diceToSpend: [], remainingDice: availableDice };
             
-            const diceToSpend: Die[] = [];
-            let tempDice = [...availableDice];
+            const pairs = Object.keys(counts).filter(k => counts[parseInt(k)] >= 2).map(k => parseInt(k));
+            const fourOfAKindVal = Object.keys(counts).find(k => counts[parseInt(k)] >= 4);
 
-            const val1 = parseInt(pairs[0]);
-            let dieIndex1 = tempDice.findIndex(d => d.value === val1);
-            diceToSpend.push(tempDice.splice(dieIndex1, 1)[0]);
-            let dieIndex2 = tempDice.findIndex(d => d.value === val1);
-            diceToSpend.push(tempDice.splice(dieIndex2, 1)[0]);
+            if (pairs.length < 2 && !fourOfAKindVal) {
+                 return { canPay: false, diceToSpend: [], remainingDice: availableDice };
+            }
             
-            const val2 = parseInt(pairs[1]);
-            let dieIndex3 = tempDice.findIndex(d => d.value === val2);
-            diceToSpend.push(tempDice.splice(dieIndex3, 1)[0]);
-            let dieIndex4 = tempDice.findIndex(d => d.value === val2);
-            diceToSpend.push(tempDice.splice(dieIndex4, 1)[0]);
+            let diceToSpend: Die[] = [];
+            
+            if (fourOfAKindVal) {
+                const val = parseInt(fourOfAKindVal);
+                diceToSpend = availableDice.filter(d => d.value === val).slice(0, 4);
+            } else {
+                const val1 = pairs[0];
+                const dice1 = availableDice.filter(d => d.value === val1).slice(0, 2);
+                
+                const val2 = pairs[1];
+                const dice2 = availableDice.filter(d => d.value === val2).slice(0, 2);
+                
+                diceToSpend = [...dice1, ...dice2];
+            }
 
-            return { canPay: true, diceToSpend, remainingDice: tempDice };
+            const spentIds = new Set(diceToSpend.map(d => d.id));
+            const remainingDice = availableDice.filter(d => !spentIds.has(d.id));
+            
+            return { canPay: true, diceToSpend, remainingDice };
         }
         case DiceCostType.FULL_HOUSE: {
             const counts: {[key: number]: number} = {};
@@ -405,80 +414,89 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     };
 
     const checkForDestroyedUnits = (sourcePlayerId: number, sourceCard?: CardInGame): boolean => {
-        let changed = false;
-        for (let i = 0; i < 2; i++) {
-            const player = newState.players[i];
-            const opponent = newState.players[1 - i];
-            const unitsToCheck = [...player.units];
-            
-            for (const unit of unitsToCheck) {
-                const { durability } = getEffectiveStats(unit, player);
-                if (unit.damage >= durability) {
-                    changed = true;
-                    if (player.artifacts.some(a => a.id === 14) && !player.shieldUsedThisTurn) {
-                        player.shieldUsedThisTurn = true;
-                        unit.damage = 0;
-                        log(`Aegis Protocol shielded ${unit.name} from destruction!`);
-                    } else {
-                        player.units = player.units.filter(u => u.instanceId !== unit.instanceId);
+        let anyChangeInLoop = false;
+        let loopAgain = true;
+
+        while (loopAgain) {
+            loopAgain = false;
+            for (let i = 0; i < 2; i++) {
+                const player = newState.players[i];
+                const opponent = newState.players[1 - i];
+                const unitsToCheck = [...player.units];
+                
+                for (const unit of unitsToCheck) {
+                    if (!player.units.some(u => u.instanceId === unit.instanceId)) continue;
+                    
+                    const { durability } = getEffectiveStats(unit, player);
+                    if (unit.damage >= durability) {
+                        loopAgain = true;
+                        anyChangeInLoop = true;
                         
-                        if (unit.isScavenged || unit.isToken) {
-                          player.void.push(unit);
-                          log(`${unit.name} was destroyed and Voided (${unit.isToken ? 'Token' : 'Scavenged'}).`);
+                        if (player.artifacts.some(a => a.id === 14) && !player.shieldUsedThisTurn) {
+                            player.shieldUsedThisTurn = true;
+                            unit.damage = 0;
+                            log(`Aegis Protocol shielded ${unit.name} from destruction!`);
                         } else {
-                          player.graveyard.push(unit);
-                          log(`${unit.name} was destroyed.`);
-                        }
-                        
-                        // Executioner check (must happen before other on-destroy effects might change the board)
-                        if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) {
-                          damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
-                        }
-
-                        let standardPenaltyApplies = true;
-
-                        // --- On-destruction keyword triggers ---
-                        if (unit.abilities?.bounty && player.id !== sourcePlayerId) {
-                            opponent.command += unit.abilities.bounty.amount;
-                            log(`${opponent.name} gains ${unit.abilities.bounty.amount} Command from ${unit.name}'s Bounty.`);
-                        }
-                        if (unit.abilities?.malice) {
-                            damagePlayer(player, unit.abilities.malice, `${unit.name}'s Malice`, 'loss');
-                        }
-                        if (unit.abilities?.martyrdom) {
-                            const effect = unit.abilities.martyrdom;
-                            log(`${unit.name}'s Martyrdom triggers!`);
-                            switch(effect.type) {
-                                case 'DRAW_CARD': {
-                                    const { player: p, drawnCards, failedDraws } = drawCards(newState.players[player.id], effect.value);
-                                    newState.players[player.id] = p;
-                                    if (drawnCards.length > 0) log(`${p.name} draws ${drawnCards.length} card(s).`);
-                                    if (failedDraws > 0) {
-                                      damagePlayer(newState.players[player.id], failedDraws, 'Fatigue', 'damage');
-                                    }
-                                    break;
-                                  }
-                                case 'DEAL_DAMAGE_TO_OPPONENT':
-                                    damagePlayer(opponent, effect.value, `${unit.name}'s Martyrdom`, 'damage');
-                                    break;
+                            player.units = player.units.filter(u => u.instanceId !== unit.instanceId);
+                            
+                            if (unit.isScavenged || unit.isToken) {
+                                player.void.push(unit);
+                                log(`${unit.name} was destroyed and Voided (${unit.isToken ? 'Token' : 'Scavenged'}).`);
+                            } else {
+                                player.graveyard.push(unit);
+                                log(`${unit.name} was destroyed.`);
                             }
-                        }
-                        if (unit.abilities?.haunt) {
-                          damagePlayer(opponent, unit.abilities.haunt, `${unit.name}'s Haunt`, 'loss');
-                          standardPenaltyApplies = false; // Haunt overrides standard penalty.
-                        } 
-                        
-                        if (standardPenaltyApplies && player.id !== sourcePlayerId) {
-                           // Rule: owner of unit loses command if destroyed by an opponent.
-                           damagePlayer(player, unit.commandNumber, `${unit.name}'s destruction`, 'loss');
+                            
+                            if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) {
+                                damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
+                            }
+                            
+                            let standardPenaltyApplies = true;
+                            
+                            if (unit.abilities?.bounty && player.id !== sourcePlayerId) {
+                                opponent.command += unit.abilities.bounty.amount;
+                                log(`${opponent.name} gains ${unit.abilities.bounty.amount} Command from ${unit.name}'s Bounty.`);
+                            }
+                            if (unit.abilities?.malice) {
+                                damagePlayer(player, unit.abilities.malice, `${unit.name}'s Malice`, 'loss');
+                            }
+                            if (unit.abilities?.martyrdom) {
+                                const effect = unit.abilities.martyrdom;
+                                log(`${unit.name}'s Martyrdom triggers!`);
+                                switch(effect.type) {
+                                    case 'DRAW_CARD': {
+                                        const { player: p, drawnCards, failedDraws } = drawCards(newState.players[player.id], effect.value);
+                                        newState.players[player.id] = p;
+                                        if (drawnCards.length > 0) log(`${p.name} draws ${drawnCards.length} card(s).`);
+                                        if (failedDraws > 0) {
+                                            damagePlayer(newState.players[player.id], failedDraws, 'Fatigue', 'damage');
+                                        }
+                                        break;
+                                    }
+                                    case 'DEAL_DAMAGE_TO_OPPONENT':
+                                        damagePlayer(opponent, effect.value, `${unit.name}'s Martyrdom`, 'damage');
+                                        break;
+                                }
+                            }
+                            if (unit.abilities?.haunt) {
+                                damagePlayer(opponent, unit.abilities.haunt, `${unit.name}'s Haunt`, 'loss');
+                                standardPenaltyApplies = false;
+                            } 
+                            
+                            if (standardPenaltyApplies && player.id !== sourcePlayerId) {
+                                damagePlayer(player, unit.commandNumber, `${unit.name}'s destruction`, 'loss');
+                            }
                         }
                     }
                 }
             }
+            
+            if (newState.players[0].command <= 0) newState.winner = newState.players[1];
+            if (newState.players[1].command <= 0) newState.winner = newState.players[0];
+            if (newState.winner) loopAgain = false;
         }
-        if (newState.players[0].command <= 0) newState.winner = newState.players[1];
-        if (newState.players[1].command <= 0) newState.winner = newState.players[0];
-        return changed;
+        
+        return anyChangeInLoop;
     }
 
     const resolveAnnihilate = (sourceCard: CardInGame, player: Player, opponent: Player) => {
@@ -492,6 +510,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         playerUnitsToVoid.forEach(u => {
           player.void.push(u);
           log(`${u.name} is voided.`);
+          damagePlayer(player, u.commandNumber, `${u.name}'s voiding`, 'loss');
         });
 
         opponentUnitsToVoid.forEach(u => {
@@ -876,8 +895,24 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if (returningFromRift.length > 0) {
                 for (const item of returningFromRift) {
                     log(`${item.card.name} returns from the rift!`);
-                    currentPlayer.units.push(item.card);
-                    const arrivalResult = resolveArrivalAbilities(item.card, currentPlayer, opponentPlayer, false);
+                    
+                    // Reset card state before adding it back to the field
+                    const resetCard: CardInGame = {
+                      ...item.card,
+                      instanceId: `${item.card.id}-${Date.now()}-${Math.random()}`, // New instance ID
+                      damage: 0,
+                      strengthModifier: 0,
+                      durabilityModifier: 0,
+                      hasAssaulted: false,
+                      isScavenged: false,
+                      isToken: false,
+                      shieldUsedThisTurn: false,
+                      counters: item.card.abilities?.consume ? item.card.abilities.consume.initial : undefined,
+                      attachments: [],
+                    };
+
+                    currentPlayer.units.push(resetCard);
+                    const arrivalResult = resolveArrivalAbilities(resetCard, currentPlayer, opponentPlayer, false);
                     currentPlayer = arrivalResult.player;
                     opponentPlayer = arrivalResult.opponent;
                 }

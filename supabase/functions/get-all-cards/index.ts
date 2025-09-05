@@ -1,5 +1,5 @@
-// FIX: Corrected the types reference to use a resolvable URL for Deno and Supabase Edge Function types.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/dist/edge-runtime.d.ts" />
+// FIX: Updated Deno types reference to use a major version specifier, which should resolve issues with the linter not finding the 'Deno' global.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/dist/edge-runtime.d.ts" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'
