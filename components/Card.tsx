@@ -51,6 +51,8 @@ const Card: React.FC<CardProps> = ({
   const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
   const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
 
+  const isVideo = card.imageUrl?.endsWith('.mp4');
+
   const CardFace = () => (
       <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
         <div className="flex justify-between items-start text-sm font-bold">
@@ -137,7 +139,11 @@ const Card: React.FC<CardProps> = ({
             onClick={onClick ? onClick : () => onExamine(card)}
         >
             {card.imageUrl ? (
-                <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded-lg" />
+                isVideo ? (
+                    <video src={card.imageUrl} autoPlay loop muted playsInline className="w-full h-full object-cover rounded-lg" />
+                ) : (
+                    <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded-lg" />
+                )
             ) : (
                 <div className="w-full h-full backdrop-blur-sm flex flex-col justify-between">
                     <CardFace />

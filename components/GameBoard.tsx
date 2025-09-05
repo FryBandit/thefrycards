@@ -26,37 +26,51 @@ const FieldArea: React.FC<{
     onExamineCard: (card: CardInGame) => void;
 }> = ({ player, players, currentPlayerId, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, phase, lastActivatedCardId, onExamineCard }) => {
     
-    return (
-        <div className="flex-grow w-full flex items-center justify-center p-2 min-h-[12rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
-            <div className="flex gap-4 items-center justify-center w-full h-full">
-                {[...player.locations, ...player.artifacts, ...player.units].map(card => {
-                    const sourcePlayer = players[currentPlayerId];
-                    const targetPlayer = player;
-                    const cardIsTargetable = targetingCard ? isCardTargetable(targetingCard, card, sourcePlayer, targetPlayer) : false;
+    const backRowCards = [...player.locations, ...player.artifacts];
+    const frontRowCards = [...player.units];
+    const allCards = [...backRowCards, ...frontRowCards];
 
-                    const isAssaultPhase = currentPlayerId === player.id && phase === TurnPhase.ASSAULT;
-                    const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
-                    
-                    return (
-                        <Card 
-                            key={card.instanceId} 
-                            card={card} 
-                            onClick={cardIsTargetable ? () => onCardClick(card) : undefined}
-                            isTargetable={cardIsTargetable}
-                            onActivate={card.abilities?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
-                            isActivatable={currentPlayerId === player.id && isCardActivatable(card)}
-                            effectiveStrength={effectiveStrength}
-                            effectiveDurability={effectiveDurability}
-                            isActivating={lastActivatedCardId === card.instanceId}
-                            rallyBonus={rallyBonus}
-                            onExamine={onExamineCard}
-                        />
-                    );
-                })}
-                {[...player.locations, ...player.artifacts, ...player.units].length === 0 && (
-                    <div className="w-full h-full flex items-center justify-center text-cyber-primary/50 italic text-lg">FIELD EMPTY</div>
-                )}
-            </div>
+    const renderCard = (card: CardInGame) => {
+        const sourcePlayer = players[currentPlayerId];
+        const targetPlayer = player;
+        const cardIsTargetable = targetingCard ? isCardTargetable(targetingCard, card, sourcePlayer, targetPlayer) : false;
+
+        const isAssaultPhase = currentPlayerId === player.id && phase === TurnPhase.ASSAULT;
+        const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
+        
+        return (
+            <Card 
+                key={card.instanceId} 
+                card={card} 
+                onClick={cardIsTargetable ? () => onCardClick(card) : undefined}
+                isTargetable={cardIsTargetable}
+                onActivate={card.abilities?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
+                isActivatable={currentPlayerId === player.id && isCardActivatable(card)}
+                effectiveStrength={effectiveStrength}
+                effectiveDurability={effectiveDurability}
+                isActivating={lastActivatedCardId === card.instanceId}
+                rallyBonus={rallyBonus}
+                onExamine={onExamineCard}
+            />
+        );
+    };
+    
+    return (
+        <div className="flex-grow w-full flex flex-col items-center justify-center p-2 min-h-[18rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
+            {allCards.length > 0 ? (
+                 <div className="w-full h-full flex flex-col justify-center items-center gap-y-2">
+                    {/* Back Row (Locations & Artifacts) */}
+                    <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
+                        {backRowCards.map(renderCard)}
+                    </div>
+                    {/* Front Row (Units) */}
+                    <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
+                        {frontRowCards.map(renderCard)}
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full h-full flex items-center justify-center text-cyber-primary/50 italic text-lg">FIELD EMPTY</div>
+            )}
         </div>
     );
 };
@@ -212,6 +226,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     if (targetingCard) return { text: "CANCEL", action: () => onCardClick(targetingCard), disabled: false };
     switch(phase) {
         case TurnPhase.MULLIGAN: return null;
+        case TurnPhase.AI_MULLIGAN: return null;
         case TurnPhase.START: return null;
         case TurnPhase.ROLL_SPEND: {
             const hasUnspentDice = dice.some(d => !d.isSpent);

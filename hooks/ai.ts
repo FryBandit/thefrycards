@@ -7,6 +7,7 @@ type AIAction =
     | { type: 'TOGGLE_DIE_KEPT', payload: { id: number, keep: boolean } }
     | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; } } }
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
+    | { type: 'AI_MULLIGAN', payload: { mulligan: boolean } }
     | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
 
 type AIPossiblePlay = {
@@ -45,6 +46,10 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
 const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, turn: number, target?: CardInGame | null): number => {
     let score = 0;
 
+    // --- SITUATIONAL AWARENESS ---
+    const isLowHealth = aiPlayer.command < 10;
+    const opponentHasStrongBoard = humanPlayer.units.length > 2 || humanPlayer.units.some(u => getUnitThreat(u, humanPlayer, aiPlayer) > 8);
+
     // --- SITUATIONAL SCORING based on threats ---
     if(target) {
         const targetThreat = getUnitThreat(target, target.id === aiPlayer.id ? aiPlayer : humanPlayer, target.id === aiPlayer.id ? humanPlayer : aiPlayer);
@@ -75,6 +80,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         } else {
              score += potentialDamage * 2;
         }
+        if (opponentHasStrongBoard) {
+            score += potentialDamage * 1.5; // More valuable against established boards
+        }
     }
 
 
@@ -95,10 +103,12 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
 
     // --- IMMEDIATE ADVANTAGE ---
     if (card.abilities?.annihilate) {
-        if (humanPlayer.units.length < 3) {
+        if (humanPlayer.units.length < 3 && aiPlayer.units.length > 0) {
             score = 1; // De-prioritize heavily on a small board
+        } else if (opponentHasStrongBoard) {
+            score += humanPlayer.units.length * 15; // HUGE value if opponent is winning on board
         } else {
-            score += humanPlayer.units.length * 10; // Huge value
+            score += humanPlayer.units.length * 8;
         }
     }
     if (card.abilities?.riftwalk) score += 8; // Good, but delayed
@@ -109,7 +119,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     }
    
     // --- DEFENSIVE / UTILITY ---
-    if (card.abilities?.fortify && aiPlayer.command < 12) score += 15; // High value when low on health
+    if (card.abilities?.fortify && isLowHealth) score += 20;
+    if (card.type === CardType.UNIT && card.abilities?.shield && isLowHealth) score += 10;
+    if (card.type === CardType.UNIT && card.abilities?.entrenched && isLowHealth) score += 8;
     if (card.abilities?.landmark && !aiPlayer.locations.some(l => l.abilities?.landmark)) score += 5;
 
     // --- GENERAL KEYWORD VALUE ---
@@ -141,7 +153,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     // Card Type priorities
     if (card.type === CardType.UNIT) {
         score += 5;
-        if (aiPlayer.units.length < 2) score += 5; // Encourage building a board early
+        if (aiPlayer.units.length < 2 && turn < 5) score += 8; // Strongly encourage building a board early
+        const { strength, durability } = getEffectiveStats(card, aiPlayer);
+        score += (strength + durability) * 0.5;
     }
     if (card.type === CardType.EVENT) score += 2;
     if (card.type === CardType.LOCATION || card.type === CardType.ARTIFACT) {
@@ -204,6 +218,14 @@ export const getAiAction = (state: GameState): AIAction | null => {
     const aiPlayer = players[1];
     const humanPlayer = players[0];
     const availableDice = dice.filter(d => !d.isSpent);
+
+    if (phase === TurnPhase.AI_MULLIGAN) {
+        const aiHand = aiPlayer.hand;
+        const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
+        const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
+        const shouldAiMulligan = !hasLowCost || !hasUnit;
+        return { type: 'AI_MULLIGAN', payload: { mulligan: shouldAiMulligan } };
+    }
 
     if (phase === TurnPhase.ROLL_SPEND) {
         const possiblePlays: AIPossiblePlay[] = [];

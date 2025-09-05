@@ -8,6 +8,7 @@ import { getAiAction } from './ai';
 type Action =
   | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
   | { type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan: boolean } }
+  | { type: 'AI_MULLIGAN'; payload: { mulligan: boolean } }
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
@@ -293,16 +294,18 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
     
     const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
 
-    // Handle recall (targets own units)
-    if (targetingCard.abilities?.recall) {
-        return !isOpponentTarget && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
-    }
-    // Handle augment (targets own units)
-    if (targetingCard.abilities?.augment) {
-        return !isOpponentTarget && targetCard.type === CardType.UNIT && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
+    // Handle abilities that MUST target own units
+    if (targetingCard.abilities?.recall || targetingCard.abilities?.augment) {
+        if (isOpponentTarget) return false; // Explicitly cannot target opponents with these
+        
+        // Both recall and augment target units
+        if (targetCard.type !== CardType.UNIT) return false;
+        
+        // Check if the card is in the player's unit list
+        return targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
     }
     
-    // Handle standard targeting (usually targets opponent units)
+    // Handle standard targeting which is usually opponents
     if (isOpponentTarget) {
         if (targetCard.abilities?.immutable) return false;
         if (targetCard.type === CardType.UNIT) {
@@ -310,9 +313,10 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
             // Breach only protects from events
             if (targetingCard.type === CardType.EVENT && targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
         }
-        return true;
+        return true; // Is a valid opponent target
     }
     
+    // Default: cannot target own units unless an ability like recall/augment is present
     return false;
 };
 
@@ -647,15 +651,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           }
           player.hasMulliganed = true;
           
-          // AI Mulligan Logic is now combined here to prevent state machine issues
-          log(`CPU is deciding on its hand...`);
-          const ai = newState.players[1];
-          const aiHand = ai.hand;
-          const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
-          const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
-          const shouldAiMulligan = !hasLowCost || !hasUnit;
+          newState.phase = TurnPhase.AI_MULLIGAN;
+          newState.isProcessing = true;
+          return newState;
+      }
 
-          if (shouldAiMulligan) {
+      case 'AI_MULLIGAN': {
+          if (newState.phase !== TurnPhase.AI_MULLIGAN) return state;
+          const { mulligan } = action.payload;
+          const ai = newState.players[1];
+
+          if (mulligan) {
               log(`CPU chose to mulligan.`);
               const handToShuffle = [...ai.hand];
               ai.deck.push(...handToShuffle);
@@ -669,7 +675,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           ai.hasMulliganed = true;
 
           newState.phase = TurnPhase.START;
-          newState.isProcessing = true; // Start the game loop for the first turn
+          newState.isProcessing = true;
           return newState;
       }
 
