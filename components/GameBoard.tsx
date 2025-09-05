@@ -1,54 +1,50 @@
 
 
 
+
 import React from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
+import { isCardTargetable } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
 import Card from './Card';
 
 // New sub-component for cards on the field
 const FieldArea: React.FC<{ 
     player: Player;
+    players: [Player, Player];
+    currentPlayerId: number;
     isOpponent: boolean;
     onCardClick: (card: CardInGame) => void;
     targetingCard: CardInGame | null;
     isCardActivatable: (card: CardInGame) => boolean;
     onActivateCard: (card: CardInGame) => void;
-    isCurrentPlayer: boolean;
     phase: TurnPhase;
-}> = ({ player, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, isCurrentPlayer, phase }) => {
+    lastActivatedCardId: string | null;
+}> = ({ player, players, currentPlayerId, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, phase, lastActivatedCardId }) => {
     
     return (
         <div className="flex-grow w-full flex items-center justify-center p-2 min-h-[12rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
             <div className="flex gap-4 items-center justify-center w-full h-full">
                 {[...player.locations, ...player.artifacts, ...player.units].map(card => {
-                    const isUnit = card.type === CardType.UNIT;
-                    
-                    let isTargetable = false;
-                    if (targetingCard) {
-                        const isEnemyTarget = isOpponent && isUnit && !card.keywords?.stealth && (!card.keywords?.breach || card.hasAssaulted) && !card.keywords?.immutable;
-                        const isFriendlyRecallTarget = !isOpponent && isUnit && targetingCard.keywords?.recall;
-                        
-                        if (targetingCard.keywords?.recall) {
-                             isTargetable = isFriendlyRecallTarget;
-                        } else {
-                             isTargetable = isEnemyTarget;
-                        }
-                    }
+                    const sourcePlayer = players[currentPlayerId];
+                    const targetPlayer = player;
+                    const cardIsTargetable = targetingCard ? isCardTargetable(targetingCard, card, sourcePlayer, targetPlayer) : false;
 
-                    const isAssaultPhase = isCurrentPlayer && phase === TurnPhase.ASSAULT;
-                    const { strength: effectiveStrength, durability: effectiveDurability } = getEffectiveStats(card, player, { isAssaultPhase });
+                    const isAssaultPhase = currentPlayerId === player.id && phase === TurnPhase.ASSAULT;
+                    const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
                     
                     return (
                         <Card 
                             key={card.instanceId} 
                             card={card} 
-                            onClick={isTargetable ? () => onCardClick(card) : undefined}
-                            isTargetable={isTargetable}
-                            onActivate={card.keywords?.activate && isCurrentPlayer ? () => onActivateCard(card) : undefined}
-                            isActivatable={isCurrentPlayer && isCardActivatable(card)}
+                            onClick={cardIsTargetable ? () => onCardClick(card) : undefined}
+                            isTargetable={cardIsTargetable}
+                            onActivate={card.keywords?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
+                            isActivatable={currentPlayerId === player.id && isCardActivatable(card)}
                             effectiveStrength={effectiveStrength}
                             effectiveDurability={effectiveDurability}
+                            isActivating={lastActivatedCardId === card.instanceId}
+                            rallyBonus={rallyBonus}
                         />
                     );
                 })}
@@ -80,12 +76,17 @@ const HandArea: React.FC<{
 }) => {
     if (isOpponent) {
         return (
-            <div className="h-24 flex-shrink-0 flex justify-center items-center -space-x-12">
+             <div className="h-24 flex-shrink-0 flex justify-center items-center -space-x-12 relative">
                 {player.hand.map((card) => (
                     <div key={card.instanceId} className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center transform -translate-y-20">
                         <span className="text-2xl font-black text-neon-pink/50">CARD</span>
                     </div>
                 ))}
+                {player.hand.length > 0 && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyber-bg/80 text-neon-yellow font-black text-2xl rounded-full w-16 h-16 flex items-center justify-center border-2 border-neon-yellow pointer-events-none transform -translate-y-20">
+                        {player.hand.length}
+                    </div>
+                )}
             </div>
         );
     }
@@ -149,13 +150,15 @@ interface GameBoardProps {
   targetingCard: CardInGame | null;
   isCardActivatable: (card: CardInGame) => boolean;
   onActivateCard: (card: CardInGame) => void;
+  lastActivatedCardId: string | null;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
     gameState, onDieClick, onRoll, onCardClick, onGraveyardCardClick, onFieldCardClick, 
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
-    onAdvancePhase, targetingCard, isCardActivatable, onActivateCard 
+    onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
+    lastActivatedCardId
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -183,14 +186,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
       {/* Opponent's Side (reversed column) */}
       <div className="flex-1 flex flex-col-reverse">
         <FieldArea 
-            player={opponentPlayer} 
+            player={opponentPlayer}
+            players={players}
+            currentPlayerId={currentPlayerId}
             onCardClick={onFieldCardClick} 
             isOpponent={true} 
             targetingCard={targetingCard}
             isCardActivatable={isCardActivatable}
             onActivateCard={onActivateCard}
-            isCurrentPlayer={currentPlayerId === opponentPlayer.id}
             phase={phase}
+            lastActivatedCardId={lastActivatedCardId}
         />
         <HandArea 
             player={opponentPlayer}
@@ -263,13 +268,15 @@ const GameBoard: React.FC<GameBoardProps> = ({
        <div className="flex-1 flex flex-col">
         <FieldArea 
             player={currentPlayer} 
+            players={players}
+            currentPlayerId={currentPlayerId}
             onCardClick={onFieldCardClick} 
             isOpponent={false} 
             targetingCard={targetingCard}
             isCardActivatable={isCardActivatable}
             onActivateCard={onActivateCard}
-            isCurrentPlayer={currentPlayerId === currentPlayer.id}
             phase={phase}
+            lastActivatedCardId={lastActivatedCardId}
         />
         <HandArea 
             player={currentPlayer}

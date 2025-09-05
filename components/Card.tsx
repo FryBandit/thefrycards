@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 
@@ -17,13 +18,16 @@ interface CardProps {
   effectiveStrength?: number;
   effectiveDurability?: number;
   origin?: 'hand' | 'graveyard';
+  isActivating?: boolean;
+  rallyBonus?: number;
 }
 
 const Card: React.FC<CardProps> = ({ 
     card, isPlayable = false, isTargetable = false, inHand = false, onClick, 
     isActivatable = false, onActivate, isChannelable = false, onChannel,
     isAmplifiable = false, onAmplify,
-    effectiveStrength, effectiveDurability, origin = 'hand' 
+    effectiveStrength, effectiveDurability, origin = 'hand',
+    isActivating = false, rallyBonus = 0
 }) => {
   const typeColor = {
     [CardType.UNIT]: 'border-unit shadow-unit/30',
@@ -39,12 +43,13 @@ const Card: React.FC<CardProps> = ({
   const interactiveClasses = onClick ? "cursor-pointer" : "";
   const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : "border-cyber-border";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse" : "";
+  const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
 
   let strengthClasses = 'text-cyber-bg';
   let displayStrength = card.strength ?? 0;
   if (card.type === CardType.UNIT && effectiveStrength !== undefined) {
       displayStrength = effectiveStrength;
-      const baseStrength = card.strength ?? 0;
+      const baseStrength = (card.strength ?? 0) + card.strengthModifier;
       if (displayStrength > baseStrength) strengthClasses = 'text-green-400';
       else if (displayStrength < baseStrength) strengthClasses = 'text-red-500';
   }
@@ -60,13 +65,18 @@ const Card: React.FC<CardProps> = ({
 
 
   return (
-    <div className={`${baseClasses} ${interactiveClasses} ${playableClasses} ${targetableClasses}`} onClick={onClick} role={onClick ? "button" : "figure"} aria-label={`${card.name} card`}>
+    <div className={`${baseClasses} ${interactiveClasses} ${playableClasses} ${targetableClasses} ${activatingClasses}`} onClick={onClick} role={onClick ? "button" : "figure"} aria-label={`${card.name} card`}>
       <div className="flex justify-between items-start text-sm font-bold">
         <span className="truncate pr-2">{card.name}</span>
         <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
           {card.commandNumber}
         </span>
       </div>
+       {rallyBonus > 0 && (
+        <div className="absolute top-1 right-9 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
+            +{rallyBonus}
+        </div>
+      )}
       
       <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
         {card.text}

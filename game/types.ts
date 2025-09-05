@@ -98,7 +98,8 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     if (card.type !== CardType.UNIT) {
         return { 
             strength: card.strength ?? 0, 
-            durability: card.durability ?? 0 
+            durability: card.durability ?? 0,
+            rallyBonus: 0,
         };
     }
 
@@ -123,5 +124,5 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     if (context.isAssaultPhase && card.keywords?.assault) {
         strength += card.keywords.assault;
     }
-    return { strength, durability };
+    return { strength, durability, rallyBonus: rallySources };
 };

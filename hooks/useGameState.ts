@@ -5,6 +5,7 @@
 
 
 
+
 import { useReducer } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { buildDeck } from '../game/cards';
@@ -50,31 +51,39 @@ const createInitialPlayer = (id: number, name: string): Player => {
   };
 };
 
-const drawCards = (player: Player, count: number): Player => {
+const drawCards = (player: Player, count: number): { player: Player, drawnCards: CardInGame[], failedDraws: number } => {
     const newPlayer = {...player};
-    const drawn: CardInGame[] = [];
+    newPlayer.hand = [...newPlayer.hand]; // ensure mutable
+    newPlayer.deck = [...newPlayer.deck]; // ensure mutable
+
+    const drawnCards: CardInGame[] = [];
+    let failedDraws = 0;
+
     for(let i=0; i<count; i++) {
         if (newPlayer.deck.length > 0) {
             const cardDef = newPlayer.deck.pop()!;
-            drawn.push({
+            const newCard: CardInGame = {
               ...cardDef,
               instanceId: `${cardDef.id}-${Date.now()}-${Math.random()}`,
               damage: 0,
               strengthModifier: 0,
               durabilityModifier: 0,
               hasAssaulted: false,
-            });
+            };
+            drawnCards.push(newCard);
+        } else {
+            failedDraws++;
         }
     }
-    newPlayer.hand = [...newPlayer.hand, ...drawn];
-    return newPlayer;
+    newPlayer.hand = [...newPlayer.hand, ...drawnCards];
+    return { player: newPlayer, drawnCards, failedDraws };
 }
 
 const createInitialState = (): GameState => {
   let player1 = createInitialPlayer(0, 'You');
   let player2 = createInitialPlayer(1, 'CPU');
-  player1 = drawCards(player1, 3);
-  player2 = drawCards(player2, 3);
+  player1 = drawCards(player1, 3).player;
+  player2 = drawCards(player2, 3).player;
 
   return {
     players: [player1, player2],
@@ -222,6 +231,29 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): { canPay: boolea
     }
 }
 
+export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGame, sourcePlayer: Player, targetPlayer: Player): boolean => {
+    if (!targetingCard) return false;
+    
+    const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
+
+    // Handle recall (targets own units)
+    if (targetingCard.keywords?.recall) {
+        return !isOpponentTarget && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
+    }
+    
+    // Handle standard targeting (targets opponent units)
+    if (isOpponentTarget && targetCard.type === CardType.UNIT) {
+        // Check for protections
+        if (targetCard.keywords?.immutable) return false;
+        if (targetCard.keywords?.stealth) return false;
+        if (targetCard.keywords?.breach && !targetCard.hasAssaulted) return false;
+        
+        return true;
+    }
+    
+    return false;
+};
+
 
 const gameReducer = (state: GameState, action: Action): GameState => {
   if (state.winner && action.type !== 'START_GAME') return state;
@@ -303,10 +335,15 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                           const effect = unit.keywords.martyrdom;
                           log(`${unit.name}'s Martyrdom triggers!`);
                           switch(effect.type) {
-                              case 'DRAW_CARD':
-                                  newState.players[player.id] = drawCards(player, effect.value);
-                                  log(`${player.name} draws ${effect.value} card(s).`);
+                              case 'DRAW_CARD': {
+                                  const { player: p, drawnCards, failedDraws } = drawCards(newState.players[player.id], effect.value);
+                                  newState.players[player.id] = p;
+                                  if (drawnCards.length > 0) log(`${p.name} draws ${drawnCards.length} card(s).`);
+                                  if (failedDraws > 0) {
+                                    damagePlayer(newState.players[player.id], failedDraws, 'Fatigue');
+                                  }
                                   break;
+                                }
                               case 'DEAL_DAMAGE_TO_OPPONENT':
                                   damagePlayer(opponent, effect.value, `${unit.name}'s Martyrdom`);
                                   break;
@@ -385,12 +422,18 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         log(`...using its Channel ability.`);
         const effect = cardToPlay.keywords.channel.effect;
         switch(effect.type) {
-          case 'DRAW':
-            newState.players[currentPlayer.id] = drawCards(currentPlayer, effect.value);
-            log(`${currentPlayer.name} draws ${effect.value} card(s).`);
+          case 'DRAW': {
+            const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, effect.value);
+            currentPlayer = p;
+            if (drawnCards.length > 0) log(`${currentPlayer.name} draws ${drawnCards.length} card(s).`);
+            if (failedDraws > 0) {
+                damagePlayer(currentPlayer, failedDraws, 'Fatigue');
+            }
             break;
+          }
         }
         currentPlayer.graveyard.push(cardToPlay); // Channeled cards go to graveyard
+        newState.players[newState.currentPlayerId] = currentPlayer;
         return newState;
       }
 
@@ -463,12 +506,20 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         log(`Foresight reveals ${currentPlayer.name}'s top card: ${currentPlayer.deck[currentPlayer.deck.length - 1].name}`);
       }
       if(cardToPlay.keywords?.draw) {
-        newState.players[currentPlayer.id] = drawCards(currentPlayer, cardToPlay.keywords.draw);
-        log(`${currentPlayer.name} draws ${cardToPlay.keywords.draw} card(s).`);
+        const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, cardToPlay.keywords.draw);
+        currentPlayer = p;
+        if (drawnCards.length > 0) log(`${currentPlayer.name} draws ${drawnCards.length} card(s).`);
+        if (failedDraws > 0) {
+            damagePlayer(currentPlayer, failedDraws, 'Fatigue');
+        }
       }
       if (cardToPlay.keywords?.barrage) {
           log(`${cardToPlay.name}'s Barrage deals ${cardToPlay.keywords.barrage} damage to all enemy units!`);
           opponentPlayer.units.forEach(unit => {
+              if (unit.keywords?.breach && !unit.hasAssaulted) {
+                  log(`${unit.name} is protected from ${cardToPlay.name}'s Barrage by Breach.`);
+                  return; 
+              }
               dealDamageToUnit(unit, cardToPlay.keywords.barrage, cardToPlay, opponentPlayer);
           });
       }
@@ -648,8 +699,15 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             log(`${currentPlayer.name} skips their Draw Phase due to Stagnate.`);
             currentPlayer.skipNextDrawPhase = false;
           } else {
-            newState.players[newState.currentPlayerId] = drawCards(currentPlayer, 1);
-            log(`${currentPlayer.name} drew a card.`);
+            const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, 1);
+            newState.players[newState.currentPlayerId] = p;
+            if (drawnCards.length > 0) {
+                 log(`${p.name} drew a card.`);
+            }
+            if (failedDraws > 0) {
+                damagePlayer(newState.players[newState.currentPlayerId], failedDraws, 'Fatigue');
+                log(`${p.name} has no cards left and takes ${failedDraws} Fatigue damage!`);
+            }
           }
           newState.phase = TurnPhase.ASSAULT;
           break;

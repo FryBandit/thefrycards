@@ -1,49 +1,36 @@
 
 
 
+
 import React, { useEffect, useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
-import { useGameState } from './hooks/useGameState';
-import { checkDiceCost } from './hooks/useGameState';
-import { CardInGame, TurnPhase, CardType, Player } from './game/types';
-
-
-export const PlayerInfoPanel: React.FC<{ player: Player, isCurrent: boolean, isOpponent?: boolean }> = ({ player, isCurrent, isOpponent = false }) => (
-    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan' : 'border-cyber-border'}`}>
-        <div>
-            <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
-            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink`}>{player.command} <span className="text-lg opacity-75">Command</span></p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center text-sm font-semibold">
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.deck.length}</div>
-                <div className="opacity-75">Deck</div>
-            </div>
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.hand.length}</div>
-                <div className="opacity-75">Hand</div>
-            </div>
-            <div>
-                <div className="font-bold text-lg text-neon-yellow">{player.graveyard.length}</div>
-                <div className="opacity-75">Grave</div>
-            </div>
-        </div>
-    </div>
-);
+import PlayerInfoPanel from './components/PlayerInfoPanel';
+import CardViewerModal from './components/CardViewerModal';
+import PhaseAnnouncer from './components/PhaseAnnouncer';
+import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
+import { CardInGame, TurnPhase, Player } from './game/types';
 
 
 const App: React.FC = () => {
   const { state, dispatch, aiAction } = useGameState();
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
+  const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
+  const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
+  const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
+
+  useEffect(() => {
+    setAnnouncedPhase(state.phase);
+  }, [state.phase]);
 
   const handleStartGame = () => {
     dispatch({ type: 'START_GAME' });
     setView('game');
     setTargetingInfo(null);
+    setViewingZone(null);
   };
 
   const handleDieClick = (id: number) => {
@@ -89,22 +76,13 @@ const App: React.FC = () => {
 
   const handleFieldCardClick = (targetCard: CardInGame) => {
       if (state.currentPlayerId !== 0 || !targetingInfo) return;
+      
       const { card, isAmplify } = targetingInfo;
-
       const player = state.players[0];
       const opponent = state.players[1];
-
-      let isTargetable = false;
-      if (card.keywords?.recall) {
-          isTargetable = player.units.some(u => u.instanceId === targetCard.instanceId);
-      } else {
-          isTargetable = opponent.units.some(u => u.instanceId === targetCard.instanceId) 
-            && !targetCard.keywords?.immutable
-            && !targetCard.keywords?.stealth 
-            && (!targetCard.keywords?.breach || targetCard.hasAssaulted);
-      }
+      const targetOwner = state.players.find(p => p.units.some(u => u.instanceId === targetCard.instanceId))!;
       
-      if (isTargetable) {
+      if (isCardTargetable(card, targetCard, player, targetOwner)) {
           dispatch({ type: 'PLAY_CARD', payload: { card, targetInstanceId: targetCard.instanceId, options: { isAmplified: isAmplify } } });
           setTargetingInfo(null);
       }
@@ -117,8 +95,8 @@ const App: React.FC = () => {
     if (!canPayCost) return false;
 
     if (card.keywords?.requiresTarget) {
-        const opponentHasTargets = state.players[1].units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted)).length > 0;
-        const playerHasTargets = card.keywords?.recall ? state.players[0].units.length > 0 : false;
+        const opponentHasTargets = state.players[1].units.some(u => isCardTargetable(card, u, state.players[0], state.players[1]));
+        const playerHasTargets = card.keywords?.recall ? state.players[0].units.some(u => isCardTargetable(card, u, state.players[0], state.players[0])) : false;
         return opponentHasTargets || playerHasTargets;
     }
 
@@ -157,8 +135,15 @@ const App: React.FC = () => {
   const handleActivateCard = (card: CardInGame) => {
     if (isCardActivatable(card)) {
         dispatch({ type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId } });
+        setLastActivatedCardId(card.instanceId);
     }
   }
+   useEffect(() => {
+        if (lastActivatedCardId) {
+            const timer = setTimeout(() => setLastActivatedCardId(null), 1000); // Animation duration
+            return () => clearTimeout(timer);
+        }
+    }, [lastActivatedCardId]);
 
   const handleChannelClick = (card: CardInGame) => {
     if(isCardChannelable(card)) {
@@ -230,6 +215,7 @@ const App: React.FC = () => {
         targetingCard={targetingInfo?.card ?? null}
         isCardActivatable={isCardActivatable}
         onActivateCard={handleActivateCard}
+        lastActivatedCardId={lastActivatedCardId}
       />
 
       {/* HUD Elements */}
@@ -237,12 +223,21 @@ const App: React.FC = () => {
         <GameLog log={state.log} />
       </div>
 
-      <div className="absolute bottom-4 left-4 h-40 z-10 pointer-events-none">
-        <PlayerInfoPanel player={state.players[0]} isCurrent={isPlayerCurrent} />
+      <div className="absolute bottom-4 left-4 h-40 z-10">
+        <PlayerInfoPanel 
+            player={state.players[0]} 
+            isCurrent={isPlayerCurrent}
+            onZoneClick={(zone) => setViewingZone({ player: state.players[0], zone, title: `Your ${zone}`})}
+        />
       </div>
 
-      <div className="absolute top-4 right-4 h-40 z-10 pointer-events-none">
-        <PlayerInfoPanel player={state.players[1]} isCurrent={!isPlayerCurrent} isOpponent={true} />
+      <div className="absolute top-4 right-4 h-40 z-10">
+        <PlayerInfoPanel 
+            player={state.players[1]} 
+            isCurrent={!isPlayerCurrent} 
+            isOpponent={true}
+            onZoneClick={(zone) => setViewingZone({ player: state.players[1], zone, title: `Opponent's ${zone}`})}
+        />
       </div>
       
       <button 
@@ -254,10 +249,19 @@ const App: React.FC = () => {
       </button>
 
       {/* Overlays */}
+       <PhaseAnnouncer phase={announcedPhase} />
+
       {targetingInfo && (
         <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
           Select a target for {targetingInfo.card.name} {targetingInfo.isAmplify ? '(Amplified)' : ''}
         </div>
+      )}
+      {viewingZone && (
+          <CardViewerModal 
+            title={viewingZone.title}
+            cards={viewingZone.player[viewingZone.zone]}
+            onClose={() => setViewingZone(null)}
+          />
       )}
       {state.winner && (
         <Modal title="Game Over" onClose={handleStartGame} onShowRules={() => setView('howToPlay')}>
