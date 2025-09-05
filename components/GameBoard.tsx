@@ -1,7 +1,6 @@
-
-
 import React, { useMemo } from 'react';
-import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType, DiceCost, Die, DiceCostType } from '../game/types';
+import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
+import { getEffectiveStats } from '../game/utils';
 import { isCardTargetable } from '../hooks/useGameState';
 import { findValuableDiceForCost } from '../game/utils';
 import DiceTray from './DiceTray';

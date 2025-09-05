@@ -1,4 +1,5 @@
-import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
+import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost } from '../game/types';
+import { getEffectiveStats } from '../game/utils';
 import { checkDiceCost, isCardTargetable } from './useGameState';
 import { findValuableDiceForCost } from '../game/utils';
 
@@ -27,7 +28,7 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
     // Keyword threat assessment
     if (unit.abilities?.phasing) threat += strength * 2; // Unblockable damage is very high threat
     if (unit.abilities?.siphon) threat += unit.abilities.siphon * 3; // Life gain is a big swing
-    if (unit.abilities?.immutable) threat += 10; // Very hard to remove
+    if (unit.abilities?.immutable) threat += 10 + strength; // Very hard to remove
     if (unit.abilities?.overload) threat += Math.floor(owner.graveyard.length / (unit.abilities.overload.per || 1)) * unit.abilities.overload.amount;
     if (unit.abilities?.venomous) threat += 5 * Math.min(3, opponent.units.length); // More valuable if opponent has targets
     if (unit.abilities?.executioner) threat += 4 * Math.min(3, opponent.units.length);
@@ -271,13 +272,13 @@ export const getAiAction = (state: GameState): AIAction | null => {
         }
         
         // 3. Evaluate Plays from Hand
-        const allPossibleTargets = [...aiPlayer.units, ...humanPlayer.units];
+        const allPossibleTargets = [...aiPlayer.units, ...aiPlayer.locations, ...aiPlayer.artifacts, ...humanPlayer.units, ...humanPlayer.locations, ...humanPlayer.artifacts];
         for (const card of aiPlayer.hand) {
             // A. Standard Play
             if (checkDiceCost(card, availableDice).canPay) {
                 if (card.abilities?.requiresTarget || card.abilities?.augment) {
                     for (const target of allPossibleTargets) {
-                        const targetOwner = players.find(p => p.units.some(u => u.instanceId === target.instanceId))!;
+                        const targetOwner = players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === target.instanceId))!;
                         if (isCardTargetable(card, target, aiPlayer, targetOwner)) {
                             let score = getCardScore(card, aiPlayer, humanPlayer, turn, target);
                             possiblePlays.push({
@@ -300,7 +301,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
                 if (needsTarget) {
                     for (const target of allPossibleTargets) {
-                         const targetOwner = players.find(p => p.units.some(u => u.instanceId === target.instanceId))!;
+                         const targetOwner = players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === target.instanceId))!;
                          if (isCardTargetable(amplifiedCard, target, aiPlayer, targetOwner)) {
                              let score = getCardScore(card, aiPlayer, humanPlayer, turn, target) + 10;
                              possiblePlays.push({
@@ -317,76 +318,65 @@ export const getAiAction = (state: GameState): AIAction | null => {
                          score,
                          description: `Amplify ${card.name}`
                      });
-                }
+                 }
             }
-
+            
             // C. Channel Play
             if (card.abilities?.channel && checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost }, availableDice).canPay) {
-                let score = 8; // Base value for cycling a card
-                if (aiPlayer.hand.length <= 3) score += 10; // Much more valuable with a small hand
-                possiblePlays.push({
-                    action: { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } },
-                    score,
-                    description: `Channel ${card.name}`
-                });
+                 let score = 0;
+                 if (card.abilities.channel.effect.type === 'DRAW') {
+                    score = (5 - Math.min(aiPlayer.hand.length, 5)) * 2; // more valuable when hand is empty
+                 }
+                 if (score > 1) {
+                     possiblePlays.push({
+                         action: { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } },
+                         score,
+                         description: `Channel ${card.name}`
+                     });
+                 }
             }
         }
         
-        // 4. Decide Best Action
+        // --- DECISION MAKING ---
         if (possiblePlays.length > 0) {
-            const bestPlay = possiblePlays.sort((a, b) => b.score - a.score)[0];
-            if (bestPlay.score > 1) { // Threshold to prevent making terrible plays
-               return bestPlay.action;
-            }
+            possiblePlays.sort((a, b) => b.score - a.score);
+            console.log("AI Possible Plays:", possiblePlays.map(p => `${p.description} (Score: ${p.score.toFixed(1)})`).join(', '));
+            return possiblePlays[0].action;
         }
 
-        // 5. If no card is playable, decide whether to roll or keep
-        if (rollCount < 3) {
-            const bestDiceToKeep = determineBestDiceToKeep(aiPlayer.hand, availableDice, aiPlayer, humanPlayer, turn);
-            const unkeptGoodDie = bestDiceToKeep.find(d => !d.isKept);
+        if (rollCount < state.maxRolls) {
+            const diceToKeep = determineBestDiceToKeep(aiPlayer.hand, dice, aiPlayer, humanPlayer, turn);
+            const diceToKeepIds = new Set(diceToKeep.map(d => d.id));
 
-            if (unkeptGoodDie) {
-                return { type: 'TOGGLE_DIE_KEPT', payload: { id: unkeptGoodDie.id, keep: true } };
+            for(const die of dice) {
+                if (die.isSpent) continue;
+                const shouldKeep = diceToKeepIds.has(die.id) || die.value >= 5; // General heuristic: keep high rolls
+                if (die.isKept !== shouldKeep) {
+                    return { type: 'TOGGLE_DIE_KEPT', payload: { id: die.id, keep: shouldKeep } };
+                }
             }
-
             return { type: 'ROLL_DICE' };
         }
-        
-        // 6. No more rolls, end the phase
+
         return { type: 'ADVANCE_PHASE' };
     }
-
-    if (phase === TurnPhase.DRAW) {
-        return { type: 'ADVANCE_PHASE' };
-    }
-
+    
     if (phase === TurnPhase.ASSAULT) {
-        const attackingUnits = aiPlayer.units.filter(u => !u.abilities?.entrenched);
-        if (attackingUnits.length === 0) {
-            return { type: 'ADVANCE_PHASE', payload: { assault: false } };
-        }
+        const humanThreats = humanPlayer.units.map(u => getUnitThreat(u, humanPlayer, aiPlayer));
+        const aiThreats = aiPlayer.units.filter(u => !u.abilities?.entrenched).map(u => getUnitThreat(u, aiPlayer, humanPlayer));
         
-        const totalPotentialDamage = attackingUnits.reduce((sum, u) => sum + getEffectiveStats(u, aiPlayer, {isAssaultPhase: true}).strength, 0);
+        const totalHumanThreat = humanThreats.reduce((a, b) => a + b, 0);
+        const totalAIAssaultThreat = aiThreats.reduce((a, b) => a + b, 0);
         
-        // Always assault if it's lethal
-        if (totalPotentialDamage >= humanPlayer.command) {
-            return { type: 'ADVANCE_PHASE', payload: { assault: true } };
-        }
-
-        // Smarter logic for Breach keyword: don't expose valuable units for low damage
-        const valuableBreachUnit = attackingUnits.find(u => u.abilities?.breach && getUnitThreat(u, aiPlayer, humanPlayer) > 8);
-        if (valuableBreachUnit && totalPotentialDamage < 5) {
-             // Don't expose a valuable unit for chip damage if the assault isn't game-changing
-            return { type: 'ADVANCE_PHASE', payload: { assault: false } };
-        }
-
-        // Default to assaulting
-        return { type: 'ADVANCE_PHASE', payload: { assault: true } };
+        // Simple logic: attack if it's a good trade or pushes for lethal.
+        const shouldAssault = totalAIAssaultThreat > totalHumanThreat || humanPlayer.command <= totalAIAssaultThreat || aiPlayer.units.length > humanPlayer.units.length;
+        
+        return { type: 'ADVANCE_PHASE', payload: { assault: shouldAssault } };
     }
 
-    if (phase === TurnPhase.END) {
+    if (phase === TurnPhase.DRAW || phase === TurnPhase.END || phase === TurnPhase.START) {
         return { type: 'ADVANCE_PHASE' };
     }
 
     return null;
-};
+}

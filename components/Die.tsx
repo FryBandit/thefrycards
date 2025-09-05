@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Die as DieType, GameState } from '../game/types';
+import { LastActionType } from '../game/types';
 
 interface DieProps {
   die: DieType;
@@ -52,11 +53,11 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   const wasJustSpent = lastActionDetails?.spentDiceIds.includes(die.id);
   const spendAnimationType = wasJustSpent ? lastActionDetails?.type : null;
 
-  const spendColor: { [key: string]: string } = {
-    'play': 'shadow-neon-pink',
-    'channel': 'shadow-neon-cyan',
-    'scavenge': 'shadow-neon-yellow',
-    'activate': 'shadow-unit',
+  const spendColor: { [key in LastActionType]: string } = {
+    [LastActionType.PLAY]: 'shadow-neon-pink',
+    [LastActionType.CHANNEL]: 'shadow-neon-cyan',
+    [LastActionType.SCAVENGE]: 'shadow-neon-yellow',
+    [LastActionType.ACTIVATE]: 'shadow-unit',
   };
 
   const baseClasses = "w-16 h-16 rounded-lg flex items-center justify-center text-5xl font-bold transition-all duration-200 border-2";

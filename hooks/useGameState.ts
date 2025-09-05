@@ -1,5 +1,6 @@
 import { useReducer, useMemo } from 'react';
-import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
+import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
+import { getEffectiveStats } from '../game/utils';
 import { buildDeckFromCards } from '../game/cards';
 import { shuffle } from '../game/utils';
 import { getAiAction } from './ai';
@@ -66,11 +67,15 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
                 drawnCards.push(newCard);
             } else {
                 failedDraws++;
-                newPlayer.fatigueCounter++;
+                 if (newPlayer.hasMulliganed) {
+                    newPlayer.fatigueCounter++;
+                }
             }
         } else {
             failedDraws++;
-            newPlayer.fatigueCounter++;
+            if (newPlayer.hasMulliganed) {
+                newPlayer.fatigueCounter++;
+            }
         }
     }
     newPlayer.hand = [...newPlayer.hand, ...drawnCards];
@@ -158,17 +163,24 @@ const checkSumOfX = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
         return result;
     })(availableDice, cost.count!);
 
-    const validCombination = combinations.find(combo => combo.reduce((acc, die) => acc + die.value, 0) >= cost.value!);
+    const validCombinations = combinations.filter(combo => combo.reduce((acc, die) => acc + die.value, 0) >= cost.value!);
 
-    if (validCombination) {
-        const comboIds = new Set(validCombination.map(d => d.id));
-        return { 
-            canPay: true, 
-            diceToSpend: validCombination, 
-            remainingDice: availableDice.filter(d => !comboIds.has(d.id)) 
-        };
-    }
-    return initialCostResult(availableDice);
+    if (validCombinations.length === 0) return initialCostResult(availableDice);
+
+    // Sort combinations by their sum, ascending, to find the most efficient one
+    validCombinations.sort((a, b) => {
+        const sumA = a.reduce((acc, die) => acc + die.value, 0);
+        const sumB = b.reduce((acc, die) => acc + die.value, 0);
+        return sumA - sumB;
+    });
+
+    const bestCombination = validCombinations[0];
+    const comboIds = new Set(bestCombination.map(d => d.id));
+    return { 
+        canPay: true, 
+        diceToSpend: bestCombination, 
+        remainingDice: availableDice.filter(d => !comboIds.has(d.id)) 
+    };
 };
 
 const checkStraight = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
@@ -489,7 +501,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         playerUnitsToVoid.forEach(u => {
           player.void.push(u);
           log(`${u.name} is voided.`);
-          damagePlayer(player, u.commandNumber ?? 0, `${u.name}'s voiding`, 'loss');
         });
 
         opponentUnitsToVoid.forEach(u => {
@@ -701,14 +712,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         let currentPlayer = newState.players[newState.currentPlayerId];
         let opponentPlayer = newState.players[1 - newState.currentPlayerId];
         
-        let actionType = 'play';
+        let actionType: LastActionType = LastActionType.PLAY;
         let costConfig = { dice_cost: cardToPlay.dice_cost, abilities: cardToPlay.abilities };
         if (options?.isChanneled) {
-            actionType = 'channel';
+            actionType = LastActionType.CHANNEL;
             costConfig = { dice_cost: cardToPlay.abilities.channel.cost, abilities: cardToPlay.abilities };
         }
         if (options?.isScavenged) {
-            actionType = 'scavenge';
+            actionType = LastActionType.SCAVENGE;
             costConfig = { dice_cost: cardToPlay.abilities.scavenge.cost, abilities: cardToPlay.abilities };
         }
         if (options?.isAmplified) {
@@ -882,7 +893,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         const costCheck = checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, newState.dice);
         if (!costCheck.canPay) return state;
         
-        newState.lastActionDetails = { type: 'activate', spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
+        newState.lastActionDetails = { type: LastActionType.ACTIVATE, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
         
         costCheck.diceToSpend.forEach(dts => {
             newState.dice.find(d => d.id === dts.id)!.isSpent = true;
@@ -951,16 +962,13 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 for (const item of returningFromRift) {
                     log(`${item.card.name} returns from the rift!`);
                     
-                    // Reset card state before adding it back to the field
+                    // Reset card state before adding it back to the field, but preserve instanceId
                     const resetCard: CardInGame = {
                       ...item.card,
-                      instanceId: `${item.card.id}-${Date.now()}-${Math.random()}`, // New instance ID
                       damage: 0,
                       strengthModifier: 0,
                       durabilityModifier: 0,
                       hasAssaulted: false,
-                      isScavenged: false,
-                      isToken: false,
                       shieldUsedThisTurn: false,
                       counters: item.card.abilities?.consume ? item.card.abilities.consume.initial : undefined,
                       attachments: [],

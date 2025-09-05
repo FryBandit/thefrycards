@@ -166,6 +166,13 @@ const Card: React.FC<CardProps> = ({
             
             {/* Visible Status Icons */}
             <div className="absolute top-1 left-1 flex flex-col space-y-1 z-10">
+                {card.strengthModifier < 0 && (
+                    <div 
+                        className="w-6 h-6 bg-red-800 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" 
+                        title={`Corrupted: ${card.strengthModifier} Strength`}>
+                        {card.strengthModifier}
+                    </div>
+                )}
                 {card.abilities?.shield && (
                     <div 
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50

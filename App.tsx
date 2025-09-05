@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
-  const [announcedPhase, setAnnouncedPhase] = useState<string | null>(null);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
@@ -66,12 +65,6 @@ const App: React.FC = () => {
     loadCards();
   }, []);
 
-
-  useEffect(() => {
-    if (state.phase !== announcedPhase) {
-       setAnnouncedPhase(state.phase);
-    }
-  }, [state.phase, announcedPhase]);
 
   const handleStartGame = () => {
     if (!allCards) return;
@@ -354,7 +347,7 @@ const App: React.FC = () => {
       </button>
 
       {/* Overlays */}
-       <PhaseAnnouncer phase={announcedPhase} />
+       <PhaseAnnouncer phase={state.phase} />
       
       <ConfirmModal 
         isOpen={!!confirmation}

@@ -9,7 +9,7 @@ interface PlayerInfoPanelProps {
 }
 
 const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, isOpponent = false, onZoneClick }) => (
-    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan' : 'border-cyber-border'}`}>
+    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
         <div>
             <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
             <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink`}>{player.command} <span className="text-lg opacity-75">Command</span></p>

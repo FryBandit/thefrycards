@@ -1,4 +1,4 @@
-import { Die, DiceCost, DiceCostType } from './types';
+import { Die, DiceCost, DiceCostType, CardInGame, Player, CardType } from './types';
 
 // Helper to shuffle arrays
 export const shuffle = <T,>(array: T[]): T[] => {
@@ -74,3 +74,57 @@ export const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
     }
 }
+// Shared game logic for calculating effective stats.
+export const getEffectiveStats = (card: CardInGame, owner: Player, context: { isAssaultPhase?: boolean } = {}) => {
+    if (card.type !== CardType.UNIT) {
+        return { 
+            strength: card.strength ?? 0, 
+            durability: card.durability ?? 0,
+            rallyBonus: 0,
+        };
+    }
+
+    let strength = (card.strength ?? 0) + card.strengthModifier;
+    let durability = (card.durability ?? 1) + card.durabilityModifier;
+    
+    // Overload keyword
+    if (card.abilities?.overload) {
+        const bonus = Math.floor(owner.graveyard.length / card.abilities.overload.per) * card.abilities.overload.amount;
+        strength += bonus;
+    }
+
+    // Synergy keyword
+    if (card.abilities?.synergy) {
+        const faction = card.abilities.synergy.faction;
+        const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
+            .filter(c => c.instanceId !== card.instanceId && c.faction === faction)
+            .length;
+        if (synergyCount > 0) {
+            const effect = card.abilities.synergy.effect;
+            const totalBonus = synergyCount * effect.amount;
+            if (effect.type === 'BUFF_STRENGTH') strength += totalBonus;
+            if (effect.type === 'BUFF_DURABILITY') durability += totalBonus;
+        }
+    }
+
+    // Augment keyword (from attachments)
+    if (card.attachments && card.attachments.length > 0) {
+        // Generic buff from any attachment for now, can be specified later
+        strength += card.attachments.length;
+        durability += card.attachments.length;
+    }
+
+    // Buffs from player's other cards
+    if (owner.artifacts.some(a => a.id === 13)) strength += 1; // Targeting Matrix
+    if (owner.locations.some(l => l.id === 12)) durability += 1; // Hardened Subnet
+    
+    // Rally
+    const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+    strength += rallySources;
+
+    // Assault phase specific buffs
+    if (context.isAssaultPhase && card.abilities?.assault) {
+        strength += card.abilities.assault;
+    }
+    return { strength, durability, rallyBonus: rallySources };
+};
