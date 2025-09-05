@@ -2,9 +2,10 @@ import React from 'react';
 
 interface HowToPlayProps {
   onPlay: () => void;
+  cardsLoaded: boolean;
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded }) => {
   return (
     <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
@@ -90,9 +91,10 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
         <div className="text-center mt-8">
           <button
             onClick={onPlay}
-            className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
+            disabled={!cardsLoaded}
+            className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
-            Jack In
+            {cardsLoaded ? 'Jack In' : 'Loading...'}
           </button>
         </div>
       </div>

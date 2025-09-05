@@ -12,10 +12,12 @@ interface DiceTrayProps {
 }
 
 const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll }) => {
+  const sortedDice = [...dice].sort((a, b) => a.value - b.value);
+
   return (
     <div className="bg-cyber-surface/70 backdrop-blur-sm p-4 rounded-lg flex items-center justify-center space-x-4 border-2 border-cyber-border">
       <div className="flex space-x-3">
-        {dice.map((die) => (
+        {sortedDice.map((die) => (
           <Die key={die.id} die={die} onClick={() => onDieClick(die.id)} />
         ))}
       </div>

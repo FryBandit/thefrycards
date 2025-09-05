@@ -34,7 +34,8 @@ export interface CardDefinition {
   durability?: number;
   commandNumber: number;
   text: string;
-  keywords?: { [key: string]: any; immutable?: boolean; resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; overload?: { per: number, amount: number }; echo?: boolean; executioner?: { amount: number }; };
+  keywords?: { [key: string]: any; immutable?: boolean; resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; overload?: { per: number, amount: number }; echo?: boolean; executioner?: { amount: number }; shield?: boolean; };
+  imageUrl?: string;
 }
 
 export interface CardInGame extends CardDefinition {
@@ -45,6 +46,7 @@ export interface CardInGame extends CardDefinition {
   hasAssaulted: boolean;
   isScavenged?: boolean;
   isToken?: boolean;
+  shieldUsedThisTurn?: boolean;
 }
 
 export interface Player {

@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 
@@ -66,33 +67,47 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <div className={`${baseClasses} ${interactiveClasses} ${playableClasses} ${targetableClasses} ${activatingClasses}`} onClick={onClick} role={onClick ? "button" : "figure"} aria-label={`${card.name} card`}>
-      <div className="flex justify-between items-start text-sm font-bold">
-        <span className="truncate pr-2">{card.name}</span>
-        <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
-          {card.commandNumber}
-        </span>
-      </div>
-       {rallyBonus > 0 && (
-        <div className="absolute top-1 right-9 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
-            +{rallyBonus}
-        </div>
+      {card.imageUrl && (
+        <img src={card.imageUrl} alt={card.name} className="absolute inset-0 w-full h-full object-cover rounded-lg opacity-30 z-0" />
       )}
-      
-      <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
-        {card.text}
-      </div>
-
-      <div className="flex justify-between items-end text-sm font-semibold">
-        <span className="capitalize text-white">{card.type}</span>
-        {card.type === CardType.UNIT && (
-          <div className="flex items-center space-x-2 font-bold">
-            <div className={`bg-neon-pink px-2 py-1 rounded ${strengthClasses}`}>{displayStrength}</div>
-            <div className={`bg-neon-cyan px-2 py-1 rounded ${durabilityClasses}`}>{displayDurability - card.damage}</div>
-          </div>
+      <div className="relative z-10 h-full flex flex-col justify-between">
+        <div className="flex justify-between items-start text-sm font-bold">
+            <span className="truncate pr-2">{card.name}</span>
+            <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
+            {card.commandNumber}
+            </span>
+        </div>
+        {card.keywords?.shield && (
+            <div 
+                className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50
+                    ${card.shieldUsedThisTurn ? 'bg-gray-600 opacity-70' : 'bg-blue-500'}`}
+                title={card.shieldUsedThisTurn ? 'Shield Used' : 'Shield Active'}
+            >
+                S
+            </div>
         )}
+        {rallyBonus > 0 && (
+            <div className="absolute top-1 right-9 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
+                +{rallyBonus}
+            </div>
+        )}
+        
+        <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
+            {card.text}
+        </div>
+
+        <div className="flex justify-between items-end text-sm font-semibold">
+            <span className="capitalize text-white">{card.type}</span>
+            {card.type === CardType.UNIT && (
+            <div className="flex items-center space-x-2 font-bold">
+                <div className={`bg-neon-pink px-2 py-1 rounded ${strengthClasses}`}>{displayStrength}</div>
+                <div className={`bg-neon-cyan px-2 py-1 rounded ${durabilityClasses}`}>{displayDurability - card.damage}</div>
+            </div>
+            )}
+        </div>
       </div>
       {((onActivate && !inHand) || (onChannel && inHand) || (onAmplify && inHand)) && (
-        <div className="absolute -bottom-4 left-0 right-0 flex justify-center space-x-1">
+        <div className="absolute -bottom-4 left-0 right-0 flex justify-center space-x-1 z-20">
             {onActivate && !inHand && (
                  <button
                     onClick={(e) => { e.stopPropagation(); onActivate(); }}

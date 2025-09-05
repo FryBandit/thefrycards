@@ -6,14 +6,17 @@
 
 
 
+
+
+
 import { useReducer } from 'react';
-import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
-import { buildDeck } from '../game/cards';
+import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
+import { buildDeckFromCards } from '../game/cards';
 import { getAiAction } from './ai';
 
 // Action Types
 type Action =
-  | { type: 'START_GAME' }
+  | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
@@ -31,13 +34,13 @@ const shuffle = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-const createInitialPlayer = (id: number, name: string): Player => {
-  const deck = shuffle(buildDeck());
+const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): Player => {
+  const shuffledDeck = shuffle(deck);
   return {
     id,
     name,
     command: 20,
-    deck: deck,
+    deck: shuffledDeck,
     hand: [],
     units: [],
     locations: [],
@@ -79,26 +82,23 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
     return { player: newPlayer, drawnCards, failedDraws };
 }
 
-const createInitialState = (): GameState => {
-  let player1 = createInitialPlayer(0, 'You');
-  let player2 = createInitialPlayer(1, 'CPU');
-  player1 = drawCards(player1, 3).player;
-  player2 = drawCards(player2, 3).player;
-
-  return {
-    players: [player1, player2],
+const getInitialLoadingState = (): GameState => ({
+    players: [
+      createInitialPlayer(0, 'You', []),
+      createInitialPlayer(1, 'CPU', []),
+    ],
     currentPlayerId: 0,
-    turn: 1,
+    turn: 0,
     phase: TurnPhase.START,
-    dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
+    dice: [],
     rollCount: 0,
-    maxRolls: 3,
-    log: ['SYSTEM BOOT: Game initialized.'],
+    maxRolls: 0,
+    log: ['Connecting to network...'],
     winner: null,
-    isProcessing: false,
+    isProcessing: true,
     extraTurns: 0,
-  };
-};
+});
+
 
 // Cost Checking Logic
 export const checkDiceCost = (card: { cost: DiceCost[] }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
@@ -277,6 +277,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           return;
       }
 
+      if (target.keywords?.shield && !target.shieldUsedThisTurn) {
+          target.shieldUsedThisTurn = true;
+          log(`${target.name}'s Shield prevents the damage from ${sourceCard?.name || 'Effect'}!`);
+          return; // Prevent damage
+      }
+
       let finalAmount = amount;
 
       if (target.keywords?.fragile && sourceCard?.type === CardType.EVENT) {
@@ -369,8 +375,28 @@ const gameReducer = (state: GameState, action: Action): GameState => {
   }
 
   switch (action.type) {
-    case 'START_GAME':
-      return { ...createInitialState(), isProcessing: true };
+    case 'START_GAME': {
+      const p1Deck = buildDeckFromCards(action.payload.allCards);
+      const p2Deck = buildDeckFromCards(action.payload.allCards);
+      let player1 = createInitialPlayer(0, 'You', p1Deck);
+      let player2 = createInitialPlayer(1, 'CPU', p2Deck);
+      player1 = drawCards(player1, 3).player;
+      player2 = drawCards(player2, 3).player;
+
+      return {
+        players: [player1, player2],
+        currentPlayerId: 0,
+        turn: 1,
+        phase: TurnPhase.START,
+        dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
+        rollCount: 0,
+        maxRolls: 3,
+        log: ['SYSTEM BOOT: Game initialized.'],
+        winner: null,
+        isProcessing: true,
+        extraTurns: 0,
+      };
+    }
 
     case 'ROLL_DICE':
       if (newState.rollCount >= newState.maxRolls) return state;
@@ -672,7 +698,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       switch(newState.phase) {
         case TurnPhase.START:
           currentPlayer.isCommandFortified = false;
-          currentPlayer.units.forEach(u => u.hasAssaulted = false); // Reset for Breach keyword
+          currentPlayer.units.forEach(u => {
+              u.hasAssaulted = false; // Reset for Breach keyword
+              u.shieldUsedThisTurn = false; // Reset Shield
+          });
           // Generator effects
           currentPlayer.locations.forEach(loc => {
               if (loc.id === 11) { // Data Haven
@@ -794,6 +823,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 };
 
 export const useGameState = () => {
-  const [state, dispatch] = useReducer(gameReducer, createInitialState());
+  const [state, dispatch] = useReducer(gameReducer, getInitialLoadingState());
   return { state, dispatch, aiAction: getAiAction(state) };
 };

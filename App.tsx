@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useEffect, useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
@@ -11,23 +13,34 @@ import PlayerInfoPanel from './components/PlayerInfoPanel';
 import CardViewerModal from './components/CardViewerModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
-import { CardInGame, TurnPhase, Player } from './game/types';
+import { CardInGame, TurnPhase, Player, CardDefinition } from './game/types';
+import { fetchCardDefinitions } from './game/cards';
 
 
 const App: React.FC = () => {
   const { state, dispatch, aiAction } = useGameState();
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
+  const [allCards, setAllCards] = useState<CardDefinition[] | null>(null);
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
   const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
 
   useEffect(() => {
+    const loadCards = async () => {
+      const cards = await fetchCardDefinitions();
+      setAllCards(cards);
+    };
+    loadCards();
+  }, []);
+
+  useEffect(() => {
     setAnnouncedPhase(state.phase);
   }, [state.phase]);
 
   const handleStartGame = () => {
-    dispatch({ type: 'START_GAME' });
+    if (!allCards) return;
+    dispatch({ type: 'START_GAME', payload: { allCards } });
     setView('game');
     setTargetingInfo(null);
     setViewingZone(null);
@@ -169,7 +182,7 @@ const App: React.FC = () => {
 
   // Main game loop and AI logic
   useEffect(() => {
-    if (state.winner || !state.isProcessing) return;
+    if (state.winner || !state.isProcessing || state.turn === 0) return;
 
     // Auto-advance for phases that require no user input
     if (state.phase === TurnPhase.START) {
@@ -188,12 +201,20 @@ const App: React.FC = () => {
        dispatch({ type: 'AI_ACTION' });
     }
     
-  }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, aiAction, dispatch]);
+  }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
 
   if (view === 'howToPlay') {
-    return <HowToPlay onPlay={handleStartGame} />;
+    return <HowToPlay onPlay={handleStartGame} cardsLoaded={!!allCards} />;
   }
   
+  if (!allCards || state.turn === 0) {
+    return (
+        <div className="w-screen h-screen bg-cyber-bg flex items-center justify-center text-neon-cyan text-2xl font-bold uppercase tracking-widest">
+            Loading Assets...
+        </div>
+    );
+  }
+
   const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
