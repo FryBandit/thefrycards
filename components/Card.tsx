@@ -160,6 +160,12 @@ const Card: React.FC<CardProps> = ({
                 {card.abilities?.entrenched && (
                     <div className="w-6 h-6 bg-yellow-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title="Entrenched">E</div>
                 )}
+                 {card.abilities?.immutable && (
+                    <div className="w-6 h-6 bg-purple-700 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title="Immutable">I</div>
+                )}
+                {card.abilities?.stealth && (
+                    <div className="w-6 h-6 bg-gray-800 rounded-full flex items-center justify-center text-gray-300 font-black text-xs shadow-md border-2 border-white/50" title="Stealth">S</div>
+                )}
             </div>
             {(rallyBonus > 0 || card.counters !== undefined) && (
                 <div className="absolute top-1 right-1 flex flex-col space-y-1 items-end z-10">

@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
   const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
+  const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -307,10 +308,12 @@ const App: React.FC = () => {
         onActivateCard={handleActivateCard}
         lastActivatedCardId={lastActivatedCardId}
         onExamineCard={handleExamineCard}
+        hoveredCardInHand={hoveredCardInHand}
+        setHoveredCardInHand={setHoveredCardInHand}
       />
 
       {/* HUD Elements */}
-      <div className="absolute top-4 left-4 h-1/3 z-10 pointer-events-none">
+      <div className="absolute top-4 left-4 h-1/2 z-10 pointer-events-none">
         <GameLog log={state.log} />
       </div>
 

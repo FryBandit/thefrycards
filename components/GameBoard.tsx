@@ -1,9 +1,76 @@
 
-import React from 'react';
-import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
+
+import React, { useMemo } from 'react';
+import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { isCardTargetable } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
 import Card from './Card';
+
+// Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
+const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
+    if (!cost) return [];
+
+    const availableDice = dice.filter(d => !d.isSpent);
+    const diceByValue = new Map<number, Die[]>();
+    for (const die of availableDice) {
+        if (!diceByValue.has(die.value)) {
+            diceByValue.set(die.value, []);
+        }
+        diceByValue.get(die.value)!.push(die);
+    }
+    
+    switch (cost.type) {
+        case DiceCostType.EXACTLY_X:
+            return diceByValue.get(cost.value!) || [];
+            
+        case DiceCostType.ANY_X_PLUS:
+            return availableDice.filter(d => d.value >= cost.value!);
+
+        case DiceCostType.ANY_PAIR:
+            for (const dice of diceByValue.values()) {
+                if (dice.length >= 2) return dice.slice(0, 2);
+            }
+            return [];
+
+        case DiceCostType.THREE_OF_A_KIND:
+            for (const dice of diceByValue.values()) {
+                if (dice.length >= 3) return dice.slice(0, 3);
+                if (dice.length === 2) return dice; // Keep pairs, hope to roll the third
+            }
+            return [];
+        
+        case DiceCostType.FOUR_OF_A_KIND:
+            for (const dice of diceByValue.values()) {
+                if (dice.length >= 4) return dice.slice(0, 4);
+                if (dice.length >= 3) return dice.slice(0, 3);
+                if (dice.length === 2) return dice;
+            }
+            return [];
+
+        case DiceCostType.STRAIGHT_3: {
+            const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
+            if (uniqueSorted.length < 2) return [];
+            for (let i = 0; i < uniqueSorted.length - 1; i++) {
+                if (uniqueSorted[i+1] === uniqueSorted[i] + 1) {
+                    const d1 = availableDice.find(d => d.value === uniqueSorted[i])!;
+                    const d2 = availableDice.find(d => d.value === uniqueSorted[i+1])!;
+                    return [d1, d2]; // Keep first consecutive pair
+                }
+            }
+            return [];
+        }
+
+        case DiceCostType.SUM_OF_X_PLUS:
+            return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
+        
+        case DiceCostType.ANY_X_DICE:
+             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
+
+        default:
+            return [];
+    }
+}
+
 
 // New sub-component for cards on the field
 const FieldArea: React.FC<{ 
@@ -70,9 +137,11 @@ const HandArea: React.FC<{
     onAmplifyClick: (card: CardInGame) => void;
     isCurrentPlayer: boolean;
     onExamineCard: (card: CardInGame) => void;
+    setHoveredCardInHand: (card: CardInGame | null) => void;
 }> = ({ 
     player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardScavengeable, 
-    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard
+    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard,
+    setHoveredCardInHand
 }) => {
     if (isOpponent) {
         const numCards = player.hand.length;
@@ -98,7 +167,7 @@ const HandArea: React.FC<{
                     </div>
                 }
                 {player.hand.length > 0 && (
-                    <div className="absolute bg-cyber-bg/80 text-neon-yellow font-black text-2xl rounded-full w-16 h-16 flex items-center justify-center border-2 border-neon-yellow pointer-events-none transform -translate-y-16">
+                    <div className="absolute z-20 bg-cyber-bg/80 text-neon-yellow font-black text-3xl rounded-full w-20 h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none transform -translate-y-20 shadow-lg shadow-neon-yellow/50">
                         {player.hand.length}
                     </div>
                 )}
@@ -127,6 +196,8 @@ const HandArea: React.FC<{
                             key={card.instanceId} 
                             className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-20 origin-bottom hover:!rotate-0" 
                             style={{ transform: `rotate(${rotation}deg)`}}
+                            onMouseEnter={() => card.source === 'hand' && setHoveredCardInHand(card)}
+                            onMouseLeave={() => setHoveredCardInHand(null)}
                         >
                             <Card
                                 card={card}
@@ -168,6 +239,8 @@ interface GameBoardProps {
   onActivateCard: (card: CardInGame) => void;
   lastActivatedCardId: string | null;
   onExamineCard: (card: CardInGame) => void;
+  hoveredCardInHand: CardInGame | null;
+  setHoveredCardInHand: (card: CardInGame | null) => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -175,13 +248,22 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
-    lastActivatedCardId, onExamineCard
+    lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
   const opponentPlayer = players[1 - currentPlayerId];
 
   const isPlayerTurn = currentPlayerId === 0;
+
+  const valuableDiceForHover = useMemo(() => {
+    if (!hoveredCardInHand || !isPlayerTurn) return new Set<number>();
+    const diceToConsider = gameState.dice.filter(d => !d.isSpent);
+    const costs = hoveredCardInHand.dice_cost || [];
+    const valuableDice = costs.flatMap(cost => findValuableDiceForCost(cost, diceToConsider));
+    return new Set(valuableDice.map(d => d.id));
+  }, [hoveredCardInHand, gameState.dice, isPlayerTurn]);
+
 
   const getPhaseAction = () => {
     if (!isPlayerTurn) return null;
@@ -191,7 +273,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         case TurnPhase.ROLL_SPEND: return { text: "END PHASE", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
-        case TurnPhase.END: return { text: "END TURN", action: () => onAdvancePhase(), disabled: false };
+        case TurnPhase.END: return { text: "END TURN", action: () => { if (window.confirm('Are you sure you want to end your turn?')) { onAdvancePhase() } }, disabled: false };
         default: return null;
     }
   }
@@ -230,6 +312,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onAmplifyClick={() => {}}
             isCurrentPlayer={currentPlayerId === opponentPlayer.id}
             onExamineCard={onExamineCard}
+            setHoveredCardInHand={setHoveredCardInHand}
         />
       </div>
 
@@ -251,6 +334,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     onDieClick={onDieClick}
                     onRoll={onRoll}
                     canRoll={rollCount < maxRolls}
+                    valuableDiceForHover={valuableDiceForHover}
                 />
             )}
         </div>
@@ -313,6 +397,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onAmplifyClick={onAmplifyClick}
             isCurrentPlayer={currentPlayerId === currentPlayer.id}
             onExamineCard={onExamineCard}
+            setHoveredCardInHand={setHoveredCardInHand}
         />
       </div>
     </div>

@@ -1,8 +1,4 @@
 
-
-
-
-
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -556,7 +552,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 } else {
                     log(`Resonance failed. Top card's Command Number was too low.`);
                 }
-                // FIX: Argument of type 'CardDefinition' is not assignable to parameter of type 'CardInGame'.
                 const discardedCard: CardInGame = {
                     ...topCardDef,
                     instanceId: `${topCardDef.id}-discarded-${Date.now()}-${Math.random()}`,
@@ -565,6 +560,9 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     durabilityModifier: 0,
                     hasAssaulted: false,
                     attachments: [],
+                    isScavenged: false,
+                    isToken: false,
+                    shieldUsedThisTurn: false,
                 };
                 player.graveyard.push(discardedCard); // Card goes to graveyard
             }

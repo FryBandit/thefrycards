@@ -5,9 +5,10 @@ interface DieProps {
   die: DieType;
   onClick: () => void;
   isRolling?: boolean;
+  isHighlighted?: boolean;
 }
 
-const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false }) => {
+const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false }) => {
   const [displayValue, setDisplayValue] = useState(die.value);
 
   useEffect(() => {
@@ -51,6 +52,8 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false }) => {
     ? "bg-gray-800/80 border-gray-600 text-gray-500 opacity-50"
     : die.isKept
     ? "bg-neon-cyan text-cyber-bg scale-105 border-neon-cyan shadow-neon-cyan"
+    : isHighlighted
+    ? "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan"
     : "bg-cyber-surface/80 border-cyber-border text-neon-pink hover:bg-cyber-primary hover:border-neon-pink cursor-pointer";
   
   const animationClass = isRolling ? 'animate-roll-shake' : '';

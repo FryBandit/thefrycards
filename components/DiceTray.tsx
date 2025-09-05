@@ -9,9 +9,10 @@ interface DiceTrayProps {
   onDieClick: (id: number) => void;
   onRoll: () => void;
   canRoll: boolean;
+  valuableDiceForHover: Set<number>;
 }
 
-const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll }) => {
+const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll, valuableDiceForHover }) => {
   const [isRolling, setIsRolling] = useState(false);
   const sortedDice = [...dice].sort((a, b) => a.value - b.value);
 
@@ -33,6 +34,7 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
             die={die} 
             onClick={() => onDieClick(die.id)} 
             isRolling={isRolling && !die.isKept && !die.isSpent}
+            isHighlighted={valuableDiceForHover.has(die.id)}
           />
         ))}
       </div>
