@@ -1,5 +1,5 @@
-// FIX: Use a Deno-native npm specifier to reference Supabase edge function types. This resolves issues with the linter not finding the 'Deno' global.
-/// <reference types="npm:@supabase/functions-js@2/edge-runtime" />
+// FIX: Use a URL-based type reference for Supabase edge functions to ensure the 'Deno' global is available.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'

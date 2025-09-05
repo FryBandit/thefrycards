@@ -48,10 +48,19 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
     // Process the raw data to match the CardDefinition interface used in the game
     return rawCards.map(rawCard => {
         const { title, image_url, set, command_number, ...rest } = rawCard;
+        
+        let fullImageUrl: string | undefined = undefined;
+        if (image_url) {
+            // The `image_url` column likely stores the path to the file in a Supabase Storage bucket.
+            // We need to construct the full public URL to display the image.
+            const { data: imageUrlData } = supabase.storage.from('card-art').getPublicUrl(image_url);
+            fullImageUrl = imageUrlData?.publicUrl;
+        }
+
         const card: CardDefinition = {
             ...rest,
             name: title, // Rename 'title' to 'name' for consistency with the game's code
-            imageUrl: image_url, // Rename 'image_url' to 'imageUrl'
+            imageUrl: fullImageUrl, // Use the fully constructed public URL
             card_set: set, // Rename 'set' to 'card_set'
             commandNumber: command_number, // Rename 'command_number' to 'commandNumber'
             abilities: rawCard.abilities || {},
