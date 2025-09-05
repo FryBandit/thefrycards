@@ -1,5 +1,3 @@
-
-
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { checkDiceCost } from './useGameState';
 
@@ -8,7 +6,8 @@ type AIAction =
     | { type: 'TOGGLE_DIE_KEPT', payload: { id: number, keep: boolean } }
     | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; } } }
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
-    | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
+    | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } }
+    | { type: 'AI_MULLIGAN_CHOICE' };
 
 type AIPossiblePlay = {
     action: AIAction;
@@ -289,6 +288,10 @@ const findBestDamageTarget = (card: CardInGame, damage: number, humanPlayer: Pla
 
 // Main function to decide the AI's next move
 export const getAiAction = (state: GameState): AIAction | null => {
+    if (state.phase === TurnPhase.AI_MULLIGAN) {
+        return { type: 'AI_MULLIGAN_CHOICE' };
+    }
+
     if (state.currentPlayerId !== 1 || !state.isProcessing || state.winner) {
         return null;
     }

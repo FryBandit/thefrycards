@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabaseClient';
@@ -87,7 +84,7 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    if (state.phase !== TurnPhase.MULLIGAN) {
+    if (state.phase !== TurnPhase.MULLIGAN && state.phase !== TurnPhase.AI_MULLIGAN) {
        setAnnouncedPhase(state.phase);
     }
   }, [state.phase]);
@@ -265,16 +262,16 @@ const App: React.FC = () => {
   useEffect(() => {
     if (state.winner || !state.isProcessing || state.turn === 0 || state.phase === TurnPhase.MULLIGAN) return;
 
+    let timeoutId: number | undefined;
+
     // Auto-advance for phases that require no user input
     if (state.phase === TurnPhase.START) {
-       setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
-       return;
+       timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
     }
-    
     // AI Turn Logic
-    if (state.currentPlayerId === 1 && aiAction) {
+    else if ((state.currentPlayerId === 1 || state.phase === TurnPhase.AI_MULLIGAN) && aiAction) {
        console.log("AI Action:", aiAction);
-       setTimeout(() => {
+       timeoutId = window.setTimeout(() => {
          dispatch(aiAction);
        }, 1200);
     } else if (state.isProcessing) {
@@ -282,6 +279,11 @@ const App: React.FC = () => {
        dispatch({ type: 'AI_ACTION' });
     }
     
+    return () => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    };
   }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
 
   if (loadingSession) {

@@ -1,5 +1,3 @@
-
-
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -9,6 +7,7 @@ import { getAiAction } from './ai';
 type Action =
   | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
   | { type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan: boolean } }
+  | { type: 'AI_MULLIGAN_CHOICE' }
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
@@ -643,7 +642,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (newState.phase !== TurnPhase.MULLIGAN) return state;
           const { mulligan } = action.payload;
           const player = newState.players[0];
-          const ai = newState.players[1];
 
           if (mulligan) {
               log(`You chose to mulligan.`);
@@ -658,29 +656,38 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           }
           player.hasMulliganed = true;
           
-          // AI Mulligan Logic
-          const aiHand = ai.hand;
-          const hasLowCost = aiHand.some(c => c.commandNumber <= 3);
-          const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
-          const shouldAiMulligan = !hasLowCost || !hasUnit;
-
-          if (shouldAiMulligan) {
-              log(`CPU chose to mulligan.`);
-              const handToShuffle = [...ai.hand];
-              ai.deck.push(...handToShuffle);
-              ai.deck = shuffle(ai.deck);
-              ai.hand = [];
-              const { player: p } = drawCards(ai, 3);
-              newState.players[1] = p;
-          } else {
-              log(`CPU kept its starting hand.`);
-          }
-          ai.hasMulliganed = true;
-
-          newState.phase = TurnPhase.START;
-          newState.isProcessing = true; // Start the game loop
+          newState.phase = TurnPhase.AI_MULLIGAN;
+          newState.isProcessing = true; // Start the game loop for the AI
           return newState;
       }
+
+      case 'AI_MULLIGAN_CHOICE': {
+        if (newState.phase !== TurnPhase.AI_MULLIGAN) return state;
+        const ai = newState.players[1];
+        
+        // AI Mulligan Logic
+        const aiHand = ai.hand;
+        const hasLowCost = aiHand.some(c => c.commandNumber <= 3);
+        const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
+        const shouldAiMulligan = !hasLowCost || !hasUnit;
+
+        if (shouldAiMulligan) {
+            log(`CPU chose to mulligan.`);
+            const handToShuffle = [...ai.hand];
+            ai.deck.push(...handToShuffle);
+            ai.deck = shuffle(ai.deck);
+            ai.hand = [];
+            const { player: p } = drawCards(ai, 3);
+            newState.players[1] = p;
+        } else {
+            log(`CPU kept its starting hand.`);
+        }
+        ai.hasMulliganed = true;
+
+        newState.phase = TurnPhase.START;
+        newState.isProcessing = true; // Continue game loop
+        return newState;
+    }
 
       case 'ROLL_DICE':
         if (newState.rollCount >= newState.maxRolls) return state;
