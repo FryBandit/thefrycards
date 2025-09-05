@@ -41,7 +41,6 @@ const Card: React.FC<CardProps> = ({
   const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
 
   const interactiveClasses = onClick ? "cursor-pointer" : "";
-  const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : "border-cyber-border";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
 
@@ -93,11 +92,14 @@ const Card: React.FC<CardProps> = ({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={`relative w-full h-full rounded-lg ${interactiveClasses} ${playableClasses}`}>
+        <div 
+            className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform ${interactiveClasses} ${isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : typeColor} ${originClasses} ${tokenClasses}`}
+            onClick={onClick}
+        >
             {card.imageUrl ? (
-                <img src={card.imageUrl} alt={card.name} className={`w-full h-full object-cover rounded-lg border-2 ${typeColor} ${originClasses} ${tokenClasses}`} />
+                <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded-lg" />
             ) : (
-                <div className={`w-full h-full bg-cyber-surface/80 backdrop-blur-sm rounded-lg border-2 flex flex-col justify-between shadow-lg text-white transform ${typeColor} ${originClasses} ${tokenClasses} ${playableClasses}`}>
+                <div className="w-full h-full backdrop-blur-sm flex flex-col justify-between">
                     <OldCardFace />
                 </div>
             )}

@@ -1,5 +1,5 @@
-// FIX: Updated the Deno types reference to a valid URL to resolve "Cannot find name 'Deno'" errors in non-Deno-aware TypeScript environments.
-/// <reference types="https://raw.githubusercontent.com/denoland/deno/v1.44.4/cli/dts/lib.deno.d.ts" />
+// FIX: Replaced the Deno types reference with a more reliable CDN link to resolve "Cannot find name 'Deno'" errors.
+/// <reference types="https://esm.sh/@types/deno" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'
