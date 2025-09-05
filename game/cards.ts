@@ -30,6 +30,11 @@ const parseDiceCost = (diceCostString: string | undefined): DiceCost[] => {
     const costs: DiceCost[] = [];
     const parts = diceCostString.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     for (const part of parts) {
+        const anyXDiceMatch = part.match(/^any (\d+)/);
+        if (anyXDiceMatch) {
+            costs.push({ type: DiceCostType.ANY_X_DICE, count: parseInt(anyXDiceMatch[1], 10) });
+            continue;
+        }
         const sumMatch = part.match(/^sum\((\d+),\s*(\d+)\)$/);
         if (sumMatch) {
             costs.push({ type: DiceCostType.SUM_OF_X_DICE, value: parseInt(sumMatch[1], 10), count: parseInt(sumMatch[2], 10) });

@@ -65,6 +65,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onL
 
           <Section title="Turn Structure">
             <ol className="list-decimal list-inside space-y-2 font-semibold">
+              <li><strong>Mulligan:</strong> At the start of the game, you may redraw your initial 3-card hand once.</li>
               <li><strong>Start Phase:</strong> "Start of turn" effects trigger.</li>
               <li><strong>Roll & Spend Phase:</strong> Roll your five Command Dice up to three times. Spend dice to deploy cards.</li>
               <li><strong>Draw Phase:</strong> Draw one card from your deck.</li>
@@ -89,6 +90,13 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onL
               <div><strong className="text-event">Events:</strong> One-time programs and tactics. Played for an immediate effect, then sent to the archive (graveyard).</div>
               <div><strong className="text-location">Locations:</strong> Fortified subnets and data havens that provide continuous advantages.</div>
               <div><strong className="text-artifact">Artifacts:</strong> Hardware and wetware that provide ongoing benefits, sometimes with activated abilities.</div>
+            </div>
+          </Section>
+
+          <Section title="Game Zones">
+            <div className="space-y-2">
+                <p><strong>Graveyard (Archive):</strong> When your non-token cards are destroyed, played as an Event, or discarded, they go here. Cards in the Graveyard can be brought back with abilities like <strong>Scavenge</strong>.</p>
+                <p><strong>Void (The Static):</strong> The "removed from game" zone. Cards sent here cannot be retrieved. The following are sent to the Void: <strong>Tokens</strong> when they leave the field, cards played via <strong>Scavenge</strong> when they leave the field, and any card affected by an ability that specifically says to "Void" it (like <strong>Annihilate</strong>).</p>
             </div>
           </Section>
 

@@ -1,5 +1,6 @@
 
 
+
 import React, { useEffect, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabaseClient';
@@ -86,7 +87,9 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
-    setAnnouncedPhase(state.phase);
+    if (state.phase !== TurnPhase.MULLIGAN) {
+       setAnnouncedPhase(state.phase);
+    }
   }, [state.phase]);
 
   const handleStartGame = () => {
@@ -97,6 +100,10 @@ const App: React.FC = () => {
     setViewingZone(null);
     setExaminingCard(null);
   };
+
+  const handleMulliganChoice = (mulligan: boolean) => {
+    dispatch({ type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan } });
+  }
 
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'discord' });
@@ -256,7 +263,7 @@ const App: React.FC = () => {
 
   // Main game loop and AI logic
   useEffect(() => {
-    if (state.winner || !state.isProcessing || state.turn === 0) return;
+    if (state.winner || !state.isProcessing || state.turn === 0 || state.phase === TurnPhase.MULLIGAN) return;
 
     // Auto-advance for phases that require no user input
     if (state.phase === TurnPhase.START) {
@@ -329,6 +336,7 @@ const App: React.FC = () => {
         onExamineCard={handleExamineCard}
         hoveredCardInHand={hoveredCardInHand}
         setHoveredCardInHand={setHoveredCardInHand}
+        onMulligan={handleMulliganChoice}
       />
 
       {/* HUD Elements */}

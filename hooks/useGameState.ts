@@ -8,6 +8,7 @@ import { getAiAction } from './ai';
 // Action Types
 type Action =
   | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
+  | { type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan: boolean } }
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
@@ -43,6 +44,8 @@ const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): 
     shieldUsedThisTurn: false,
     isCommandFortified: false,
     skipNextDrawPhase: false,
+    fatigueCounter: 0,
+    hasMulliganed: false,
   };
 };
 
@@ -69,6 +72,7 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
             drawnCards.push(newCard);
         } else {
             failedDraws++;
+            newPlayer.fatigueCounter++;
         }
     }
     newPlayer.hand = [...newPlayer.hand, ...drawnCards];
@@ -448,11 +452,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 log(`${unit.name}'s Martyrdom triggers!`);
                                 switch(effect.type) {
                                     case 'DRAW_CARD': {
-                                        const { player: p, drawnCards, failedDraws } = drawCards(newState.players[player.id], effect.value);
+                                        const { player: p, failedDraws } = drawCards(newState.players[player.id], effect.value);
                                         newState.players[player.id] = p;
-                                        if (drawnCards.length > 0) log(`${p.name} draws ${drawnCards.length} card(s).`);
                                         if (failedDraws > 0) {
-                                            damagePlayer(newState.players[player.id], failedDraws, 'Fatigue', 'damage');
+                                            damagePlayer(p, p.fatigueCounter, 'Fatigue', 'damage');
                                         }
                                         break;
                                     }
@@ -558,11 +561,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             log(`Foresight reveals ${player.name}'s top card: ${player.deck[player.deck.length - 1].name}`);
         }
         if(card.abilities?.draw) {
-            const { player: p, drawnCards, failedDraws } = drawCards(player, card.abilities.draw);
+            const { player: p, failedDraws } = drawCards(player, card.abilities.draw);
             player = p;
-            if (drawnCards.length > 0) log(`${player.name} draws ${drawnCards.length} card(s).`);
             if (failedDraws > 0) {
-                damagePlayer(player, failedDraws, 'Fatigue', 'damage');
+                damagePlayer(player, player.fatigueCounter, 'Fatigue', 'damage');
             }
         }
         if (card.abilities?.barrage) {
@@ -626,15 +628,58 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           players: [player1, player2],
           currentPlayerId: 0,
           turn: 1,
-          phase: TurnPhase.START,
+          phase: TurnPhase.MULLIGAN,
           dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
           rollCount: 0,
           maxRolls: 3,
           log: ['SYSTEM BOOT: Game initialized.'],
           winner: null,
-          isProcessing: true,
+          isProcessing: false,
           extraTurns: 0,
         };
+      }
+      
+      case 'PLAYER_MULLIGAN_CHOICE': {
+          if (newState.phase !== TurnPhase.MULLIGAN) return state;
+          const { mulligan } = action.payload;
+          const player = newState.players[0];
+          const ai = newState.players[1];
+
+          if (mulligan) {
+              log(`You chose to mulligan.`);
+              const handToShuffle = [...player.hand];
+              player.deck.push(...handToShuffle);
+              player.deck = shuffle(player.deck);
+              player.hand = [];
+              const { player: p } = drawCards(player, 3);
+              newState.players[0] = p;
+          } else {
+              log(`You kept your starting hand.`);
+          }
+          player.hasMulliganed = true;
+          
+          // AI Mulligan Logic
+          const aiHand = ai.hand;
+          const hasLowCost = aiHand.some(c => c.commandNumber <= 3);
+          const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
+          const shouldAiMulligan = !hasLowCost || !hasUnit;
+
+          if (shouldAiMulligan) {
+              log(`CPU chose to mulligan.`);
+              const handToShuffle = [...ai.hand];
+              ai.deck.push(...handToShuffle);
+              ai.deck = shuffle(ai.deck);
+              ai.hand = [];
+              const { player: p } = drawCards(ai, 3);
+              newState.players[1] = p;
+          } else {
+              log(`CPU kept its starting hand.`);
+          }
+          ai.hasMulliganed = true;
+
+          newState.phase = TurnPhase.START;
+          newState.isProcessing = true; // Start the game loop
+          return newState;
       }
 
       case 'ROLL_DICE':
@@ -672,28 +717,32 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             newState.dice.find(d => d.id === dts.id)!.isSpent = true;
         });
         
+        const diceCostString = costCheck.diceToSpend.map(d => d.value).sort().join(', ');
+        
         // Remove card from its source location
         if(options?.isScavenged) {
           currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToPlay.instanceId);
           cardToPlay.isScavenged = true;
-          log(`${currentPlayer.name} Scavenged ${cardToPlay.name} from the graveyard.`);
+          log(`${currentPlayer.name} Scavenged ${cardToPlay.name} (cost: ${diceCostString}).`);
         } else {
           currentPlayer.hand = currentPlayer.hand.filter(c => c.instanceId !== cardToPlay.instanceId);
-          log(`${currentPlayer.name} played ${cardToPlay.name}.`);
+           if (options?.isChanneled) {
+                log(`${currentPlayer.name} Channeled ${cardToPlay.name} (cost: ${diceCostString}).`);
+           } else {
+                log(`${currentPlayer.name} played ${cardToPlay.name} (cost: ${diceCostString}).`);
+           }
         }
 
 
         // Handle Channel effect
         if(options?.isChanneled) {
-          log(`...using its Channel ability.`);
           const effect = cardToPlay.abilities.channel.effect;
           switch(effect.type) {
             case 'DRAW': {
-              const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, effect.value);
+              const { player: p, failedDraws } = drawCards(currentPlayer, effect.value);
               currentPlayer = p;
-              if (drawnCards.length > 0) log(`${currentPlayer.name} draws ${drawnCards.length} card(s).`);
               if (failedDraws > 0) {
-                  damagePlayer(currentPlayer, failedDraws, 'Fatigue', 'damage');
+                  damagePlayer(currentPlayer, currentPlayer.fatigueCounter, 'Fatigue', 'damage');
               }
               break;
             }
@@ -928,7 +977,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     if(effect.type === 'DRAW_CARD') {
                         const { player: p, failedDraws } = drawCards(currentPlayer, effect.value);
                         currentPlayer = p;
-                        if (failedDraws > 0) damagePlayer(currentPlayer, failedDraws, 'Fatigue', 'damage');
+                        if (failedDraws > 0) damagePlayer(currentPlayer, currentPlayer.fatigueCounter, 'Fatigue', 'damage');
                     }
                 }
             });
@@ -951,14 +1000,13 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               log(`${currentPlayer.name} skips their Draw Phase due to Stagnate.`);
               currentPlayer.skipNextDrawPhase = false;
             } else {
-              const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, 1);
+              const { player: p, failedDraws } = drawCards(currentPlayer, 1);
               newState.players[newState.currentPlayerId] = p;
-              if (drawnCards.length > 0) {
-                   log(`${p.name} drew a card.`);
-              }
               if (failedDraws > 0) {
-                  damagePlayer(newState.players[newState.currentPlayerId], failedDraws, 'Fatigue', 'damage');
-                  log(`${p.name} has no cards left and takes ${failedDraws} Fatigue damage!`);
+                  damagePlayer(p, p.fatigueCounter, 'Fatigue', 'damage');
+                  log(`${p.name} has no cards left and takes ${p.fatigueCounter} Fatigue damage!`);
+              } else {
+                   log(`${p.name} drew a card.`);
               }
             }
             newState.phase = TurnPhase.ASSAULT;

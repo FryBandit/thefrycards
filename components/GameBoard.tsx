@@ -20,11 +20,9 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
     }
     
     switch (cost.type) {
-        // FIX: Corrected enum member from EXACTLY_X to EXACT_VALUE.
         case DiceCostType.EXACT_VALUE:
             return diceByValue.get(cost.value!) || [];
             
-        // FIX: Corrected enum member from ANY_X_PLUS to MIN_VALUE.
         case DiceCostType.MIN_VALUE:
             return availableDice.filter(d => d.value >= cost.value!);
 
@@ -49,7 +47,6 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             }
             return [];
 
-        // FIX: Corrected enum member from STRAIGHT_3 to STRAIGHT.
         case DiceCostType.STRAIGHT: {
             const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
             if (uniqueSorted.length < 2) return [];
@@ -63,7 +60,6 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
         }
 
-        // FIX: Corrected enum member from SUM_OF_X_PLUS to SUM_OF_X_DICE.
         case DiceCostType.SUM_OF_X_DICE:
             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
         
@@ -245,6 +241,7 @@ interface GameBoardProps {
   onExamineCard: (card: CardInGame) => void;
   hoveredCardInHand: CardInGame | null;
   setHoveredCardInHand: (card: CardInGame | null) => void;
+  onMulligan: (mulligan: boolean) => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -252,7 +249,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
-    lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand
+    lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
+    onMulligan
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -273,8 +271,17 @@ const GameBoard: React.FC<GameBoardProps> = ({
     if (!isPlayerTurn) return null;
     if (targetingCard) return { text: "CANCEL", action: () => onCardClick(targetingCard), disabled: false };
     switch(phase) {
+        case TurnPhase.MULLIGAN: return null;
         case TurnPhase.START: return null;
-        case TurnPhase.ROLL_SPEND: return { text: "END PHASE", action: () => onAdvancePhase(), disabled: false };
+        case TurnPhase.ROLL_SPEND: {
+            const hasUnspentDice = dice.some(d => !d.isSpent);
+            const action = () => {
+                if (!hasUnspentDice || window.confirm('You have unspent dice. Are you sure you want to end the phase?')) {
+                    onAdvancePhase();
+                }
+            };
+            return { text: "END PHASE", action, disabled: false };
+        }
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
         case TurnPhase.END: return { text: "END TURN", action: () => { if (window.confirm('Are you sure you want to end your turn?')) { onAdvancePhase() } }, disabled: false };
@@ -287,6 +294,39 @@ const GameBoard: React.FC<GameBoardProps> = ({
     <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
       
       {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
+
+      {/* Mulligan UI */}
+      {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
+        <div className="absolute inset-0 bg-cyber-bg/80 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
+          <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-8">Choose Your Starting Hand</h2>
+          <div className="flex justify-center items-end -space-x-16 mb-8 h-64">
+            {players[0].hand.map((card, i) => {
+              const numCards = players[0].hand.length;
+              const rotation = (i - (numCards - 1) / 2) * 5;
+              return (
+                <div key={card.instanceId} style={{ transform: `rotate(${rotation}deg)` }}>
+                  <Card card={card} inHand={true} onExamine={onExamineCard} />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => onMulligan(false)}
+              className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
+            >
+              Keep Hand
+            </button>
+            <button
+              onClick={() => onMulligan(true)}
+              className="bg-cyber-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-primary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
+            >
+              Mulligan
+            </button>
+          </div>
+          <p className="mt-4 text-neon-yellow/70">You can redraw your starting hand once.</p>
+        </div>
+      )}
 
       {/* Opponent's Side (reversed column) */}
       <div className="flex-1 flex flex-col-reverse">

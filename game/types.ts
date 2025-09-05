@@ -74,9 +74,12 @@ export interface Player {
   shieldUsedThisTurn: boolean;
   isCommandFortified: boolean;
   skipNextDrawPhase: boolean;
+  fatigueCounter: number;
+  hasMulliganed: boolean;
 }
 
 export enum TurnPhase {
+  MULLIGAN = 'Mulligan',
   START = 'Start',
   ROLL_SPEND = 'Roll & Spend',
   DRAW = 'Draw',

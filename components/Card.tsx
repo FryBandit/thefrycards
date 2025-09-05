@@ -42,7 +42,7 @@ const Card: React.FC<CardProps> = ({
   const originClasses = origin === 'graveyard' ? 'opacity-80 border-dashed border-gray-500' : '';
   const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
 
-  const interactiveClasses = onClick ? "cursor-pointer" : "";
+  const interactiveClasses = (onClick || onExamine) ? "cursor-pointer" : "";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
   
@@ -124,7 +124,7 @@ const Card: React.FC<CardProps> = ({
       >
         <div 
             className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses}`}
-            onClick={onClick}
+            onClick={onClick ? onClick : () => onExamine(card)}
         >
             {card.imageUrl ? (
                 <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded-lg" />

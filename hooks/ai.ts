@@ -43,7 +43,7 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
 }
 
 
-const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): number => {
+const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, turn: number): number => {
     let score = 0;
 
     // Threat assessment of opponent's board
@@ -74,13 +74,17 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
             if (unit.abilities?.immutable || (unit.abilities?.breach && !unit.hasAssaulted)) return acc;
             return acc + (card.abilities?.barrage || 0);
         }, 0);
-        score += potentialDamage * 1.5;
+        if (opponentUnits.length < 2) {
+             score += potentialDamage * 0.5; // Less value on small boards
+        } else {
+             score += potentialDamage * 2;
+        }
     }
 
 
     // --- DISRUPTION ---
     if (card.abilities?.stagnate) {
-        score += 15; // Increased priority
+        score += 20; // Increased priority
     }
     if (card.abilities?.discard) {
         score += card.abilities.discard * Math.min(humanPlayer.hand.length, 3); // More valuable if opponent has cards, capped to prevent over-valuing
@@ -94,7 +98,13 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
 
 
     // --- IMMEDIATE ADVANTAGE ---
-    if (card.abilities?.annihilate) score += opponentUnits.length * 8; // Huge value
+    if (card.abilities?.annihilate) {
+        if (humanPlayer.units.length < 3) {
+            score = 1; // De-prioritize heavily on a small board
+        } else {
+            score += humanPlayer.units.length * 10; // Huge value
+        }
+    }
     if (card.abilities?.riftwalk) score += 8; // Good, but delayed
     if (card.abilities?.warp) score += 25; // Extra turn is huge
     if (card.abilities?.echo) score += 15; // Very high priority
@@ -102,7 +112,11 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
         score += (5 - Math.min(aiPlayer.hand.length, 4)) * card.abilities.draw * 2; // More valuable with fewer cards in hand
     }
     if (card.id === 15) { // System-Killer KAIJU
-        score += opponentUnits.length * 5; // Board wipe value
+        if (opponentUnits.length > 1) {
+            score += opponentUnits.length * 6; // Board wipe value
+        } else {
+            score = 1;
+        }
     }
 
     // --- DEFENSIVE / UTILITY ---
@@ -125,10 +139,13 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
     if (card.abilities?.siphon) score += card.abilities.siphon * 2;
     if (card.abilities?.synergy) {
         const faction = card.abilities.synergy.faction;
-        const synergyCount = [...aiPlayer.units, ...aiPlayer.locations, ...aiPlayer.artifacts]
+        const synergyCountInPlay = [...aiPlayer.units, ...aiPlayer.locations, ...aiPlayer.artifacts]
             .filter(c => c.faction === faction)
             .length;
-        score += synergyCount * 3;
+        score += synergyCountInPlay * 3;
+        
+        const synergyCountInHand = aiPlayer.hand.filter(c => c.instanceId !== card.instanceId && c.faction === faction).length;
+        score += synergyCountInHand * 1.5; // encourage keeping synergy pieces together
     }
 
 
@@ -138,6 +155,11 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): 
         if (aiPlayer.units.length < 2) score += 5; // Encourage building a board early
     }
     if (card.type === CardType.EVENT) score += 2;
+    if (card.type === CardType.LOCATION || card.type === CardType.ARTIFACT) {
+        if (turn < 4) {
+            score += 8; // Prioritize setting up early
+        }
+    }
 
     // Base value
     score += card.commandNumber;
@@ -166,11 +188,9 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
     }
     
     switch (cost.type) {
-        // FIX: Corrected enum member from EXACTLY_X to EXACT_VALUE.
         case DiceCostType.EXACT_VALUE:
             return diceByValue.get(cost.value!) || [];
             
-        // FIX: Corrected enum member from ANY_X_PLUS to MIN_VALUE.
         case DiceCostType.MIN_VALUE:
             return availableDice.filter(d => d.value >= cost.value!);
 
@@ -195,7 +215,6 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             }
             return [];
 
-        // FIX: Corrected enum member from STRAIGHT_3 to STRAIGHT.
         case DiceCostType.STRAIGHT: {
             const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
             if (uniqueSorted.length < 2) return [];
@@ -209,7 +228,6 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
         }
 
-        // FIX: Corrected enum member from SUM_OF_X_PLUS to SUM_OF_X_DICE.
         case DiceCostType.SUM_OF_X_DICE:
             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
         
@@ -222,11 +240,11 @@ const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
 }
 
 // Determines which dice are the most valuable to keep by looking at the top potential plays
-const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Player, humanPlayer: Player): Die[] => {
+const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Player, humanPlayer: Player, turn: number): Die[] => {
     if (hand.length === 0) return [];
     
     const sortedHand = [...hand]
-        .sort((a, b) => getCardScore(b, aiPlayer, humanPlayer) - getCardScore(a, aiPlayer, humanPlayer));
+        .sort((a, b) => getCardScore(b, aiPlayer, humanPlayer, turn) - getCardScore(a, aiPlayer, humanPlayer, turn));
     
     // Consider top 2 potential plays
     const topCards = sortedHand.slice(0, 2);
@@ -275,7 +293,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return null;
     }
     
-    const { phase, dice, rollCount, players } = state;
+    const { phase, dice, rollCount, players, turn } = state;
     const aiPlayer = players[1];
     const humanPlayer = players[0];
     const availableDice = dice.filter(d => !d.isSpent);
@@ -313,7 +331,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const scavengeableCards = aiPlayer.graveyard.filter(c => c.abilities?.scavenge);
         for (const card of scavengeableCards) {
              if (checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost }, availableDice).canPay) {
-                let score = getCardScore(card, aiPlayer, humanPlayer) - 5; // A bit less valuable since it's a one-shot
+                let score = getCardScore(card, aiPlayer, humanPlayer, turn) - 5; // A bit less valuable since it's a one-shot
                 possiblePlays.push({
                     action: { type: 'PLAY_CARD', payload: { card, options: { isScavenged: true } } },
                     score,
@@ -326,7 +344,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         for (const card of aiPlayer.hand) {
             // A. Standard Play
             if (checkDiceCost(card, availableDice).canPay) {
-                let score = getCardScore(card, aiPlayer, humanPlayer);
+                let score = getCardScore(card, aiPlayer, humanPlayer, turn);
                 let action: AIAction | null = { type: 'PLAY_CARD', payload: { card } };
 
                 if (card.abilities?.requiresTarget || card.abilities?.augment) {
@@ -351,7 +369,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
             // B. Amplify Play
             if (card.abilities?.amplify && checkDiceCost({ ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) }, availableDice).canPay) {
-                let score = getCardScore(card, aiPlayer, humanPlayer) + 10; // Bonus for powerful effect
+                let score = getCardScore(card, aiPlayer, humanPlayer, turn) + 10; // Bonus for powerful effect
                 let action: AIAction | null = { type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } };
                 const effect = card.abilities.amplify.effect;
 
@@ -386,12 +404,14 @@ export const getAiAction = (state: GameState): AIAction | null => {
         if (possiblePlays.length > 0) {
             const bestPlay = possiblePlays.sort((a, b) => b.score - a.score)[0];
             // console.log("AI Best Play:", bestPlay.description, "Score:", bestPlay.score);
-            return bestPlay.action;
+            if (bestPlay.score > 1) { // Threshold to prevent making terrible plays
+               return bestPlay.action;
+            }
         }
 
         // 5. If no card is playable, decide whether to roll or keep
         if (rollCount < 3) {
-            const bestDiceToKeep = determineBestDiceToKeep(aiPlayer.hand, availableDice, aiPlayer, humanPlayer);
+            const bestDiceToKeep = determineBestDiceToKeep(aiPlayer.hand, availableDice, aiPlayer, humanPlayer, turn);
             const unkeptGoodDie = bestDiceToKeep.find(d => !d.isKept);
 
             if (unkeptGoodDie) {
