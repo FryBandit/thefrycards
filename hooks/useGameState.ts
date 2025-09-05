@@ -8,7 +8,6 @@ import { getAiAction } from './ai';
 type Action =
   | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
   | { type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan: boolean } }
-  | { type: 'AI_MULLIGAN_CHOICE' }
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
@@ -52,17 +51,22 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
 
     for(let i=0; i<count; i++) {
         if (newPlayer.deck.length > 0) {
-            const cardDef = newPlayer.deck.pop()!;
-            const newCard: CardInGame = {
-              ...cardDef,
-              instanceId: `${cardDef.id}-${Date.now()}-${Math.random()}`,
-              damage: 0,
-              strengthModifier: 0,
-              durabilityModifier: 0,
-              hasAssaulted: false,
-              attachments: [],
-            };
-            drawnCards.push(newCard);
+            const cardDef = newPlayer.deck.pop();
+            if (cardDef) {
+                const newCard: CardInGame = {
+                  ...cardDef,
+                  instanceId: `${cardDef.id}-${Date.now()}-${Math.random()}`,
+                  damage: 0,
+                  strengthModifier: 0,
+                  durabilityModifier: 0,
+                  hasAssaulted: false,
+                  attachments: [],
+                };
+                drawnCards.push(newCard);
+            } else {
+                failedDraws++;
+                newPlayer.fatigueCounter++;
+            }
         } else {
             failedDraws++;
             newPlayer.fatigueCounter++;
@@ -298,13 +302,14 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
         return !isOpponentTarget && targetCard.type === CardType.UNIT && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
     }
     
-    // Handle standard targeting (targets opponent units)
-    if (isOpponentTarget && targetCard.type === CardType.UNIT) {
-        // Check for protections
+    // Handle standard targeting (usually targets opponent units)
+    if (isOpponentTarget) {
         if (targetCard.abilities?.immutable) return false;
-        if (targetCard.abilities?.stealth) return false;
-        if (targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
-        
+        if (targetCard.type === CardType.UNIT) {
+            if (targetCard.abilities?.stealth) return false;
+            // Breach only protects from events
+            if (targetingCard.type === CardType.EVENT && targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
+        }
         return true;
     }
     
@@ -537,7 +542,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             opponent.skipNextDrawPhase = true;
             log(`${opponent.name} will skip their next Draw Phase due to Stagnate!`);
         }
-        if(card.abilities?.fateweave && newState.rollCount < newState.maxRolls) {
+         if(card.abilities?.fateweave && newState.rollCount < newState.maxRolls) {
             newState.maxRolls += card.abilities.fateweave;
             log(`${player.name} gains an extra roll from Fateweave!`);
         }
@@ -635,45 +640,38 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               player.deck.push(...handToShuffle);
               player.deck = shuffle(player.deck);
               player.hand = [];
-              const { player: p } = drawCards(player, 3);
-              newState.players[0] = p;
+              const { player: p1 } = drawCards(player, 3);
+              newState.players[0] = p1;
           } else {
               log(`You kept your starting hand.`);
           }
           player.hasMulliganed = true;
           
-          newState.phase = TurnPhase.AI_MULLIGAN;
-          newState.isProcessing = true; // Start the game loop for the AI
+          // AI Mulligan Logic is now combined here to prevent state machine issues
+          log(`CPU is deciding on its hand...`);
+          const ai = newState.players[1];
+          const aiHand = ai.hand;
+          const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
+          const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
+          const shouldAiMulligan = !hasLowCost || !hasUnit;
+
+          if (shouldAiMulligan) {
+              log(`CPU chose to mulligan.`);
+              const handToShuffle = [...ai.hand];
+              ai.deck.push(...handToShuffle);
+              ai.deck = shuffle(ai.deck);
+              ai.hand = [];
+              const { player: p2 } = drawCards(ai, 3);
+              newState.players[1] = p2;
+          } else {
+              log(`CPU kept its starting hand.`);
+          }
+          ai.hasMulliganed = true;
+
+          newState.phase = TurnPhase.START;
+          newState.isProcessing = true; // Start the game loop for the first turn
           return newState;
       }
-
-      case 'AI_MULLIGAN_CHOICE': {
-        if (newState.phase !== TurnPhase.AI_MULLIGAN) return state;
-        const ai = newState.players[1];
-        
-        // AI Mulligan Logic
-        const aiHand = ai.hand;
-        const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
-        const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
-        const shouldAiMulligan = !hasLowCost || !hasUnit;
-
-        if (shouldAiMulligan) {
-            log(`CPU chose to mulligan.`);
-            const handToShuffle = [...ai.hand];
-            ai.deck.push(...handToShuffle);
-            ai.deck = shuffle(ai.deck);
-            ai.hand = [];
-            const { player: p } = drawCards(ai, 3);
-            newState.players[1] = p;
-        } else {
-            log(`CPU kept its starting hand.`);
-        }
-        ai.hasMulliganed = true;
-
-        newState.phase = TurnPhase.START;
-        newState.isProcessing = true; // Continue game loop
-        return newState;
-    }
 
       case 'ROLL_DICE':
         if (newState.rollCount >= newState.maxRolls) return state;

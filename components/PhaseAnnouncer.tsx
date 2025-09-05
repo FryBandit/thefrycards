@@ -14,7 +14,7 @@ const PhaseAnnouncer: React.FC<PhaseAnnouncerProps> = ({ phase }) => {
       setVisible(true);
       const timer = setTimeout(() => {
         setVisible(false);
-      }, 1500); // Display for 1.5 seconds
+      }, 2000); // Display for 2 seconds
       return () => clearTimeout(timer);
     }
   }, [phase]);

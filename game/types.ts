@@ -78,7 +78,6 @@ export interface Player {
 
 export enum TurnPhase {
   MULLIGAN = 'Mulligan',
-  AI_MULLIGAN = 'AI Mulligan',
   START = 'Start',
   ROLL_SPEND = 'Roll & Spend',
   DRAW = 'Draw',

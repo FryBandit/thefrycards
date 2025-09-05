@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from './lib/supabaseClient';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
 import Modal from './components/Modal';
@@ -20,12 +18,10 @@ const App: React.FC = () => {
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
   const [allCards, setAllCards] = useState<CardDefinition[] | null>(null);
   const [loadingError, setLoadingError] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loadingSession, setLoadingSession] = useState(true);
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
-  const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
+  const [announcedPhase, setAnnouncedPhase] = useState<string | null>(null);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
@@ -70,26 +66,12 @@ const App: React.FC = () => {
     loadCards();
   }, []);
 
-  useEffect(() => {
-    setLoadingSession(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setLoadingSession(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
 
   useEffect(() => {
-    if (state.phase !== TurnPhase.MULLIGAN && state.phase !== TurnPhase.AI_MULLIGAN) {
+    if (state.phase !== announcedPhase) {
        setAnnouncedPhase(state.phase);
     }
-  }, [state.phase]);
+  }, [state.phase, announcedPhase]);
 
   const handleStartGame = () => {
     if (!allCards) return;
@@ -103,16 +85,6 @@ const App: React.FC = () => {
   const handleMulliganChoice = (mulligan: boolean) => {
     dispatch({ type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan } });
   }
-
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'discord' });
-    if (error) console.error("Error logging in with Discord:", error);
-  };
-
-  const handleLogout = async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) console.error("Error logging out:", error);
-  };
 
   const handleDieClick = (id: number) => {
     if (state.currentPlayerId === 0 && state.phase === TurnPhase.ROLL_SPEND) {
@@ -182,7 +154,7 @@ const App: React.FC = () => {
 
     if (card.abilities?.requiresTarget || card.abilities?.augment) {
         const hasAnyTarget = state.players.some(targetPlayer => 
-            targetPlayer.units.some(targetUnit => 
+            [...targetPlayer.units, ...targetPlayer.locations, ...targetPlayer.artifacts].some(targetUnit => 
                 isCardTargetable(card, targetUnit, state.players[0], targetPlayer)
             )
         );
@@ -194,6 +166,9 @@ const App: React.FC = () => {
   
   const isCardActivatable = (card: CardInGame): boolean => {
     if (!card.abilities?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+        return false;
+    }
+    if (card.abilities.consume && (card.counters ?? 0) <= 0) {
         return false;
     }
     return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, state.dice).canPay;
@@ -242,7 +217,7 @@ const App: React.FC = () => {
 
   const handleAmplifyClick = (card: CardInGame) => {
     if (!isCardAmplifiable(card)) return;
-    if (card.abilities?.requiresTarget) {
+    if (card.abilities?.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE') {
       setTargetingInfo({ card, isAmplify: true });
     } else {
       dispatch({ type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } });
@@ -286,7 +261,7 @@ const App: React.FC = () => {
        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
     }
     // AI Turn Logic
-    else if ((state.currentPlayerId === 1 || state.phase === TurnPhase.AI_MULLIGAN) && aiAction) {
+    else if (state.currentPlayerId === 1 && aiAction) {
        console.log("AI Action:", aiAction);
        timeoutId = window.setTimeout(() => {
          dispatch(aiAction);
@@ -303,22 +278,11 @@ const App: React.FC = () => {
     };
   }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
 
-  if (loadingSession) {
-    return (
-        <div className="w-screen h-screen bg-cyber-bg flex items-center justify-center text-neon-cyan text-2xl font-bold uppercase tracking-widest">
-            Connecting to Grid...
-        </div>
-    );
-  }
-
   if (view === 'howToPlay') {
     return <HowToPlay 
         onPlay={handleStartGame} 
         cardsLoaded={!!allCards && allCards.length > 0}
         loadingError={loadingError}
-        session={session}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
      />;
   }
   

@@ -1,16 +1,12 @@
 import React from 'react';
-import type { Session } from '@supabase/supabase-js';
 
 interface HowToPlayProps {
   onPlay: () => void;
   cardsLoaded: boolean;
-  onLogin: () => void;
-  onLogout: () => void;
   loadingError: string | null;
-  session: Session | null;
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onLogout, loadingError, session }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError }) => {
   return (
     <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
@@ -27,35 +23,10 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onL
                     disabled={!cardsLoaded || !!loadingError}
                     className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600 disabled:cursor-not-allowed"
                 >
-                    {loadingError ? 'Error Loading' : (cardsLoaded ? (session ? 'New Game' : 'Play as Guest') : 'Loading...')}
+                    {loadingError ? 'Error Loading' : (cardsLoaded ? 'Play Game' : 'Loading...')}
                 </button>
                 {loadingError && <p className="text-red-500 mt-4 font-semibold">{loadingError}</p>}
             </div>
-
-            {/* --- Secondary Action: Authentication --- */}
-            {session ? (
-                <div className="flex items-center justify-center space-x-4">
-                    <img src={session.user.user_metadata.avatar_url} alt="User Avatar" className="w-12 h-12 rounded-full border-2 border-neon-cyan" />
-                    <div>
-                        <p className="text-lg text-white">Welcome back,</p>
-                        <p className="text-xl font-bold text-neon-cyan">{session.user.user_metadata.full_name || session.user.email}</p>
-                    </div>
-                    <button onClick={onLogout} className="bg-cyber-border text-white font-bold py-2 px-4 rounded-lg hover:bg-cyber-primary transition-colors text-md uppercase">
-                        Logout
-                    </button>
-                </div>
-            ) : (
-                <div className="flex flex-col items-center space-y-2">
-                    <p className="text-neon-yellow/70">Login to save progress and decks (coming soon!)</p>
-                    <button
-                        onClick={onLogin}
-                        disabled={!!loadingError}
-                        className="bg-cyber-border text-white font-bold py-3 px-6 rounded-lg hover:bg-cyber-primary transition-colors text-lg uppercase disabled:bg-gray-600"
-                    >
-                        {loadingError ? "Error" : "Login with Discord"}
-                    </button>
-                </div>
-            )}
         </div>
 
         <div className="space-y-6 bg-cyber-surface/70 backdrop-blur-sm p-6 rounded-lg border-2 border-cyber-border">

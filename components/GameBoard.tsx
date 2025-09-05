@@ -85,16 +85,16 @@ const HandArea: React.FC<{
     if (isOpponent) {
         const numCards = player.hand.length;
         return (
-             <div className="h-24 flex-shrink-0 w-full flex justify-center items-center relative">
+             <div className="h-32 flex-shrink-0 w-full flex justify-center items-start pt-4 relative">
                 {numCards > 0 && 
-                    <div className="flex justify-center items-end -space-x-24 transform -translate-y-24">
+                    <div className="flex justify-center items-start -space-x-24">
                          {player.hand.map((card, i) => {
-                            const rotation = (i - (numCards - 1) / 2) * -5; // Negative rotation for opponent
+                            const rotation = (i - (numCards - 1) / 2) * 5;
                             
                             return (
                                 <div 
                                     key={card.instanceId} 
-                                    className="transition-all duration-300 ease-in-out origin-bottom" 
+                                    className="transition-all duration-300 ease-in-out origin-top" 
                                     style={{ transform: `rotate(${rotation}deg)`}}
                                 >
                                     <div className="w-48 h-64 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
@@ -106,7 +106,7 @@ const HandArea: React.FC<{
                     </div>
                 }
                 {player.hand.length > 0 && (
-                    <div className="absolute z-20 bg-cyber-bg/80 text-neon-yellow font-black text-3xl rounded-full w-20 h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none transform -translate-y-20 shadow-lg shadow-neon-yellow/50">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-cyber-bg/80 text-neon-yellow font-black text-3xl rounded-full w-20 h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none shadow-lg shadow-neon-yellow/50">
                         {player.hand.length}
                     </div>
                 )}

@@ -149,7 +149,7 @@ const Card: React.FC<CardProps> = ({
                     <CardFace/>
                  </div>
             )}
-             {isHovered && (
+            {isHovered && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onExamine(card); }}
                     className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20"

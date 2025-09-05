@@ -8,7 +8,8 @@ const GameLog: React.FC<GameLogProps> = ({ log }) => {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Use non-smooth scrolling for immediate effect, which can help with rapid updates.
+    logEndRef.current?.scrollIntoView();
   }, [log]);
 
   return (
