@@ -1,5 +1,6 @@
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
+import KeywordText from './KeywordText';
 
 interface CardDetailsModalProps {
   card: CardInGame;
@@ -19,7 +20,9 @@ const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClose }) =>
           <p className="text-sm font-semibold capitalize text-neon-yellow/90 mb-4">{card.faction && `Faction: ${card.faction}`}</p>
           
           <div className="flex-grow bg-black/30 rounded p-3 overflow-y-auto mb-4">
-            <p className="whitespace-pre-wrap font-mono">{card.text}</p>
+            <div className="whitespace-pre-wrap font-mono">
+              <KeywordText text={card.text} />
+            </div>
             {card.flavor_text && <p className="italic text-neon-yellow/70 mt-4">"{card.flavor_text}"</p>}
           </div>
 

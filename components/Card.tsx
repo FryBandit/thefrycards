@@ -1,7 +1,9 @@
 
 
+
 import React, { useState } from 'react';
 import { CardInGame, CardType } from '../game/types';
+import KeywordText from './KeywordText';
 
 interface CardProps {
   card: CardInGame;
@@ -59,7 +61,7 @@ const Card: React.FC<CardProps> = ({
             </span>
         </div>
         <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
-            {card.text}
+            <KeywordText text={card.text} />
         </div>
         <div className="flex justify-between items-end text-sm font-semibold">
             <span className="capitalize text-white">{card.type}</span>
