@@ -1,5 +1,6 @@
 
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -37,32 +38,9 @@ export interface CardDefinition {
   durability?: number;
   commandNumber: number;
   text: string;
-  abilities?: { 
-    [key: string]: any; 
-    immutable?: boolean; 
-    resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; 
-    amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; 
-    overload?: { per: number, amount: number }; 
-    echo?: boolean; 
-    executioner?: { amount: number }; 
-    shield?: boolean; 
-    // New Keywords
-    annihilate?: boolean;
-    riftwalk?: { turns: number };
-    augment?: { cost: DiceCost[] };
-    consume?: { initial: number };
-    fortify?: { value: number };
-    generator?: { type: 'GAIN_COMMAND' | 'DRAW_CARD', value: number };
-    landmark?: boolean;
-    bounty?: { amount: number };
-    instability?: boolean;
-    synergy?: { faction: string, effect: { type: 'BUFF_STRENGTH' | 'BUFF_DURABILITY', amount: number } };
-    wild?: boolean;
-    activate?: { cost: DiceCost[], effect: { type: 'fortify_command' | 'spike' | 'reconstruct', value?: any } };
-  };
+  abilities?: { [key: string]: any; };
   imageUrl?: string;
-  faction?: string; // For Synergy
-  // New fields for Examine modal
+  faction?: string;
   rarity?: string;
   flavor_text?: string;
   card_set?: string;

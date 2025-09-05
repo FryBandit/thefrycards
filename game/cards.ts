@@ -1,4 +1,3 @@
-
 import { CardDefinition, CardType, DiceCost } from './types';
 import { supabase } from '../lib/supabaseClient';
 
@@ -13,36 +12,50 @@ const shuffle = <T,>(array: T[]): T[] => {
 };
 
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
-    // The raw data from Supabase is expected to have 'abilities' as a JSON object
-    // and 'dice_cost' as a JSON array. The CardDefinition type has been updated to reflect this.
-    type RawCardData = Omit<CardDefinition, 'abilities' | 'dice_cost'> & {
-      abilities?: { [key: string]: any }; // This is now the source of abilities
-      dice_cost?: DiceCost[]; // New field
-      cost?: DiceCost[]; // Old field for fallback
+    // This type represents the raw data structure from the Supabase 'cards' table
+    type RawCardData = {
+      id: number;
+      title: string;
+      type: CardType;
+      dice_cost: DiceCost[];
+      strength?: number;
+      durability?: number;
+      command_number: number;
+      abilities?: { [key: string]: any };
+      image_url?: string;
+      rarity?: string;
+      flavor_text?: string;
+      set?: string;
+      author?: string;
+      text: string;
+      faction?: string;
     };
 
-    const { data, error } = await supabase.functions.invoke('get-all-cards');
-
+    const { data, error } = await supabase.from('cards').select('*');
 
     if (error) {
-        console.error('Error invoking get-all-cards function:', error);
+        console.error('Error fetching card definitions:', error);
         throw new Error(`Failed to fetch card definitions: ${error.message}`);
     }
-    
-    const rawCards = data?.cards as RawCardData[];
+
+    const rawCards = data as RawCardData[];
 
     if (!rawCards) {
-        console.error('Invalid data format from function response:', data);
-        throw new Error('Failed to parse card definitions from function response.');
+        console.error('Invalid data format from Supabase:', data);
+        throw new Error('Failed to parse card definitions from Supabase response.');
     }
 
-    // Process the raw data to match the CardDefinition type
+    // Process the raw data to match the CardDefinition interface used in the game
     return rawCards.map(rawCard => {
-        const { abilities, dice_cost, cost, ...rest } = rawCard;
-        const card: CardDefinition = { 
-            ...rest, 
-            abilities: abilities || {},
-            dice_cost: dice_cost || cost || [],
+        const { title, image_url, set, command_number, ...rest } = rawCard;
+        const card: CardDefinition = {
+            ...rest,
+            name: title, // Rename 'title' to 'name' for consistency with the game's code
+            imageUrl: image_url, // Rename 'image_url' to 'imageUrl'
+            card_set: set, // Rename 'set' to 'card_set'
+            commandNumber: command_number, // Rename 'command_number' to 'commandNumber'
+            abilities: rawCard.abilities || {},
+            dice_cost: rawCard.dice_cost || [],
         };
         return card;
     });
@@ -57,24 +70,23 @@ export const buildDeckFromCards = (allCards: CardDefinition[]): CardDefinition[]
         [CardType.EVENT]: 5,
         [CardType.ARTIFACT]: 2,
     };
-    
+
     const totalCards = Object.values(requiredComposition).reduce((a, b) => a + b, 0);
 
     for (const [cardType, count] of Object.entries(requiredComposition)) {
         const availableCards = allCards.filter(c => c.type === (cardType as CardType));
         const shuffled = shuffle(availableCards);
         const cardsToAdd = shuffled.slice(0, count);
-        
+
         if (cardsToAdd.length < count) {
             console.warn(`Not enough cards of type ${cardType} to build a full deck. Found ${cardsToAdd.length}, needed ${count}.`);
         }
-        
+
         deck.push(...cardsToAdd);
     }
-    
+
     if (deck.length < totalCards) {
         console.error(`Deck is incomplete! Only found ${deck.length}/${totalCards} cards.`);
-        // As a fallback, fill the rest with random cards to prevent crashes
         const remainingNeeded = totalCards - deck.length;
         const allOtherCards = allCards.filter(c => !deck.some(dc => dc.id === c.id));
         const fallbackCards = shuffle(allOtherCards).slice(0, remainingNeeded);
@@ -82,4 +94,4 @@ export const buildDeckFromCards = (allCards: CardDefinition[]): CardDefinition[]
     }
 
     return shuffle(deck); // Shuffle the final deck
-}
+};
