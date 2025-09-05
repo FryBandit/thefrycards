@@ -1,5 +1,5 @@
-// FIX: Corrected the Supabase edge-runtime types reference URL. The previous path pointed to '/dist/' which was incorrect. The correct path is '/src/'. This resolves the "Cannot find name 'Deno'" errors.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: Corrected the types reference to use a resolvable URL for Deno and Supabase Edge Function types.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/dist/edge-runtime.d.ts" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'
