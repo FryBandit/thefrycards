@@ -5,12 +5,13 @@ import Die from './Die';
 interface DiceTrayProps {
   dice: DieType[];
   rollCount: number;
+  maxRolls: number;
   onDieClick: (id: number) => void;
   onRoll: () => void;
   canRoll: boolean;
 }
 
-const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, onDieClick, onRoll, canRoll }) => {
+const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll }) => {
   return (
     <div className="bg-cyber-surface/70 backdrop-blur-sm p-4 rounded-lg flex items-center justify-center space-x-4 border-2 border-cyber-border">
       <div className="flex space-x-3">
@@ -26,7 +27,7 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, onDieClick, onRoll
         >
           ROLL
         </button>
-        <div className="text-neon-yellow text-sm font-semibold">Rolls left: {3 - rollCount}</div>
+        <div className="text-neon-yellow text-sm font-semibold">Rolls left: {maxRolls - rollCount}</div>
       </div>
     </div>
   );

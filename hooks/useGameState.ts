@@ -4,6 +4,7 @@
 
 
 
+
 import { useReducer } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { buildDeck } from '../game/cards';
@@ -82,6 +83,7 @@ const createInitialState = (): GameState => {
     phase: TurnPhase.START,
     dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
     rollCount: 0,
+    maxRolls: 3,
     log: ['SYSTEM BOOT: Game initialized.'],
     winner: null,
     isProcessing: false,
@@ -334,14 +336,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       return { ...createInitialState(), isProcessing: true };
 
     case 'ROLL_DICE':
-      if (newState.rollCount >= 3) return state;
+      if (newState.rollCount >= newState.maxRolls) return state;
       const diceToRoll = newState.dice.filter(d => !d.isKept && !d.isSpent);
       diceToRoll.forEach(d => {
         newState.dice.find(nd => nd.id === d.id)!.value = Math.floor(Math.random() * 6) + 1;
       });
       newState.rollCount++;
       log(`${newState.players[newState.currentPlayerId].name} rolled dice.`);
-      return { ...newState, isProcessing: true };
+      return newState;
 
     case 'TOGGLE_DIE_KEPT':
       const die = newState.dice.find(d => d.id === action.payload.id);
@@ -389,7 +391,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             break;
         }
         currentPlayer.graveyard.push(cardToPlay); // Channeled cards go to graveyard
-        return { ...newState, isProcessing: true };
+        return newState;
       }
 
       // Place card in play or graveyard
@@ -453,7 +455,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       }
       if(cardToPlay.keywords?.fateweave) {
         if(newState.rollCount > 0) {
-          newState.rollCount -= cardToPlay.keywords.fateweave;
+          newState.maxRolls += cardToPlay.keywords.fateweave;
           log(`${currentPlayer.name} gains an extra roll from Fateweave!`);
         }
       }
@@ -569,7 +571,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       newState.players[newState.currentPlayerId] = currentPlayer;
       newState.players[1-newState.currentPlayerId] = opponentPlayer;
 
-      return { ...newState, isProcessing: true };
+      return newState;
     }
 
     case 'ACTIVATE_ABILITY': {
@@ -609,7 +611,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
       }
 
-      return { ...newState, isProcessing: true };
+      return newState;
     }
 
     case 'ADVANCE_PHASE': {
@@ -716,6 +718,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 nextPlayer.diceModifier = 0;
                 newState.dice = Array.from({ length: Math.max(0, diceCount) }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
                 newState.rollCount = 0;
+                newState.maxRolls = 3;
                 log(`Turn ${newState.turn} - ${nextPlayer.name}'s turn.`);
             }
             break;

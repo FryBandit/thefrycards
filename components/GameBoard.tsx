@@ -1,7 +1,7 @@
 
 
+
 import React from 'react';
-// FIX: 'TurnPhase' is an enum, which is a runtime value. It cannot be imported using 'import type'. Changed to a regular import.
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
 import DiceTray from './DiceTray';
 import Card from './Card';
@@ -157,7 +157,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard 
 }) => {
-  const { players, currentPlayerId, phase, dice, rollCount, turn } = gameState;
+  const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
   const opponentPlayer = players[1 - currentPlayerId];
 
@@ -221,9 +221,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <DiceTray
                     dice={dice}
                     rollCount={rollCount}
+                    maxRolls={maxRolls}
                     onDieClick={onDieClick}
                     onRoll={onRoll}
-                    canRoll={rollCount < 3}
+                    canRoll={rollCount < maxRolls}
                 />
             )}
         </div>

@@ -1,5 +1,6 @@
 
 
+
 import React, { useEffect, useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
@@ -55,7 +56,7 @@ const App: React.FC = () => {
   };
 
   const handleRoll = () => {
-    if (state.currentPlayerId === 0 && state.phase === TurnPhase.ROLL_SPEND && state.rollCount < 3) {
+    if (state.currentPlayerId === 0 && state.phase === TurnPhase.ROLL_SPEND && state.rollCount < state.maxRolls) {
       dispatch({ type: 'ROLL_DICE' });
     }
   };

@@ -86,6 +86,7 @@ export interface GameState {
   phase: TurnPhase;
   dice: Die[];
   rollCount: number;
+  maxRolls: number;
   log: string[];
   winner: Player | null;
   isProcessing: boolean;

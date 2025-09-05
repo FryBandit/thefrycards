@@ -1,4 +1,4 @@
-// FIX: Imported DiceCostType to resolve reference errors.
+
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { checkDiceCost } from './useGameState';
 
@@ -10,19 +10,54 @@ type AIAction =
     | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
 
 
-// Finds the best card for the AI to try and play
-const determineGoalCard = (hand: CardInGame[]): CardInGame | null => {
-    if (hand.length === 0) return null;
-    // Simple priority: Play highest command number Unit first, then other types.
-    const sortedHand = [...hand].sort((a, b) => {
-        if (a.type === CardType.UNIT && b.type !== CardType.UNIT) return -1;
-        if (a.type !== CardType.UNIT && b.type === CardType.UNIT) return 1;
-        
-        const aScore = a.commandNumber - (a.keywords?.malice || 0);
-        const bScore = b.commandNumber - (b.keywords?.malice || 0);
+const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player): number => {
+    let score = 0;
+    // Keyword priorities
+    if (card.keywords?.warp) score += 20; // Extra turn is huge
+    if (card.keywords?.echo) score += 15; // Very high priority
+    if (card.keywords?.stagnate) score += 10;
+    if (card.keywords?.barrage) score += 5 + humanPlayer.units.length * 2; // Scales with targets
+    if (card.keywords?.executioner && (card.keywords.damage || card.keywords.snipe)) {
+        const damage = card.keywords.damage || card.keywords.snipe || 0;
+        const hasLethalTarget = humanPlayer.units.some(u => !u.keywords?.immutable && getEffectiveStats(u, humanPlayer).durability - u.damage <= damage);
+        if(hasLethalTarget) score += 12; // High priority if it can kill something
+        else score += 5;
+    }
+    if (card.keywords?.venomous && card.keywords?.snipe) score += 10; // Lethal removal
+    if (card.keywords?.immutable) score += 8; // Very durable
+    if (card.keywords?.recall && aiPlayer.units.some(u => u.damage > 0)) score += 8; // Good if we can save someone
+    if (card.keywords?.draw) score += 6;
+    if (card.keywords?.fateweave) score += 5;
+    if (card.keywords?.corrupt) score += 5;
+    if (card.keywords?.resonance) score += 5;
+    if (card.keywords?.purge && humanPlayer.graveyard.length > 2) score += 5;
+    if (card.keywords?.martyrdom) score += 4;
+    if (card.keywords?.amplify) score += 3;
+    if (card.keywords?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.keywords.overload.per || 2)) * card.keywords.overload.amount; // More accurate scaling
+    if (card.keywords?.phasing) score += (getEffectiveStats(card, aiPlayer).strength) * 1.5;
+    if (card.keywords?.haunt) score += card.keywords.haunt;
+    if (card.keywords?.siphon) score += card.keywords.siphon * 2;
 
-        return bScore - aScore;
-    });
+
+    // Card Type priorities
+    if (card.type === CardType.UNIT) score += 5;
+    if (card.type === CardType.EVENT) score += 2;
+
+    // Base value
+    score += card.commandNumber;
+    
+    // Drawbacks
+    if (card.keywords?.malice) score -= card.keywords.malice * 2;
+    if (card.keywords?.decay) score -= 2;
+
+    return score;
+}
+
+// Finds the best card for the AI to try and play
+const determineGoalCard = (hand: CardInGame[], aiPlayer: Player, humanPlayer: Player): CardInGame | null => {
+    if (hand.length === 0) return null;
+    
+    const sortedHand = [...hand].sort((a, b) => getCardScore(b, aiPlayer, humanPlayer) - getCardScore(a, aiPlayer, humanPlayer));
     return sortedHand[0];
 }
 
@@ -170,51 +205,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         
         const playableCards = aiPlayer.hand
             .filter(card => checkDiceCost(card, availableDice).canPay)
-            .sort((a,b) => {
-                 const getCardScore = (card: CardInGame): number => {
-                    let score = 0;
-                    // Keyword priorities
-                    if (card.keywords?.warp) score += 20; // Extra turn is huge
-                    if (card.keywords?.echo) score += 15; // Very high priority
-                    if (card.keywords?.stagnate) score += 10;
-                    if (card.keywords?.barrage) score += 5 + humanPlayer.units.length * 2; // Scales with targets
-                    if (card.keywords?.executioner && (card.keywords.damage || card.keywords.snipe)) {
-                        const damage = card.keywords.damage || card.keywords.snipe || 0;
-                        const hasLethalTarget = humanPlayer.units.some(u => !u.keywords?.immutable && getEffectiveStats(u, humanPlayer).durability - u.damage <= damage);
-                        if(hasLethalTarget) score += 12; // High priority if it can kill something
-                        else score += 5;
-                    }
-                    if (card.keywords?.venomous && card.keywords?.snipe) score += 10; // Lethal removal
-                    if (card.keywords?.immutable) score += 8; // Very durable
-                    if (card.keywords?.recall && aiPlayer.units.some(u => u.damage > 0)) score += 8; // Good if we can save someone
-                    if (card.keywords?.draw) score += 6;
-                    if (card.keywords?.fateweave) score += 5;
-                    if (card.keywords?.corrupt) score += 5;
-                    if (card.keywords?.resonance) score += 5;
-                    if (card.keywords?.purge && humanPlayer.graveyard.length > 2) score += 5;
-                    if (card.keywords?.martyrdom) score += 4;
-                    if (card.keywords?.amplify) score += 3;
-                    if (card.keywords?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.keywords.overload.per || 2)) * card.keywords.overload.amount; // More accurate scaling
-                    if (card.keywords?.phasing) score += (getEffectiveStats(card, aiPlayer).strength) * 1.5;
-                    if (card.keywords?.haunt) score += card.keywords.haunt;
-                    if (card.keywords?.siphon) score += card.keywords.siphon * 2;
-
-
-                    // Card Type priorities
-                    if (card.type === CardType.UNIT) score += 5;
-                    if (card.type === CardType.EVENT) score += 2;
-
-                    // Base value
-                    score += card.commandNumber;
-                    
-                    // Drawbacks
-                    if (card.keywords?.malice) score -= card.keywords.malice * 2;
-                    if (card.keywords?.decay) score -= 2;
-
-                    return score;
-                }
-                return getCardScore(b) - getCardScore(a);
-            });
+            .sort((a,b) => getCardScore(b, aiPlayer, humanPlayer) - getCardScore(a, aiPlayer, humanPlayer));
         
         if (playableCards.length > 0) {
             for (const cardToPlay of playableCards) {
@@ -282,7 +273,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
         // 2. If no card is playable, decide whether to roll or keep
         if (rollCount < 3) {
-            const goalCard = determineGoalCard(aiPlayer.hand);
+            const goalCard = determineGoalCard(aiPlayer.hand, aiPlayer, humanPlayer);
 
             if (goalCard) {
                 const bestDiceToKeep = findBestDiceToKeep(goalCard, availableDice);
@@ -305,9 +296,27 @@ export const getAiAction = (state: GameState): AIAction | null => {
     }
 
     if (phase === TurnPhase.ASSAULT) {
-        const hasAttackingUnits = aiPlayer.units.some(u => !u.keywords?.entrenched);
-        // Basic logic: always assault if possible.
-        return { type: 'ADVANCE_PHASE', payload: { assault: hasAttackingUnits } };
+        const attackingUnits = aiPlayer.units.filter(u => !u.keywords?.entrenched);
+        if (attackingUnits.length === 0) {
+            return { type: 'ADVANCE_PHASE', payload: { assault: false } };
+        }
+
+        // Smarter logic for Breach keyword: don't expose valuable units for low damage
+        const breachUnits = attackingUnits.filter(u => u.keywords?.breach);
+        if (breachUnits.length > 0) {
+            const valuableBreachUnit = breachUnits.find(u => (u.strength || 0) >= 3 || (u.durability || 0) >= 3);
+            if (valuableBreachUnit) {
+                const totalDamage = attackingUnits.reduce((sum, u) => sum + getEffectiveStats(u, aiPlayer, {isAssaultPhase: true}).strength, 0);
+
+                // If assault isn't lethal and total damage is low, protect the Breach unit by not assaulting
+                if (totalDamage < humanPlayer.command && totalDamage < 4) {
+                    return { type: 'ADVANCE_PHASE', payload: { assault: false } };
+                }
+            }
+        }
+
+        // Default to assaulting if it's safe or high impact
+        return { type: 'ADVANCE_PHASE', payload: { assault: true } };
     }
 
     if (phase === TurnPhase.END) {
