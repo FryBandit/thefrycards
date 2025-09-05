@@ -442,14 +442,14 @@ export const buildDeck = (): CardDefinition[] => {
     deck.push(findCard(12)); // Hardened Subnet
     
     // 8 Units
-    deck.push(findCard(32)); // Phase Striker
+    deck.push(findCard(41)); // Oracle Engine
     deck.push(findCard(31)); // Viper Assassin
     deck.push(findCard(37)); // Scrapheap Scuttler
     deck.push(findCard(17)); // Command Sergeant
     deck.push(findCard(40)); // Bastion of the Ancients
-    deck.push(findCard(43)); // Archive Fiend (NEW)
-    deck.push(findCard(44)); // Replicator Swarm (NEW)
-    deck.push(findCard(45)); // Punisher Droid (NEW)
+    deck.push(findCard(43)); // Archive Fiend
+    deck.push(findCard(44)); // Replicator Swarm
+    deck.push(findCard(45)); // Punisher Droid
     
     // 5 Events
     deck.push(findCard(42)); // Power Surge

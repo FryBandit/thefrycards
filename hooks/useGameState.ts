@@ -238,6 +238,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
   }
 
   const dealDamageToUnit = (target: CardInGame, amount: number, sourceCard: CardInGame | null, targetOwner: Player) => {
+      if (target.keywords?.immutable) {
+          log(`${target.name} is Immutable and ignores damage from ${sourceCard?.name || 'Effect'}.`);
+          return;
+      }
+
       let finalAmount = amount;
 
       if (target.keywords?.fragile && sourceCard?.type === CardType.EVENT) {
@@ -462,13 +467,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       if (cardToPlay.keywords?.barrage) {
           log(`${cardToPlay.name}'s Barrage deals ${cardToPlay.keywords.barrage} damage to all enemy units!`);
           opponentPlayer.units.forEach(unit => {
-              if (unit.keywords?.immutable) {
-                log(`${unit.name} is Immutable and ignores Barrage.`);
-              } else {
-                dealDamageToUnit(unit, cardToPlay.keywords.barrage, cardToPlay, opponentPlayer);
-              }
+              dealDamageToUnit(unit, cardToPlay.keywords.barrage, cardToPlay, opponentPlayer);
           });
-          // Note: Barrage does not directly damage player in this version.
       }
       if (cardToPlay.keywords?.purge) {
           log(`${cardToPlay.name} purges ${cardToPlay.keywords.purge} cards from ${opponentPlayer.name}'s graveyard.`);
@@ -496,16 +496,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
        if ((cardToPlay.keywords?.damage || cardToPlay.keywords?.snipe) && targetInstanceId) {
           const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
           if (target) {
-            if (target.keywords?.immutable) {
-                log(`${target.name} is Immutable and cannot be damaged by ${cardToPlay.name}.`);
-            } else {
-              let damage = cardToPlay.keywords.damage || cardToPlay.keywords.snipe;
-              if (options?.isAmplified && cardToPlay.keywords.amplify?.effect.type === 'DEAL_DAMAGE') {
-                  damage = cardToPlay.keywords.amplify.effect.amount;
-                  log(`${cardToPlay.name} is Amplified!`);
-              }
-              dealDamageToUnit(target, damage, cardToPlay, opponentPlayer);
+            let damage = cardToPlay.keywords.damage || cardToPlay.keywords.snipe;
+            if (options?.isAmplified && cardToPlay.keywords.amplify?.effect.type === 'DEAL_DAMAGE') {
+                damage = cardToPlay.keywords.amplify.effect.amount;
+                log(`${cardToPlay.name} is Amplified!`);
             }
+            dealDamageToUnit(target, damage, cardToPlay, opponentPlayer);
           }
       }
       if (cardToPlay.keywords?.sabotage) {

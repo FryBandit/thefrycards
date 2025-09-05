@@ -174,6 +174,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                  const getCardScore = (card: CardInGame): number => {
                     let score = 0;
                     // Keyword priorities
+                    if (card.keywords?.warp) score += 20; // Extra turn is huge
                     if (card.keywords?.echo) score += 15; // Very high priority
                     if (card.keywords?.stagnate) score += 10;
                     if (card.keywords?.barrage) score += 5 + humanPlayer.units.length * 2; // Scales with targets
@@ -183,9 +184,21 @@ export const getAiAction = (state: GameState): AIAction | null => {
                         if(hasLethalTarget) score += 12; // High priority if it can kill something
                         else score += 5;
                     }
+                    if (card.keywords?.venomous && card.keywords?.snipe) score += 10; // Lethal removal
+                    if (card.keywords?.immutable) score += 8; // Very durable
                     if (card.keywords?.recall && aiPlayer.units.some(u => u.damage > 0)) score += 8; // Good if we can save someone
                     if (card.keywords?.draw) score += 6;
-                    if (card.keywords?.overload) score += aiPlayer.graveyard.length; // Scales with graveyard
+                    if (card.keywords?.fateweave) score += 5;
+                    if (card.keywords?.corrupt) score += 5;
+                    if (card.keywords?.resonance) score += 5;
+                    if (card.keywords?.purge && humanPlayer.graveyard.length > 2) score += 5;
+                    if (card.keywords?.martyrdom) score += 4;
+                    if (card.keywords?.amplify) score += 3;
+                    if (card.keywords?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.keywords.overload.per || 2)) * card.keywords.overload.amount; // More accurate scaling
+                    if (card.keywords?.phasing) score += (getEffectiveStats(card, aiPlayer).strength) * 1.5;
+                    if (card.keywords?.haunt) score += card.keywords.haunt;
+                    if (card.keywords?.siphon) score += card.keywords.siphon * 2;
+
 
                     // Card Type priorities
                     if (card.type === CardType.UNIT) score += 5;
@@ -196,6 +209,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                     
                     // Drawbacks
                     if (card.keywords?.malice) score -= card.keywords.malice * 2;
+                    if (card.keywords?.decay) score -= 2;
 
                     return score;
                 }
