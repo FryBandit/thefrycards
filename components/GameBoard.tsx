@@ -1,7 +1,3 @@
-
-
-
-
 import React from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
 import { isCardTargetable } from '../hooks/useGameState';
@@ -75,15 +71,30 @@ const HandArea: React.FC<{
     isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer 
 }) => {
     if (isOpponent) {
+        const numCards = player.hand.length;
         return (
-             <div className="h-24 flex-shrink-0 flex justify-center items-center -space-x-12 relative">
-                {player.hand.map((card) => (
-                    <div key={card.instanceId} className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center transform -translate-y-20">
-                        <span className="text-2xl font-black text-neon-pink/50">CARD</span>
+             <div className="h-24 flex-shrink-0 w-full flex justify-center items-center relative">
+                {numCards > 0 && 
+                    <div className="flex justify-center items-end -space-x-16 transform -translate-y-24">
+                         {player.hand.map((card, i) => {
+                            const rotation = (i - (numCards - 1) / 2) * -5; // Negative rotation for opponent
+                            
+                            return (
+                                <div 
+                                    key={card.instanceId} 
+                                    className="transition-all duration-300 ease-in-out origin-bottom" 
+                                    style={{ transform: `rotate(${rotation}deg)`}}
+                                >
+                                    <div className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
+                                        <span className="text-2xl font-black text-neon-pink/50">CARD</span>
+                                    </div>
+                                </div>
+                            )
+                         })}
                     </div>
-                ))}
+                }
                 {player.hand.length > 0 && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyber-bg/80 text-neon-yellow font-black text-2xl rounded-full w-16 h-16 flex items-center justify-center border-2 border-neon-yellow pointer-events-none transform -translate-y-20">
+                    <div className="absolute bg-cyber-bg/80 text-neon-yellow font-black text-2xl rounded-full w-16 h-16 flex items-center justify-center border-2 border-neon-yellow pointer-events-none transform -translate-y-16">
                         {player.hand.length}
                     </div>
                 )}
@@ -181,7 +192,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const phaseAction = getPhaseAction();
 
   return (
-    <div className="w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
+    <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
+      
+      {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
 
       {/* Opponent's Side (reversed column) */}
       <div className="flex-1 flex flex-col-reverse">

@@ -8,7 +8,7 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
 
     if (error) {
         console.error('Error fetching cards:', error);
-        return [];
+        throw new Error(`Failed to fetch card definitions: ${error.message}`);
     }
     
     // Transform Supabase data to CardDefinition

@@ -1,10 +1,6 @@
-
-
-
-
-
-
 import React, { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './lib/supabaseClient';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
 import Modal from './components/Modal';
@@ -21,6 +17,9 @@ const App: React.FC = () => {
   const { state, dispatch, aiAction } = useGameState();
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
   const [allCards, setAllCards] = useState<CardDefinition[] | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
@@ -28,11 +27,39 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadCards = async () => {
-      const cards = await fetchCardDefinitions();
-      setAllCards(cards);
+      try {
+        const cards = await fetchCardDefinitions();
+        if (cards.length === 0) {
+            throw new Error("No card definitions loaded. The network may be down.");
+        }
+        setAllCards(cards);
+        setLoadingError(null);
+      } catch (error) {
+        if (error instanceof Error) {
+            setLoadingError(error.message);
+        } else {
+            setLoadingError("An unknown error occurred while loading cards.");
+        }
+        setAllCards([]); // Indicate loading is done, but failed
+      }
     };
     loadCards();
   }, []);
+
+  useEffect(() => {
+    setLoadingSession(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setLoadingSession(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
 
   useEffect(() => {
     setAnnouncedPhase(state.phase);
@@ -44,6 +71,16 @@ const App: React.FC = () => {
     setView('game');
     setTargetingInfo(null);
     setViewingZone(null);
+  };
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'discord' });
+    if (error) console.error("Error logging in with Discord:", error);
+  };
+
+  const handleLogout = async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error("Error logging out:", error);
   };
 
   const handleDieClick = (id: number) => {
@@ -92,7 +129,6 @@ const App: React.FC = () => {
       
       const { card, isAmplify } = targetingInfo;
       const player = state.players[0];
-      const opponent = state.players[1];
       const targetOwner = state.players.find(p => p.units.some(u => u.instanceId === targetCard.instanceId))!;
       
       if (isCardTargetable(card, targetCard, player, targetOwner)) {
@@ -203,8 +239,23 @@ const App: React.FC = () => {
     
   }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
 
+  if (loadingSession) {
+    return (
+        <div className="w-screen h-screen bg-cyber-bg flex items-center justify-center text-neon-cyan text-2xl font-bold uppercase tracking-widest">
+            Connecting to Grid...
+        </div>
+    );
+  }
+
   if (view === 'howToPlay') {
-    return <HowToPlay onPlay={handleStartGame} cardsLoaded={!!allCards} />;
+    return <HowToPlay 
+        onPlay={handleStartGame} 
+        cardsLoaded={!!allCards && allCards.length > 0}
+        loadingError={loadingError}
+        session={session}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+     />;
   }
   
   if (!allCards || state.turn === 0) {

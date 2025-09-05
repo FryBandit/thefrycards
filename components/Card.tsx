@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 
@@ -43,7 +40,7 @@ const Card: React.FC<CardProps> = ({
   const baseClasses = `relative w-40 h-56 bg-cyber-surface/80 backdrop-blur-sm rounded-lg p-2 border-2 flex flex-col justify-between shadow-lg text-white transition-all duration-200 transform ${typeColor} ${originClasses} ${tokenClasses}`;
   const interactiveClasses = onClick ? "cursor-pointer" : "";
   const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : "border-cyber-border";
-  const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse" : "";
+  const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
 
   let strengthClasses = 'text-cyber-bg';
@@ -77,15 +74,25 @@ const Card: React.FC<CardProps> = ({
             {card.commandNumber}
             </span>
         </div>
-        {card.keywords?.shield && (
-            <div 
-                className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50
-                    ${card.shieldUsedThisTurn ? 'bg-gray-600 opacity-70' : 'bg-blue-500'}`}
-                title={card.shieldUsedThisTurn ? 'Shield Used' : 'Shield Active'}
-            >
-                S
-            </div>
-        )}
+        <div className="absolute top-1 left-1 flex flex-col space-y-1">
+            {card.keywords?.shield && (
+                <div 
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50
+                        ${card.shieldUsedThisTurn ? 'bg-gray-600 opacity-70' : 'bg-blue-500'}`}
+                    title={card.shieldUsedThisTurn ? 'Shield Used' : 'Shield Active'}
+                >
+                    S
+                </div>
+            )}
+            {card.keywords?.entrenched && (
+                <div 
+                    className="w-6 h-6 bg-yellow-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50"
+                    title="Entrenched: Does not participate in Assaults."
+                >
+                    E
+                </div>
+            )}
+        </div>
         {rallyBonus > 0 && (
             <div className="absolute top-1 right-9 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title={`+${rallyBonus} from Rally`}>
                 +{rallyBonus}

@@ -1,11 +1,16 @@
 import React from 'react';
+import type { Session } from '@supabase/supabase-js';
 
 interface HowToPlayProps {
   onPlay: () => void;
   cardsLoaded: boolean;
+  onLogin: () => void;
+  onLogout: () => void;
+  loadingError: string | null;
+  session: Session | null;
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, onLogin, onLogout, loadingError, session }) => {
   return (
     <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
@@ -14,6 +19,41 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded }) => {
           <p className="text-lg text-neon-pink/80 uppercase">A Cyber-Noir Strategy Card Game</p>
         </div>
         
+        <div className="text-center my-8">
+            {session ? (
+                <div className="flex flex-col items-center space-y-4">
+                    <div className="flex items-center space-x-4">
+                        <img src={session.user.user_metadata.avatar_url} alt="User Avatar" className="w-16 h-16 rounded-full border-2 border-neon-cyan" />
+                        <div>
+                            <p className="text-xl text-white">Welcome back,</p>
+                            <p className="text-2xl font-bold text-neon-cyan">{session.user.user_metadata.full_name || session.user.email}</p>
+                        </div>
+                    </div>
+                    <div className="flex space-x-4">
+                        <button
+                            onClick={onPlay}
+                            disabled={!cardsLoaded || !!loadingError}
+                            className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600 disabled:cursor-not-allowed"
+                        >
+                            {loadingError ? 'Error Loading' : (cardsLoaded ? 'Jack In' : 'Loading...')}
+                        </button>
+                        <button onClick={onLogout} className="bg-cyber-border text-white font-bold py-3 px-6 rounded-lg hover:bg-cyber-primary transition-colors text-lg uppercase">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <button
+                    onClick={onLogin}
+                    disabled={!!loadingError}
+                    className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600"
+                >
+                    {loadingError ? "Error" : "Login with Discord"}
+                </button>
+            )}
+            {loadingError && <p className="text-red-500 mt-4 font-semibold">{loadingError}</p>}
+        </div>
+
         <div className="space-y-6 bg-cyber-surface/70 backdrop-blur-sm p-6 rounded-lg border-2 border-cyber-border">
           <Section title="Objective">
             <p>Reduce the opponent's Command from 20 to 0. You lose Command when hit by enemy Units during an Assault, or when an opponent destroys one of your Units (you lose Command equal to that Unit's Command Number).</p>
@@ -86,16 +126,6 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded }) => {
                 <p><strong>Warp:</strong> An Event effect that lets you take an extra turn after this one (with some restrictions).</p>
             </div>
           </Section>
-        </div>
-
-        <div className="text-center mt-8">
-          <button
-            onClick={onPlay}
-            disabled={!cardsLoaded}
-            className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600 disabled:cursor-not-allowed"
-          >
-            {cardsLoaded ? 'Jack In' : 'Loading...'}
-          </button>
         </div>
       </div>
     </div>
