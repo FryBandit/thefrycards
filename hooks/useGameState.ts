@@ -2,6 +2,7 @@
 
 
 
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -416,8 +417,15 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     const checkForDestroyedUnits = (sourcePlayerId: number, sourceCard?: CardInGame): boolean => {
         let anyChangeInLoop = false;
         let loopAgain = true;
+        let loopCount = 0;
+        const MAX_CHAIN_REACTIONS = 20; // Prevent infinite loops
 
         while (loopAgain) {
+             if (loopCount++ > MAX_CHAIN_REACTIONS) {
+                log('!! System Warning: Exceeded maximum chain reaction limit. Halting destruction sequence.');
+                console.error('Potential infinite loop detected in checkForDestroyedUnits. Breaking.');
+                break;
+            }
             loopAgain = false;
             for (let i = 0; i < 2; i++) {
                 const player = newState.players[i];
@@ -536,9 +544,9 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         // Keyword-based Effects
         if (card.abilities?.resonance) {
             if (player.deck.length > 0) {
-                const topCard = player.deck[player.deck.length - 1];
-                log(`${card.name}'s Resonance reveals ${topCard.name}.`);
-                if (topCard.commandNumber >= card.abilities.resonance.value) {
+                const topCardDef = player.deck.pop()!; // Card is removed from deck
+                log(`${card.name}'s Resonance reveals and discards ${topCardDef.name}.`);
+                if (topCardDef.commandNumber >= card.abilities.resonance.value) {
                     const effect = card.abilities.resonance.effect;
                     if (effect.type === 'BUFF_STRENGTH') {
                         const cardInPlay = player.units.find(u => u.instanceId === card.instanceId);
@@ -548,6 +556,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 } else {
                     log(`Resonance failed. Top card's Command Number was too low.`);
                 }
+                // FIX: Argument of type 'CardDefinition' is not assignable to parameter of type 'CardInGame'.
+                const discardedCard: CardInGame = {
+                    ...topCardDef,
+                    instanceId: `${topCardDef.id}-discarded-${Date.now()}-${Math.random()}`,
+                    damage: 0,
+                    strengthModifier: 0,
+                    durabilityModifier: 0,
+                    hasAssaulted: false,
+                    attachments: [],
+                };
+                player.graveyard.push(discardedCard); // Card goes to graveyard
             }
         }
         if (card.abilities?.stagnate) {

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { CardInGame, CardType } from '../game/types';
 
@@ -44,6 +45,10 @@ const Card: React.FC<CardProps> = ({
   const interactiveClasses = onClick ? "cursor-pointer" : "";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
+  
+  const isActionable = (isPlayable || isActivatable) && !isTargetable;
+  const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
+  const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
 
   let strengthClasses = 'text-cyber-bg';
   let displayStrength = card.strength ?? 0;
@@ -89,12 +94,12 @@ const Card: React.FC<CardProps> = ({
   return (
     <div className="relative w-40 h-56">
       <div 
-        className={`absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses}`}
+        className={`absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <div 
-            className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform ${interactiveClasses} ${isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan" : typeColor} ${originClasses} ${tokenClasses}`}
+            className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses}`}
             onClick={onClick}
         >
             {card.imageUrl ? (

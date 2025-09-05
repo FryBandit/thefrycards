@@ -51,10 +51,18 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
         
         let fullImageUrl: string | undefined = undefined;
         if (image_url) {
-            // The `image_url` column likely stores the path to the file in a Supabase Storage bucket.
-            // We need to construct the full public URL to display the image.
-            const { data: imageUrlData } = supabase.storage.from('card-art').getPublicUrl(image_url);
-            fullImageUrl = imageUrlData?.publicUrl;
+            try {
+                // The `image_url` column likely stores the path to the file in a Supabase Storage bucket.
+                // We need to construct the full public URL to display the image.
+                const { data: imageUrlData } = supabase.storage.from('card-art').getPublicUrl(image_url);
+                if (imageUrlData && imageUrlData.publicUrl) {
+                    fullImageUrl = imageUrlData.publicUrl;
+                } else {
+                    console.warn(`Could not retrieve public URL for image: ${image_url} for card: ${rawCard.title}`);
+                }
+            } catch (e) {
+                console.error(`An error occurred while getting public URL for ${image_url}`, e);
+            }
         }
 
         const card: CardDefinition = {
