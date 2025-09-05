@@ -1,9 +1,6 @@
 
-
-
-
 import React, { useEffect, useState } from 'react';
-import GameBoard from './components/GameBoard';
+import GameBoard, { PlayerInfoPanel } from './components/GameBoard';
 import GameLog from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
@@ -184,6 +181,10 @@ const App: React.FC = () => {
   if (view === 'howToPlay') {
     return <HowToPlay onPlay={handleStartGame} />;
   }
+  
+  const currentPlayer = state.players[state.currentPlayerId];
+  const opponentPlayer = state.players[1 - state.currentPlayerId];
+  const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
     <main className="relative w-screen h-screen font-sans bg-black/50">
@@ -201,14 +202,35 @@ const App: React.FC = () => {
         isCardAmplifiable={isCardAmplifiable}
         onAmplifyClick={handleAmplifyClick}
         onAdvancePhase={handleAdvancePhase}
-        onShowRules={() => setView('howToPlay')}
         targetingCard={targetingInfo?.card ?? null}
         isCardActivatable={isCardActivatable}
         onActivateCard={handleActivateCard}
       />
-      <GameLog log={state.log} />
+
+      {/* HUD Elements */}
+      <div className="absolute top-4 left-4 h-1/3">
+        <GameLog log={state.log} />
+      </div>
+
+      <div className="absolute bottom-4 left-4 h-40">
+        <PlayerInfoPanel player={state.players[0]} isCurrent={isPlayerCurrent} />
+      </div>
+
+      <div className="absolute top-4 right-4 h-40">
+        <PlayerInfoPanel player={state.players[1]} isCurrent={!isPlayerCurrent} isOpponent={true} />
+      </div>
+      
+      <button 
+        onClick={() => setView('howToPlay')} 
+        className="absolute bottom-4 right-4 w-12 h-12 bg-cyber-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-cyber-secondary transition-colors z-20 border-2 border-cyber-border"
+        aria-label="How to Play"
+      >
+        ?
+      </button>
+
+      {/* Overlays */}
       {targetingInfo && (
-        <div className={`absolute bottom-1/2 translate-y-28 left-1/2 -translate-x-1/2 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
+        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
           Select a target for {targetingInfo.card.name} {targetingInfo.isAmplify ? '(Amplified)' : ''}
         </div>
       )}

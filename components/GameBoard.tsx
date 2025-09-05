@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React from 'react';
 // FIX: 'TurnPhase' is an enum, which is a runtime value. It cannot be imported using 'import type'. Changed to a regular import.
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
@@ -11,12 +6,12 @@ import DiceTray from './DiceTray';
 import Card from './Card';
 
 
-// New sub-component for Player Info
-const PlayerInfoPanel: React.FC<{ player: Player, isCurrent: boolean }> = ({ player, isCurrent }) => (
-    <div className={`w-64 bg-cyber-surface/70 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan' : 'border-cyber-border'}`}>
+// This component is now exported so App.tsx can use it for the HUD
+export const PlayerInfoPanel: React.FC<{ player: Player, isCurrent: boolean, isOpponent?: boolean }> = ({ player, isCurrent, isOpponent = false }) => (
+    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan' : 'border-cyber-border'}`}>
         <div>
             <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
-            <p className="text-4xl font-black text-neon-pink">{player.command} <span className="text-lg opacity-75">Command</span></p>
+            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink`}>{player.command} <span className="text-lg opacity-75">Command</span></p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-sm font-semibold">
             <div>
@@ -48,7 +43,7 @@ const FieldArea: React.FC<{
 }> = ({ player, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, isCurrentPlayer, phase }) => {
     
     return (
-        <div className="h-48 w-full flex items-center justify-center p-2">
+        <div className="flex-grow w-full flex items-center justify-center p-2 min-h-[12rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
             <div className="flex gap-4 items-center justify-center w-full h-full">
                 {[...player.locations, ...player.artifacts, ...player.units].map(card => {
                     const isUnit = card.type === CardType.UNIT;
@@ -106,46 +101,66 @@ const HandArea: React.FC<{
 }> = ({ 
     player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardScavengeable, 
     isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer 
-}) => (
-    <div className="flex-grow h-full flex items-center justify-center p-2 space-x-2">
-        {player.hand.map((card) => (
-            <div key={card.instanceId} className="transition-transform duration-300 hover:z-10">
-                {isOpponent ? (
-                    <div className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
+}) => {
+    if (isOpponent) {
+        return (
+            <div className="h-24 flex-shrink-0 flex justify-center items-center -space-x-12">
+                {player.hand.map((card) => (
+                    <div key={card.instanceId} className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center transform -translate-y-20">
                         <span className="text-2xl font-black text-neon-pink/50">CARD</span>
                     </div>
-                ) : (
-                    <Card
-                        card={card}
-                        inHand={true}
-                        isPlayable={isCurrentPlayer && isCardPlayable(card)}
-                        onClick={() => onCardClick(card)}
-                        onChannel={card.keywords?.channel && isCurrentPlayer ? () => onChannelClick(card) : undefined}
-                        isChannelable={isCurrentPlayer && isCardChannelable(card)}
-                        onAmplify={card.keywords?.amplify && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
-                        isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
-                        origin="hand"
-                    />
-                )}
+                ))}
             </div>
-        ))}
-        {!isOpponent && player.graveyard.map((card) => {
-            const scavengeable = isCardScavengeable(card);
-            if (!scavengeable) return null;
-            return (
-                <div key={card.instanceId} className="transition-transform duration-300 hover:z-10">
-                    <Card
-                        card={card}
-                        inHand={true}
-                        isPlayable={isCurrentPlayer && scavengeable}
-                        onClick={() => onGraveyardCardClick(card)}
-                        origin="graveyard"
-                    />
-                </div>
-            )
-        })}
-    </div>
-);
+        );
+    }
+    
+    // Player's Fanned Hand
+    const scavengeableCards = player.graveyard.filter(isCardScavengeable);
+
+    return (
+        <div className="h-64 flex-shrink-0 flex justify-center items-end pb-4">
+            <div className="flex justify-center items-end -space-x-16">
+                 {scavengeableCards.map(card => (
+                    <div 
+                        key={card.instanceId}
+                        className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-20 origin-bottom hover:!rotate-0"
+                    >
+                        <Card
+                            card={card}
+                            inHand={true}
+                            isPlayable={isCurrentPlayer && isCardScavengeable(card)}
+                            onClick={() => onGraveyardCardClick(card)}
+                            origin="graveyard"
+                        />
+                    </div>
+                 ))}
+                 {player.hand.map((card, i) => {
+                    const numCards = player.hand.length;
+                    const rotation = (i - (numCards - 1) / 2) * 4;
+                    return (
+                        <div 
+                            key={card.instanceId} 
+                            className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-20 origin-bottom hover:!rotate-0" 
+                            style={{ transform: `rotate(${rotation}deg)`}}
+                        >
+                            <Card
+                                card={card}
+                                inHand={true}
+                                isPlayable={isCurrentPlayer && isCardPlayable(card)}
+                                onClick={() => onCardClick(card)}
+                                onChannel={card.keywords?.channel && isCurrentPlayer ? () => onChannelClick(card) : undefined}
+                                isChannelable={isCurrentPlayer && isCardChannelable(card)}
+                                onAmplify={card.keywords?.amplify && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
+                                isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
+                                origin="hand"
+                            />
+                        </div>
+                    )
+                 })}
+            </div>
+        </div>
+    );
+};
 
 
 interface GameBoardProps {
@@ -162,7 +177,6 @@ interface GameBoardProps {
   isCardAmplifiable: (card: CardInGame) => boolean;
   onAmplifyClick: (card: CardInGame) => void;
   onAdvancePhase: (assault?: boolean) => void;
-  onShowRules: () => void;
   targetingCard: CardInGame | null;
   isCardActivatable: (card: CardInGame) => boolean;
   onActivateCard: (card: CardInGame) => void;
@@ -172,7 +186,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     gameState, onDieClick, onRoll, onCardClick, onGraveyardCardClick, onFieldCardClick, 
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
-    onAdvancePhase, onShowRules, targetingCard, isCardActivatable, onActivateCard 
+    onAdvancePhase, targetingCard, isCardActivatable, onActivateCard 
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -182,10 +196,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   const getPhaseAction = () => {
     if (!isPlayerTurn) return null;
-    if (targetingCard) return { text: "CANCEL TARGETING", action: () => onCardClick(targetingCard), disabled: false };
+    if (targetingCard) return { text: "CANCEL", action: () => onCardClick(targetingCard), disabled: false };
     switch(phase) {
         case TurnPhase.START: return null;
-        case TurnPhase.ROLL_SPEND: return { text: "END ROLL PHASE", action: () => onAdvancePhase(), disabled: false };
+        case TurnPhase.ROLL_SPEND: return { text: "END PHASE", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
         case TurnPhase.END: return { text: "END TURN", action: () => onAdvancePhase(), disabled: false };
@@ -195,11 +209,20 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const phaseAction = getPhaseAction();
 
   return (
-    <div className="w-full h-screen flex flex-col bg-cyber-bg text-white font-bold uppercase overflow-hidden p-4 gap-4">
+    <div className="w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
 
-      {/* Opponent Row */}
-      <div className="h-32 flex gap-4">
-        <PlayerInfoPanel player={opponentPlayer} isCurrent={currentPlayerId === opponentPlayer.id} />
+      {/* Opponent's Side (reversed column) */}
+      <div className="flex-1 flex flex-col-reverse">
+        <FieldArea 
+            player={opponentPlayer} 
+            onCardClick={onFieldCardClick} 
+            isOpponent={true} 
+            targetingCard={targetingCard}
+            isCardActivatable={isCardActivatable}
+            onActivateCard={onActivateCard}
+            isCurrentPlayer={currentPlayerId === opponentPlayer.id}
+            phase={phase}
+        />
         <HandArea 
             player={opponentPlayer}
             isOpponent={true} 
@@ -215,36 +238,29 @@ const GameBoard: React.FC<GameBoardProps> = ({
         />
       </div>
 
-      {/* Main Board Area */}
-      <div className="flex-grow flex flex-col justify-between relative border-y-2 border-neon-cyan/20 py-4">
-        <FieldArea 
-            player={opponentPlayer} 
-            onCardClick={onFieldCardClick} 
-            isOpponent={true} 
-            targetingCard={targetingCard}
-            isCardActivatable={isCardActivatable}
-            onActivateCard={onActivateCard}
-            isCurrentPlayer={currentPlayerId === opponentPlayer.id}
-            phase={phase}
-        />
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <div className="bg-cyber-surface/80 px-6 py-2 rounded-t-lg shadow-lg border-x-2 border-t-2 border-cyber-border text-neon-yellow tracking-widest">
+      {/* Center Bar */}
+      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex items-center justify-center gap-6 px-4 h-40">
+        <div className="text-center w-64">
+             <div className="bg-cyber-surface/80 px-6 py-2 rounded-lg shadow-lg border-2 border-cyber-border text-neon-yellow tracking-widest">
                 Turn {turn} - {players[currentPlayerId].name}'s {phase} Phase
             </div>
-            <div className="pointer-events-auto">
-                 {phase === TurnPhase.ROLL_SPEND && isPlayerTurn && (
-                    <DiceTray
-                        dice={dice}
-                        rollCount={rollCount}
-                        onDieClick={onDieClick}
-                        onRoll={onRoll}
-                        canRoll={rollCount < 3}
-                    />
-                )}
-            </div>
-            {phase === TurnPhase.ASSAULT && isPlayerTurn ? (
-                <div className="flex gap-2 pointer-events-auto bg-cyber-surface/80 px-4 py-2 rounded-b-lg shadow-lg border-x-2 border-b-2 border-cyber-border">
+        </div>
+
+        <div className="flex-grow flex items-center justify-center">
+            {phase === TurnPhase.ROLL_SPEND && isPlayerTurn && (
+                <DiceTray
+                    dice={dice}
+                    rollCount={rollCount}
+                    onDieClick={onDieClick}
+                    onRoll={onRoll}
+                    canRoll={rollCount < 3}
+                />
+            )}
+        </div>
+        
+        <div className="w-64 flex items-center justify-center">
+             {phase === TurnPhase.ASSAULT && isPlayerTurn ? (
+                <div className="flex gap-2 pointer-events-auto">
                     <button
                         onClick={() => onAdvancePhase(true)}
                         disabled={currentPlayer.units.filter(u => !u.keywords?.entrenched).length === 0}
@@ -263,13 +279,17 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <button 
                     onClick={phaseAction.action}
                     disabled={phaseAction.disabled}
-                    className="bg-cyber-primary text-white px-6 py-2 rounded-b-lg shadow-lg hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 pointer-events-auto border-x-2 border-b-2 border-cyber-border"
+                    className="bg-cyber-primary text-white px-8 py-3 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border"
                 >
                     {phaseAction.text}
                 </button>
             )}
         </div>
+      </div>
 
+
+      {/* Player's Side */}
+       <div className="flex-1 flex flex-col">
         <FieldArea 
             player={currentPlayer} 
             onCardClick={onFieldCardClick} 
@@ -280,11 +300,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCurrentPlayer={currentPlayerId === currentPlayer.id}
             phase={phase}
         />
-      </div>
-
-      {/* Player Row */}
-      <div className="h-64 flex gap-4">
-        <PlayerInfoPanel player={currentPlayer} isCurrent={currentPlayerId === currentPlayer.id} />
         <HandArea 
             player={currentPlayer}
             isOpponent={false} 
@@ -299,15 +314,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCurrentPlayer={currentPlayerId === currentPlayer.id}
         />
       </div>
-
-      {/* Rules Button */}
-      <button 
-        onClick={onShowRules} 
-        className="absolute bottom-4 left-4 w-12 h-12 bg-cyber-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-cyber-secondary transition-colors z-20 border-2 border-cyber-border"
-        aria-label="How to Play"
-      >
-        ?
-      </button>
     </div>
   );
 };
