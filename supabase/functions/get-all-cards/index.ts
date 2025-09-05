@@ -1,5 +1,14 @@
-// FIX: The Deno global was not available because types were not being loaded correctly. Using a URL-based import for the Supabase client and ensuring the Deno type reference is present resolves this.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: Replaced the failing Deno type reference with a manual global declaration.
+// This resolves TypeScript errors in non-Deno environments by providing minimal types for the Deno namespace,
+// which was previously undefined due to the type reference failing to resolve.
+declare global {
+  namespace Deno {
+    function serve(handler: (req: Request) => Response | Promise<Response>): void;
+    const env: {
+      get: (key: string) => string | undefined;
+    };
+  }
+}
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'

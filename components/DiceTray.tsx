@@ -35,6 +35,7 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
             onClick={() => onDieClick(die.id)} 
             isRolling={isRolling && !die.isKept && !die.isSpent}
             isHighlighted={valuableDiceForHover.has(die.id)}
+            isTrayRolling={isRolling}
           />
         ))}
       </div>

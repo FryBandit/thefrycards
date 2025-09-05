@@ -131,15 +131,16 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
     });
 };
 
+export const requiredComposition = {
+    [CardType.LOCATION]: 2,
+    [CardType.UNIT]: 8,
+    [CardType.EVENT]: 5,
+    [CardType.ARTIFACT]: 2,
+};
+
 // Helper to build a valid, randomized deck from the full card list
 export const buildDeckFromCards = (allCards: CardDefinition[]): CardDefinition[] => {
     const deck: CardDefinition[] = [];
-    const requiredComposition = {
-        [CardType.LOCATION]: 2,
-        [CardType.UNIT]: 8,
-        [CardType.EVENT]: 5,
-        [CardType.ARTIFACT]: 2,
-    };
 
     const totalCards = Object.values(requiredComposition).reduce((a, b) => a + b, 0);
 
@@ -156,11 +157,7 @@ export const buildDeckFromCards = (allCards: CardDefinition[]): CardDefinition[]
     }
 
     if (deck.length < totalCards) {
-        console.error(`Deck is incomplete! Only found ${deck.length}/${totalCards} cards.`);
-        const remainingNeeded = totalCards - deck.length;
-        const allOtherCards = allCards.filter(c => !deck.some(dc => dc.id === c.id));
-        const fallbackCards = shuffle(allOtherCards).slice(0, remainingNeeded);
-        deck.push(...fallbackCards);
+        console.error(`Deck is incomplete! Only found ${deck.length}/${totalCards} cards. This should not happen if pre-flight checks are working correctly.`);
     }
 
     return shuffle(deck); // Shuffle the final deck

@@ -6,9 +6,10 @@ interface DieProps {
   onClick: () => void;
   isRolling?: boolean;
   isHighlighted?: boolean;
+  isTrayRolling?: boolean;
 }
 
-const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false }) => {
+const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false, isTrayRolling = false }) => {
   const [displayValue, setDisplayValue] = useState(die.value);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   return (
     <button
       onClick={onClick}
-      disabled={die.isSpent || isRolling}
+      disabled={die.isSpent || isTrayRolling}
       className={`${baseClasses} ${stateClasses} ${animationClass}`}
       aria-label={`Die showing ${displayValue}, ${die.isKept ? 'kept' : die.isSpent ? 'spent' : 'available'}`}
     >

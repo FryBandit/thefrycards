@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabaseClient';
 import GameBoard from './components/GameBoard';
@@ -13,7 +13,7 @@ import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
 import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
-import { fetchCardDefinitions } from './game/cards';
+import { fetchCardDefinitions, requiredComposition } from './game/cards';
 
 
 const App: React.FC = () => {
@@ -37,6 +37,25 @@ const App: React.FC = () => {
         if (cards.length === 0) {
             throw new Error("No card definitions loaded. The network may be down.");
         }
+
+        // Check if a valid deck can be constructed from the loaded cards.
+        const cardCountsByType = cards.reduce((acc, card) => {
+            acc[card.type] = (acc[card.type] || 0) + 1;
+            return acc;
+        }, {} as Record<CardType, number>);
+
+        const missingCards: string[] = [];
+        for (const [cardType, requiredCount] of Object.entries(requiredComposition)) {
+            const haveCount = cardCountsByType[cardType as CardType] || 0;
+            if (haveCount < requiredCount) {
+                missingCards.push(`${requiredCount} ${cardType}s (found ${haveCount})`);
+            }
+        }
+
+        if (missingCards.length > 0) {
+            throw new Error(`Cannot start game: insufficient cards in database. Missing: ${missingCards.join(', ')}.`);
+        }
+
         setAllCards(cards);
         setLoadingError(null);
       } catch (error) {

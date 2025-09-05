@@ -550,11 +550,9 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             opponent.skipNextDrawPhase = true;
             log(`${opponent.name} will skip their next Draw Phase due to Stagnate!`);
         }
-        if(card.abilities?.fateweave) {
-            if(newState.rollCount > 0) {
+        if(card.abilities?.fateweave && newState.rollCount < newState.maxRolls) {
             newState.maxRolls += card.abilities.fateweave;
             log(`${player.name} gains an extra roll from Fateweave!`);
-            }
         }
         if(card.abilities?.foresight && player.deck.length > 0) {
             log(`Foresight reveals ${player.name}'s top card: ${player.deck[player.deck.length - 1].name}`);
@@ -609,7 +607,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
          // Card-specific (unique) effects / High-rarity keywords
-        if (card.abilities?.annihilate) {
+        if (card.type === CardType.UNIT && card.abilities?.annihilate) {
             resolveAnnihilate(card, player, opponent);
         }
         return { player, opponent };
