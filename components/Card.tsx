@@ -50,24 +50,6 @@ const Card: React.FC<CardProps> = ({
   const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
   const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
 
-  let strengthClasses = 'text-cyber-bg';
-  let displayStrength = card.strength ?? 0;
-  if (card.type === CardType.UNIT && effectiveStrength !== undefined) {
-      displayStrength = effectiveStrength;
-      const baseStrength = (card.strength ?? 0) + card.strengthModifier;
-      if (displayStrength > baseStrength) strengthClasses = 'text-green-400';
-      else if (displayStrength < baseStrength) strengthClasses = 'text-red-500';
-  }
-
-  let durabilityClasses = 'text-cyber-bg';
-  let displayDurability = card.durability ?? 0;
-  if (card.type === CardType.UNIT && effectiveDurability !== undefined) {
-      displayDurability = effectiveDurability;
-      const baseDurability = card.durability ?? 0;
-      if (displayDurability > baseDurability) durabilityClasses = 'text-green-400';
-      else if (displayDurability < baseDurability) durabilityClasses = 'text-red-500';
-  }
-  
   const OldCardFace = () => (
       <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
         <div className="flex justify-between items-start text-sm font-bold">
@@ -83,8 +65,50 @@ const Card: React.FC<CardProps> = ({
             <span className="capitalize text-white">{card.type}</span>
             {card.type === CardType.UNIT && (
             <div className="flex items-center space-x-2 font-bold">
-                <div className={`bg-neon-pink px-2 py-1 rounded ${strengthClasses}`}>{displayStrength}</div>
-                <div className={`bg-neon-cyan px-2 py-1 rounded ${durabilityClasses}`}>{displayDurability - card.damage}</div>
+                {/* Strength Display */}
+                <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                    {(() => {
+                        const base = card.strength ?? 0;
+                        const effective = effectiveStrength ?? base;
+                        const modifier = effective - base;
+                        
+                        return (
+                            <>
+                                <span>{base}</span>
+                                {modifier !== 0 && (
+                                    <span className={`font-normal text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                        ({modifier > 0 ? '+' : ''}{modifier})
+                                    </span>
+                                )}
+                            </>
+                        );
+                    })()}
+                </div>
+                {/* Durability/Health Display */}
+                <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                     {(() => {
+                        const base = card.durability ?? 1;
+                        const effective = effectiveDurability ?? base;
+                        const currentHealth = effective - card.damage;
+                        
+                        let healthColorClass = 'text-cyber-bg';
+                        if (card.damage > 0) {
+                            healthColorClass = 'text-red-700';
+                        } else if (effective > base) {
+                            healthColorClass = 'text-green-700';
+                        } else if (effective < base) {
+                            healthColorClass = 'text-yellow-700';
+                        }
+                        
+                        return (
+                            <>
+                                <span className={healthColorClass}>{currentHealth}</span>
+                                <span>/</span>
+                                <span>{effective}</span>
+                            </>
+                        );
+                    })()}
+                </div>
             </div>
             )}
         </div>
@@ -113,13 +137,15 @@ const Card: React.FC<CardProps> = ({
             {isHovered && card.imageUrl && (
                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-lg flex flex-col justify-between text-white p-2">
                     <OldCardFace/>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onExamine(card); }}
-                        className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors"
-                    >
-                        Examine
-                    </button>
                  </div>
+            )}
+             {isHovered && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onExamine(card); }}
+                    className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20"
+                >
+                    Examine
+                </button>
             )}
             
             {/* Visible Status Icons */}

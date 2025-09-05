@@ -1,5 +1,5 @@
-// FIX: Switched to npm specifier for Deno types, which is more robust than a direct CDN link. This resolves issues with finding type definitions for the Deno runtime.
-/// <reference types="npm:@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated the Deno type reference to use a direct URL, as the 'npm:' specifier was not being resolved in the current environment. This ensures the 'Deno' namespace and its APIs are correctly typed.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from '@supabase/supabase-js'
 import { corsHeaders } from '../_shared/cors.ts'
