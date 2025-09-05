@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Die as DieType } from '../game/types';
+import type { Die as DieType, GameState } from '../game/types';
 import Die from './Die';
 
 interface DiceTrayProps {
@@ -10,9 +10,10 @@ interface DiceTrayProps {
   onRoll: () => void;
   canRoll: boolean;
   valuableDiceForHover: Set<number>;
+  lastActionDetails: GameState['lastActionDetails'];
 }
 
-const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll, valuableDiceForHover }) => {
+const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll, valuableDiceForHover, lastActionDetails }) => {
   const [isRolling, setIsRolling] = useState(false);
   const sortedDice = [...dice].sort((a, b) => a.value - b.value);
 
@@ -36,6 +37,7 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
             isRolling={isRolling && !die.isKept && !die.isSpent}
             isHighlighted={valuableDiceForHover.has(die.id)}
             isTrayRolling={isRolling}
+            lastActionDetails={lastActionDetails}
           />
         ))}
       </div>

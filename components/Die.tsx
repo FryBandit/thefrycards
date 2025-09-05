@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Die as DieType } from '../game/types';
+import type { Die as DieType, GameState } from '../game/types';
 
 interface DieProps {
   die: DieType;
@@ -7,9 +7,10 @@ interface DieProps {
   isRolling?: boolean;
   isHighlighted?: boolean;
   isTrayRolling?: boolean;
+  lastActionDetails: GameState['lastActionDetails'];
 }
 
-const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false, isTrayRolling = false }) => {
+const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false, isTrayRolling = false, lastActionDetails }) => {
   const [displayValue, setDisplayValue] = useState(die.value);
 
   useEffect(() => {
@@ -48,16 +49,34 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
     '⚅',
   ][displayValue];
 
+  const wasJustSpent = lastActionDetails?.spentDiceIds.includes(die.id);
+  const spendAnimationType = wasJustSpent ? lastActionDetails?.type : null;
+
+  const spendColor: { [key: string]: string } = {
+    'play': 'shadow-neon-pink',
+    'channel': 'shadow-neon-cyan',
+    'scavenge': 'shadow-neon-yellow',
+    'activate': 'shadow-unit',
+  };
+
   const baseClasses = "w-16 h-16 rounded-lg flex items-center justify-center text-5xl font-bold transition-all duration-200 border-2";
-  const stateClasses = die.isSpent
-    ? "bg-gray-800/80 border-gray-600 text-gray-500 opacity-50"
-    : die.isKept
-    ? "bg-neon-cyan text-cyber-bg scale-105 border-neon-cyan shadow-neon-cyan"
-    : isHighlighted
-    ? "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan"
-    : "bg-cyber-surface/80 border-cyber-border text-neon-pink hover:bg-cyber-primary hover:border-neon-pink cursor-pointer";
   
-  const animationClass = isRolling ? 'animate-roll-shake' : '';
+  let stateClasses = "";
+  if (die.isSpent) {
+      stateClasses = "bg-gray-800/80 border-gray-600 text-gray-500 opacity-50";
+  } else if (die.isKept) {
+      stateClasses = "bg-neon-cyan text-cyber-bg scale-105 border-neon-cyan shadow-neon-cyan";
+  } else if (isHighlighted) {
+      stateClasses = "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan";
+  } else {
+      stateClasses = "bg-cyber-surface/80 border-cyber-border text-neon-pink hover:bg-cyber-primary hover:border-neon-pink cursor-pointer";
+  }
+
+  const animationClass = isRolling 
+    ? 'animate-roll-shake' 
+    : spendAnimationType 
+    ? `animate-pulse-spend ${spendColor[spendAnimationType] || 'shadow-neon-pink'}`
+    : '';
 
   return (
     <button

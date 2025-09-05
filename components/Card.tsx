@@ -50,7 +50,7 @@ const Card: React.FC<CardProps> = ({
   const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
   const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
 
-  const OldCardFace = () => (
+  const CardFace = () => (
       <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
         <div className="flex justify-between items-start text-sm font-bold">
             <span className="truncate pr-2">{card.name}</span>
@@ -130,13 +130,13 @@ const Card: React.FC<CardProps> = ({
                 <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded-lg" />
             ) : (
                 <div className="w-full h-full backdrop-blur-sm flex flex-col justify-between">
-                    <OldCardFace />
+                    <CardFace />
                 </div>
             )}
 
             {isHovered && card.imageUrl && (
                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-lg flex flex-col justify-between text-white p-2">
-                    <OldCardFace/>
+                    <CardFace/>
                  </div>
             )}
              {isHovered && (

@@ -34,15 +34,22 @@
             animation: {
               'pulse-bright': 'pulse-bright 1s ease-in-out',
               'roll-shake': 'roll-shake 0.75s ease-in-out',
+              'pulse-spend': 'pulse-spend 0.6s ease-out',
             },
             keyframes: {
               'pulse-bright': {
                 '0%, 100%': {
                   boxShadow: '0 0 5px #f038ff, 0 0 10px #f038ff',
+                  transform: 'scale(1)',
                 },
                 '50%': {
                   boxShadow: '0 0 10px #fef08a, 0 0 20px #fef08a, 0 0 30px #fef08a',
+                  transform: 'scale(1.05)',
                 },
+              },
+              'pulse-spend': {
+                '0%, 100%': { transform: 'scale(1)', opacity: 0.5 },
+                '50%': { transform: 'scale(1.2)', opacity: 1 },
               },
               'roll-shake': {
                 '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },

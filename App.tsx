@@ -9,6 +9,7 @@ import PlayerInfoPanel from './components/PlayerInfoPanel';
 import CardViewerModal from './components/CardViewerModal';
 import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
+import ConfirmModal from './components/ConfirmModal';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
 import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
 import { fetchCardDefinitions, requiredComposition } from './game/cards';
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   const [announcedPhase, setAnnouncedPhase] = useState<string | null>(state.phase);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
+  const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -258,6 +260,21 @@ const App: React.FC = () => {
     setExaminingCard(card);
   };
 
+  const showConfirmation = (title: string, message: string, onConfirm: () => void) => {
+      setConfirmation({ title, message, onConfirm });
+  };
+
+  const handleConfirm = () => {
+      if (confirmation) {
+          confirmation.onConfirm();
+          setConfirmation(null);
+      }
+  };
+
+  const handleCancel = () => {
+      setConfirmation(null);
+  };
+
   // Main game loop and AI logic
   useEffect(() => {
     if (state.winner || !state.isProcessing || state.turn === 0 || state.phase === TurnPhase.MULLIGAN) return;
@@ -339,6 +356,7 @@ const App: React.FC = () => {
         hoveredCardInHand={hoveredCardInHand}
         setHoveredCardInHand={setHoveredCardInHand}
         onMulligan={handleMulliganChoice}
+        showConfirmation={showConfirmation}
       />
 
       {/* HUD Elements */}
@@ -373,6 +391,14 @@ const App: React.FC = () => {
 
       {/* Overlays */}
        <PhaseAnnouncer phase={announcedPhase} />
+      
+      <ConfirmModal 
+        isOpen={!!confirmation}
+        title={confirmation?.title || ''}
+        message={confirmation?.message || ''}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
 
       {targetingInfo && (
         <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
@@ -394,7 +420,7 @@ const App: React.FC = () => {
         />
       )}
       {state.winner && (
-        <Modal title="Game Over" onClose={handleStartGame} onShowRules={() => setView('howToPlay')}>
+        <Modal title="Game Over" onClose={handleStartGame} onHowToPlay={() => setView('howToPlay')}>
           <p>{state.winner.name} is victorious!</p>
         </Modal>
       )}

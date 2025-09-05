@@ -3,73 +3,12 @@
 import React, { useMemo } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { isCardTargetable } from '../hooks/useGameState';
+import { findValuableDiceForCost } from '../game/utils';
 import DiceTray from './DiceTray';
 import Card from './Card';
 
 // Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
-const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
-    if (!cost) return [];
-
-    const availableDice = dice.filter(d => !d.isSpent);
-    const diceByValue = new Map<number, Die[]>();
-    for (const die of availableDice) {
-        if (!diceByValue.has(die.value)) {
-            diceByValue.set(die.value, []);
-        }
-        diceByValue.get(die.value)!.push(die);
-    }
-    
-    switch (cost.type) {
-        case DiceCostType.EXACT_VALUE:
-            return diceByValue.get(cost.value!) || [];
-            
-        case DiceCostType.MIN_VALUE:
-            return availableDice.filter(d => d.value >= cost.value!);
-
-        case DiceCostType.ANY_PAIR:
-            for (const dice of diceByValue.values()) {
-                if (dice.length >= 2) return dice.slice(0, 2);
-            }
-            return [];
-
-        case DiceCostType.THREE_OF_A_KIND:
-            for (const dice of diceByValue.values()) {
-                if (dice.length >= 3) return dice.slice(0, 3);
-                if (dice.length === 2) return dice; // Keep pairs, hope to roll the third
-            }
-            return [];
-        
-        case DiceCostType.FOUR_OF_A_KIND:
-            for (const dice of diceByValue.values()) {
-                if (dice.length >= 4) return dice.slice(0, 4);
-                if (dice.length >= 3) return dice.slice(0, 3);
-                if (dice.length === 2) return dice;
-            }
-            return [];
-
-        case DiceCostType.STRAIGHT: {
-            const uniqueSorted = [...new Set(availableDice.map(d => d.value))].sort((a,b) => a-b);
-            if (uniqueSorted.length < 2) return [];
-            for (let i = 0; i < uniqueSorted.length - 1; i++) {
-                if (uniqueSorted[i+1] === uniqueSorted[i] + 1) {
-                    const d1 = availableDice.find(d => d.value === uniqueSorted[i])!;
-                    const d2 = availableDice.find(d => d.value === uniqueSorted[i+1])!;
-                    return [d1, d2]; // Keep first consecutive pair
-                }
-            }
-            return [];
-        }
-
-        case DiceCostType.SUM_OF_X_DICE:
-            return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
-        
-        case DiceCostType.ANY_X_DICE:
-             return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
-
-        default:
-            return [];
-    }
-}
+// MOVED TO game/utils.ts
 
 
 // New sub-component for cards on the field
@@ -242,6 +181,7 @@ interface GameBoardProps {
   hoveredCardInHand: CardInGame | null;
   setHoveredCardInHand: (card: CardInGame | null) => void;
   onMulligan: (mulligan: boolean) => void;
+  showConfirmation: (title: string, message: string, onConfirm: () => void) => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -250,7 +190,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
     lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
-    onMulligan
+    onMulligan, showConfirmation
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -276,7 +216,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
         case TurnPhase.ROLL_SPEND: {
             const hasUnspentDice = dice.some(d => !d.isSpent);
             const action = () => {
-                if (!hasUnspentDice || window.confirm('You have unspent dice. Are you sure you want to end the phase?')) {
+                if (hasUnspentDice) {
+                    showConfirmation('End Phase?', 'You have unspent dice. Are you sure you want to end the phase?', () => onAdvancePhase());
+                } else {
                     onAdvancePhase();
                 }
             };
@@ -284,7 +226,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         }
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
-        case TurnPhase.END: return { text: "END TURN", action: () => { if (window.confirm('Are you sure you want to end your turn?')) { onAdvancePhase() } }, disabled: false };
+        case TurnPhase.END: return { text: "END TURN", action: () => showConfirmation('End Turn?', 'Are you sure you want to end your turn?', () => onAdvancePhase()), disabled: false };
         default: return null;
     }
   }
@@ -379,6 +321,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     onRoll={onRoll}
                     canRoll={rollCount < maxRolls}
                     valuableDiceForHover={valuableDiceForHover}
+                    lastActionDetails={gameState.lastActionDetails}
                 />
             )}
         </div>

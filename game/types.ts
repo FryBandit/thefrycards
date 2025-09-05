@@ -104,6 +104,7 @@ export interface GameState {
   winner: Player | null;
   isProcessing: boolean;
   extraTurns: number;
+  lastActionDetails?: { type: string, spentDiceIds: number[] } | null;
 }
 
 // Shared game logic for calculating effective stats.
