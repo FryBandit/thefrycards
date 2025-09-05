@@ -21,7 +21,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
           <Section title="Turn Structure">
             <ol className="list-decimal list-inside space-y-2 font-semibold">
               <li><strong>Start Phase:</strong> "Start of turn" effects trigger.</li>
-              <li><strong>Roll & Spend Phase:</strong> Roll your four Command Dice up to three times. Spend dice to deploy cards.</li>
+              <li><strong>Roll & Spend Phase:</strong> Roll your five Command Dice up to three times. Spend dice to deploy cards.</li>
               <li><strong>Draw Phase:</strong> Draw one card from your deck.</li>
               <li><strong>Assault Phase:</strong> Choose whether to attack with your deployed Units. This is not automatic.</li>
               <li><strong>End Phase:</strong> "End of turn" effects trigger. Unspent dice are lost.</li>
@@ -29,9 +29,9 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
           </Section>
 
           <Section title="The Roll & Spend Phase">
-            <p>The core of your turn. You have four Command Dice and three rolls.</p>
+            <p>The core of your turn. You have five Command Dice and three rolls.</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
-              <li><strong>First Roll:</strong> Roll all four dice.</li>
+              <li><strong>First Roll:</strong> Roll all five dice.</li>
               <li><strong>Assess & Act:</strong> Spend dice on cards, or "keep" dice by clicking them. Kept dice (highlighted in cyan) won't be re-rolled.</li>
               <li><strong>Second & Third Rolls:</strong> Re-roll any dice that are not kept or spent.</li>
               <li><strong>Final Actions:</strong> After your third roll, the results are final. Spend your remaining dice before ending the phase.</li>

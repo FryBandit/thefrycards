@@ -80,7 +80,7 @@ const createInitialState = (): GameState => {
     currentPlayerId: 0,
     turn: 1,
     phase: TurnPhase.START,
-    dice: Array.from({ length: 4 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
+    dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
     rollCount: 0,
     log: ['SYSTEM BOOT: Game initialized.'],
     winner: null,
@@ -704,7 +704,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 // Reset hasAssaulted for units to allow them to attack again.
                 currentPlayer.units.forEach(u => u.hasAssaulted = false);
                 newState.phase = TurnPhase.ASSAULT;
-                newState.dice = Array.from({ length: 4 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
+                newState.dice = Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
                 newState.rollCount = 3; // No rolls allowed in extra turn
                 log(`${currentPlayer.name} begins an extra turn, skipping to the Assault Phase.`);
             } else {
@@ -712,7 +712,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 newState.turn += (newState.currentPlayerId === 0 ? 1 : 0);
                 newState.phase = TurnPhase.START;
                 const nextPlayer = newState.players[newState.currentPlayerId];
-                const diceCount = 4 + nextPlayer.diceModifier;
+                const diceCount = 5 + nextPlayer.diceModifier;
                 nextPlayer.diceModifier = 0;
                 newState.dice = Array.from({ length: Math.max(0, diceCount) }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
                 newState.rollCount = 0;
