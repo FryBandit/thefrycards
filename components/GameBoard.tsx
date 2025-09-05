@@ -87,7 +87,7 @@ const HandArea: React.FC<{
         return (
              <div className="h-24 flex-shrink-0 w-full flex justify-center items-center relative">
                 {numCards > 0 && 
-                    <div className="flex justify-center items-end -space-x-16 transform -translate-y-24">
+                    <div className="flex justify-center items-end -space-x-24 transform -translate-y-24">
                          {player.hand.map((card, i) => {
                             const rotation = (i - (numCards - 1) / 2) * -5; // Negative rotation for opponent
                             
@@ -97,7 +97,7 @@ const HandArea: React.FC<{
                                     className="transition-all duration-300 ease-in-out origin-bottom" 
                                     style={{ transform: `rotate(${rotation}deg)`}}
                                 >
-                                    <div className="w-40 h-56 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
+                                    <div className="w-48 h-64 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
                                         <span className="text-2xl font-black text-neon-pink/50">CARD</span>
                                     </div>
                                 </div>
@@ -122,7 +122,7 @@ const HandArea: React.FC<{
 
     return (
         <div className="h-64 flex-shrink-0 flex justify-center items-end pb-4">
-            <div className="flex justify-center items-end -space-x-16">
+            <div className="flex justify-center items-end -space-x-24">
                  {allPlayableCards.map((card, i) => {
                     const numCards = allPlayableCards.length;
                     const rotation = (i - (numCards - 1) / 2) * 5;
@@ -241,7 +241,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
         <div className="absolute inset-0 bg-cyber-bg/80 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
           <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-8">Choose Your Starting Hand</h2>
-          <div className="flex justify-center items-end -space-x-16 mb-8 h-64">
+          <div className="flex justify-center items-end -space-x-24 mb-8 h-72">
             {players[0].hand.map((card, i) => {
               const numCards = players[0].hand.length;
               const rotation = (i - (numCards - 1) / 2) * 5;

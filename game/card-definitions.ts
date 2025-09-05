@@ -153,8 +153,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Joshua, The Dreamer",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 7, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: 2,
     durability: 3,
     commandNumber: 5,
@@ -190,8 +190,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Void Wanderer",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 6, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 6, "count": 2 }],
     strength: 3,
     durability: 2,
     commandNumber: 4,
@@ -264,8 +264,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "The Ship's Last Breath",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 10, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 10, "count": 2 }],
     strength: undefined,
     durability: undefined,
     text: "Martyrdom: Draw 2 cards. Decay.",
@@ -301,8 +301,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Stardust Memories",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 9, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 9, "count": 2 }],
     strength: undefined,
     durability: undefined,
     text: "Recall a unit.",
@@ -324,7 +324,8 @@ export const cardDefinitions: CardDefinition[] = [
     strength: undefined,
     durability: undefined,
     text: "Scavenge (Play this card from your graveyard).",
-    abilities: { "scavenge": { "cost": [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 12, "count": 2 }] } },
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    abilities: { "scavenge": { "cost": [{ type: DiceCostType.SUM_OF_X_DICE, "value": 12, "count": 2 }] } },
     faction: "Space Horror",
     rarity: "Rare",
     flavor_text: "From destruction, something darker is born.",
@@ -428,8 +429,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Shadow of the Dreadnought",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 20, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 20, "count": 3 }],
     strength: undefined,
     durability: undefined,
     text: "Landmark. Generator: Sabotage 1.",
@@ -501,8 +502,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "The Cosmic Harbinger",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 11, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 11, "count": 2 }],
     strength: 3,
     durability: 6,
     commandNumber: 7,
@@ -557,8 +558,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Jenna, The Chromatic Upriser",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 22, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 22, "count": 3 }],
     strength: 6,
     durability: 8,
     commandNumber: 10,
@@ -650,8 +651,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "ChromaVoid",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 24, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 24, "count": 3 }],
     strength: undefined,
     durability: undefined,
     text: "Annihilate (Voids all other units on arrival).",
@@ -668,8 +669,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Wall Whisperer",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 8, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 8, "count": 2 }],
     strength: undefined,
     durability: undefined,
     text: "Recall a target unit.",
@@ -686,8 +687,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Necromancy 101",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 7, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: undefined,
     durability: undefined,
     text: "Generator: You may Scavenge one card from your graveyard each turn.",
@@ -722,8 +723,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Moonless Malice",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 20, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 20, "count": 3 }],
     strength: 8,
     durability: 6,
     commandNumber: 10,
@@ -741,8 +742,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Crenellation Creeper",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 23, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 23, "count": 3 }],
     strength: 5,
     durability: 10,
     commandNumber: 10,
@@ -760,8 +761,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "The Shepherd Paradox",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 21, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 21, "count": 3 }],
     strength: 6,
     durability: 8,
     commandNumber: 10,
@@ -779,8 +780,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Lord of the Bramble",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 23, "count": 3 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 23, "count": 3 }],
     strength: 8,
     durability: 7,
     commandNumber: 10,
@@ -798,8 +799,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Waking Dream",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 6, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 6, "count": 2 }],
     strength: undefined,
     durability: undefined,
     text: "Siphon 2.",
@@ -852,8 +853,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Trophy Collector",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 8, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 8, "count": 2 }],
     strength: 3,
     durability: 3,
     commandNumber: 5,
@@ -965,8 +966,8 @@ export const cardDefinitions: CardDefinition[] = [
     name: "Furnace Automaton",
     // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "sum": 7, "count": 2 }],
+    // FIX: Replaced "sum" with "value" to match DiceCost interface.
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: 2,
     durability: 4,
     commandNumber: 5,

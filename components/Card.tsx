@@ -64,62 +64,69 @@ const Card: React.FC<CardProps> = ({
         <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
             <KeywordText text={card.text} />
         </div>
-        <div className="flex justify-between items-end text-sm font-semibold">
-            <span className="capitalize text-white">{card.type}</span>
-            {card.type === CardType.UNIT && (
-            <div className="flex items-center space-x-2 font-bold">
-                {/* Strength Display */}
-                <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
-                    {(() => {
-                        const base = card.strength ?? 0;
-                        const effective = effectiveStrength ?? base;
-                        const modifier = effective - base;
-                        
-                        return (
-                            <>
-                                <span>{base}</span>
-                                {modifier !== 0 && (
-                                    <span className={`font-normal text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
-                                        ({modifier > 0 ? '+' : ''}{modifier})
-                                    </span>
-                                )}
-                            </>
-                        );
-                    })()}
+        <div>
+            <div className="flex justify-between items-end text-sm font-semibold">
+                <span className="capitalize text-white">{card.type}</span>
+                {card.type === CardType.UNIT && (
+                <div className="flex items-center space-x-2 font-bold">
+                    {/* Strength Display */}
+                    <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                        {(() => {
+                            const base = card.strength ?? 0;
+                            const effective = effectiveStrength ?? base;
+                            const modifier = effective - base;
+                            
+                            return (
+                                <>
+                                    <span>{base}</span>
+                                    {modifier !== 0 && (
+                                        <span className={`font-normal text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                            ({modifier > 0 ? '+' : ''}{modifier})
+                                        </span>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </div>
+                    {/* Durability/Health Display */}
+                    <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                         {(() => {
+                            const base = card.durability ?? 1;
+                            const effective = effectiveDurability ?? base;
+                            const currentHealth = effective - card.damage;
+                            
+                            let healthColorClass = 'text-cyber-bg';
+                            if (card.damage > 0) {
+                                healthColorClass = 'text-red-700';
+                            } else if (effective > base) {
+                                healthColorClass = 'text-green-700';
+                            } else if (effective < base) {
+                                healthColorClass = 'text-yellow-700';
+                            }
+                            
+                            return (
+                                <>
+                                    <span className={healthColorClass}>{currentHealth}</span>
+                                    <span>/</span>
+                                    <span>{effective}</span>
+                                </>
+                            );
+                        })()}
+                    </div>
                 </div>
-                {/* Durability/Health Display */}
-                <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
-                     {(() => {
-                        const base = card.durability ?? 1;
-                        const effective = effectiveDurability ?? base;
-                        const currentHealth = effective - card.damage;
-                        
-                        let healthColorClass = 'text-cyber-bg';
-                        if (card.damage > 0) {
-                            healthColorClass = 'text-red-700';
-                        } else if (effective > base) {
-                            healthColorClass = 'text-green-700';
-                        } else if (effective < base) {
-                            healthColorClass = 'text-yellow-700';
-                        }
-                        
-                        return (
-                            <>
-                                <span className={healthColorClass}>{currentHealth}</span>
-                                <span>/</span>
-                                <span>{effective}</span>
-                            </>
-                        );
-                    })()}
-                </div>
+                )}
             </div>
+            {card.imageUrl && (
+                <p className="text-[8px] text-white/40 truncate mt-0.5 font-mono" title={card.imageUrl}>
+                    {card.imageUrl.split('/').pop()}
+                </p>
             )}
         </div>
       </div>
   );
 
   return (
-    <div className="relative w-40 h-56">
+    <div className="relative w-48 h-64">
       <div 
         className={`absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
         onMouseEnter={() => setIsHovered(true)}
