@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 // FIX: 'TurnPhase' is an enum, which is a runtime value. It cannot be imported using 'import type'. Changed to a regular import.
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
@@ -208,10 +209,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Center Bar */}
       <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex items-center justify-center gap-6 px-4 h-40">
-        <div className="text-center w-64">
-             <div className="bg-cyber-surface/80 px-6 py-2 rounded-lg shadow-lg border-2 border-cyber-border text-neon-yellow tracking-widest">
-                Turn {turn} - {players[currentPlayerId].name}'s {phase} Phase
-            </div>
+        <div className="text-center w-64 h-full flex flex-col items-center justify-center bg-cyber-surface/80 p-2 rounded-lg border-2 border-cyber-border shadow-lg">
+            <div className="text-base font-bold text-neon-cyan tracking-[0.2em] leading-tight">TURN</div>
+            <div className="text-5xl font-black text-white leading-none">{turn}</div>
+            <div className="text-base font-semibold text-neon-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
+            <div className="text-xs opacity-80 text-white tracking-widest leading-tight">{`${phase} Phase`}</div>
         </div>
 
         <div className="flex-grow flex items-center justify-center">

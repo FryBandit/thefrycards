@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
@@ -210,7 +211,7 @@ const App: React.FC = () => {
   const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
-    <main className="relative w-screen h-screen font-sans bg-black/50">
+    <main className="relative w-screen h-screen font-sans bg-cyber-bg">
       <GameBoard
         gameState={state}
         onDieClick={handleDieClick}

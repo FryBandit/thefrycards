@@ -6,7 +6,7 @@ interface HowToPlayProps {
 
 const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
   return (
-    <div className="w-screen h-screen bg-cyber-bg text-neon-yellow/80 p-8 overflow-y-auto font-sans">
+    <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-black text-neon-cyan mb-2 tracking-widest">DICE COMMAND</h1>
