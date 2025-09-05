@@ -1,5 +1,5 @@
+
 import { CardDefinition, CardType, DiceCost, DiceCostType } from './types';
-import { supabase } from '../lib/supabaseClient';
 
 // Helper to shuffle arrays
 const shuffle = <T,>(array: T[]): T[] => {
@@ -28,35 +28,47 @@ const parseAbilities = (abilitiesString: string | undefined): { [key: string]: a
 const parseDiceCost = (diceCostString: string | undefined): DiceCost[] => {
     if (!diceCostString) return [];
     const costs: DiceCost[] = [];
-    const parts = diceCostString.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    // Split by comma, but not inside parentheses to handle sum(x, y)
+    const parts = diceCostString.split(/,\s*(?![^()]*\))/g).map(s => s.trim().toLowerCase()).filter(Boolean);
+
     for (const part of parts) {
-        const anyXDiceMatch = part.match(/^any (\d+)/);
+        // e.g., any_x_dice(2)
+        const anyXDiceMatch = part.match(/^any_x_dice\((\d+)\)$/);
         if (anyXDiceMatch) {
             costs.push({ type: DiceCostType.ANY_X_DICE, count: parseInt(anyXDiceMatch[1], 10) });
             continue;
         }
+
+        // e.g., sum(7, 2)
         const sumMatch = part.match(/^sum\((\d+),\s*(\d+)\)$/);
         if (sumMatch) {
             costs.push({ type: DiceCostType.SUM_OF_X_DICE, value: parseInt(sumMatch[1], 10), count: parseInt(sumMatch[2], 10) });
             continue;
         }
+
+        // e.g., straight(4)
         const straightMatch = part.match(/^straight\((\d+)\)$/);
         if (straightMatch) {
             costs.push({ type: DiceCostType.STRAIGHT, count: parseInt(straightMatch[1], 10) });
             continue;
         }
+
+        // e.g., 1x6
         const exactMatch = part.match(/^(\d+)x(\d+)$/);
         if (exactMatch) {
             costs.push({ type: DiceCostType.EXACT_VALUE, count: parseInt(exactMatch[1], 10), value: parseInt(exactMatch[2], 10) });
             continue;
         }
-        const minMatch = part.match(/^(\d+)\+$/);
+
+        // e.g., min(3)
+        const minMatch = part.match(/^min\((\d+)\)$/);
         if (minMatch) {
             costs.push({ type: DiceCostType.MIN_VALUE, value: parseInt(minMatch[1], 10), count: 1 });
             continue;
         }
         
-        switch(part) {
+        // e.g., any_pair, two_pair
+        switch(part.replace(/_/g, '')) {
             case 'anypair': costs.push({ type: DiceCostType.ANY_PAIR }); break;
             case 'twopair': costs.push({ type: DiceCostType.TWO_PAIR }); break;
             case 'threeofakind': costs.push({ type: DiceCostType.THREE_OF_A_KIND }); break;
@@ -70,70 +82,68 @@ const parseDiceCost = (diceCostString: string | undefined): DiceCost[] => {
 };
 
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
-    // This type represents the raw data structure from the Supabase 'cards' table
-    type RawCardData = {
-      id: number;
-      title: string;
-      type: CardType;
-      dice_cost: string;
-      strength?: number;
-      durability?: number;
-      command_number: number;
-      abilities?: string;
-      image_url?: string;
-      rarity?: string;
-      flavor_text?: string;
-      set?: string;
-      author?: string;
-      text: string;
-      faction?: string;
-    };
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTNT7Jh9iVqAvbycdK3bZ38-fuTBwriRZY0OOXvKhIbOFri_gUbkZCNnoYHFVezTGqOAiH0p680-gSc/pub?gid=48412514&single=true&output=tsv';
 
-    const { data, error } = await supabase.from('cards').select('*');
+    try {
+        const response = await fetch(sheetUrl, { cache: 'no-store' }); // Use no-store to get latest version
+        if (!response.ok) {
+            throw new Error(`Failed to fetch card data: ${response.status} ${response.statusText}`);
+        }
+        const tsvData = await response.text();
+        const rows = tsvData.split('\r\n').map(row => row.split('\t'));
 
-    if (error) {
-        console.error('Error fetching card definitions:', error);
-        throw new Error(`Failed to fetch card definitions: ${error.message}`);
-    }
-
-    const rawCards = data as RawCardData[];
-
-    if (!rawCards) {
-        console.error('Invalid data format from Supabase:', data);
-        throw new Error('Failed to parse card definitions from Supabase response.');
-    }
-
-    // Process the raw data to match the CardDefinition interface used in the game
-    return rawCards.map(rawCard => {
-        const { title, image_url, set, command_number, ...rest } = rawCard;
-        
-        let fullImageUrl: string | undefined = undefined;
-        if (image_url) {
-            try {
-                // The `image_url` column likely stores the path to the file in a Supabase Storage bucket.
-                // We need to construct the full public URL to display the image.
-                const { data: imageUrlData } = supabase.storage.from('card-art').getPublicUrl(image_url);
-                if (imageUrlData && imageUrlData.publicUrl) {
-                    fullImageUrl = imageUrlData.publicUrl;
-                } else {
-                    console.warn(`Could not retrieve public URL for image: ${image_url} for card: ${rawCard.title}`);
-                }
-            } catch (e) {
-                console.error(`An error occurred while getting public URL for ${image_url}`, e);
-            }
+        if (rows.length < 2) {
+            throw new Error('No card data rows found in the spreadsheet.');
         }
 
-        const card: CardDefinition = {
-            ...rest,
-            name: title, // Rename 'title' to 'name' for consistency with the game's code
-            imageUrl: fullImageUrl, // Use the fully constructed public URL
-            card_set: set, // Rename 'set' to 'card_set'
-            commandNumber: command_number, // Rename 'command_number' to 'commandNumber'
-            abilities: parseAbilities(rawCard.abilities),
-            dice_cost: parseDiceCost(rawCard.dice_cost),
-        };
-        return card;
-    });
+        const headers = rows[0].map(h => h.trim());
+        const cardDataRows = rows.slice(1);
+
+        const rawCards = cardDataRows.map(row => {
+            const card: { [key: string]: string } = {};
+            headers.forEach((header, i) => {
+                card[header] = row[i];
+            });
+            return card;
+        });
+
+        // Process the raw data to match the CardDefinition interface
+        return rawCards
+            .map(rawCard => {
+                if (!rawCard.id || !rawCard.title) return null; // Skip empty rows
+
+                const getNumber = (key: string, defaultValue: number | undefined = undefined): number | undefined => {
+                    const value = rawCard[key];
+                    if (value === null || value === undefined || value.trim() === '') return defaultValue;
+                    const num = parseInt(value, 10);
+                    return isNaN(num) ? defaultValue : num;
+                };
+
+                const card: CardDefinition = {
+                    id: getNumber('id')!,
+                    name: rawCard.title,
+                    type: (rawCard.type as CardType) || CardType.UNIT,
+                    dice_cost: parseDiceCost(rawCard.dice_cost),
+                    strength: getNumber('strength'),
+                    durability: getNumber('durability'),
+                    commandNumber: getNumber('command_number')!,
+                    text: rawCard.text || '',
+                    abilities: parseAbilities(rawCard.abilities),
+                    imageUrl: rawCard.image_url && rawCard.image_url.trim() !== '' ? rawCard.image_url.trim() : undefined,
+                    faction: rawCard.faction || undefined,
+                    rarity: rawCard.rarity || undefined,
+                    flavor_text: rawCard.flavor_text || undefined,
+                    card_set: rawCard.set || undefined,
+                    author: rawCard.author || undefined,
+                };
+                return card;
+            })
+            .filter((card): card is CardDefinition => card !== null); // Filter out any null entries from empty rows
+
+    } catch (error) {
+        console.error('Error fetching or parsing card definitions from Google Sheet:', error);
+        throw new Error(`Failed to process card definitions: ${error instanceof Error ? error.message : String(error)}`);
+    }
 };
 
 export const requiredComposition = {
