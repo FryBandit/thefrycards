@@ -34,7 +34,7 @@ export interface CardDefinition {
   durability?: number;
   commandNumber: number;
   text: string;
-  keywords?: { [key: string]: any };
+  keywords?: { [key: string]: any; immutable?: boolean; resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; amplify?: { cost: DiceCost[], effect: { type: 'DEAL_DAMAGE', amount: number } }; overload?: { per: number, amount: number }; echo?: boolean; executioner?: { amount: number }; };
 }
 
 export interface CardInGame extends CardDefinition {
@@ -44,6 +44,7 @@ export interface CardInGame extends CardDefinition {
   durabilityModifier: number;
   hasAssaulted: boolean;
   isScavenged?: boolean;
+  isToken?: boolean;
 }
 
 export interface Player {
@@ -103,6 +104,12 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     let strength = (card.strength ?? 0) + card.strengthModifier;
     let durability = (card.durability ?? 1) + card.durabilityModifier;
     
+    // Overload keyword
+    if (card.keywords?.overload) {
+        const bonus = Math.floor(owner.graveyard.length / card.keywords.overload.per) * card.keywords.overload.amount;
+        strength += bonus;
+    }
+
     // Buffs from player's other cards
     if (owner.artifacts.some(a => a.id === 13)) strength += 1; // Targeting Matrix
     if (owner.locations.some(l => l.id === 12)) durability += 1; // Hardened Subnet

@@ -55,7 +55,7 @@ const FieldArea: React.FC<{
                     
                     let isTargetable = false;
                     if (targetingCard) {
-                        const isEnemyTarget = isOpponent && isUnit && !card.keywords?.stealth && (!card.keywords?.breach || card.hasAssaulted);
+                        const isEnemyTarget = isOpponent && isUnit && !card.keywords?.stealth && (!card.keywords?.breach || card.hasAssaulted) && !card.keywords?.immutable;
                         const isFriendlyRecallTarget = !isOpponent && isUnit && targetingCard.keywords?.recall;
                         
                         if (targetingCard.keywords?.recall) {
@@ -100,10 +100,12 @@ const HandArea: React.FC<{
     isCardScavengeable: (card: CardInGame) => boolean;
     isCardChannelable: (card: CardInGame) => boolean;
     onChannelClick: (card: CardInGame) => void;
+    isCardAmplifiable: (card: CardInGame) => boolean;
+    onAmplifyClick: (card: CardInGame) => void;
     isCurrentPlayer: boolean
 }> = ({ 
     player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardScavengeable, 
-    isCardChannelable, onChannelClick, isCurrentPlayer 
+    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer 
 }) => (
     <div className="flex-grow h-full flex items-center justify-center p-2 space-x-2">
         {player.hand.map((card) => (
@@ -120,6 +122,8 @@ const HandArea: React.FC<{
                         onClick={() => onCardClick(card)}
                         onChannel={card.keywords?.channel && isCurrentPlayer ? () => onChannelClick(card) : undefined}
                         isChannelable={isCurrentPlayer && isCardChannelable(card)}
+                        onAmplify={card.keywords?.amplify && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
+                        isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
                         origin="hand"
                     />
                 )}
@@ -155,6 +159,8 @@ interface GameBoardProps {
   isCardScavengeable: (card: CardInGame) => boolean;
   isCardChannelable: (card: CardInGame) => boolean;
   onChannelClick: (card: CardInGame) => void;
+  isCardAmplifiable: (card: CardInGame) => boolean;
+  onAmplifyClick: (card: CardInGame) => void;
   onAdvancePhase: (assault?: boolean) => void;
   onShowRules: () => void;
   targetingCard: CardInGame | null;
@@ -165,6 +171,7 @@ interface GameBoardProps {
 const GameBoard: React.FC<GameBoardProps> = ({ 
     gameState, onDieClick, onRoll, onCardClick, onGraveyardCardClick, onFieldCardClick, 
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
+    isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, onShowRules, targetingCard, isCardActivatable, onActivateCard 
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn } = gameState;
@@ -202,6 +209,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCardScavengeable={() => false}
             isCardChannelable={() => false}
             onChannelClick={() => {}}
+            isCardAmplifiable={() => false}
+            onAmplifyClick={() => {}}
             isCurrentPlayer={currentPlayerId === opponentPlayer.id}
         />
       </div>
@@ -285,6 +294,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
             isCardScavengeable={isCardScavengeable}
             isCardChannelable={isCardChannelable}
             onChannelClick={onChannelClick}
+            isCardAmplifiable={isCardAmplifiable}
+            onAmplifyClick={onAmplifyClick}
             isCurrentPlayer={currentPlayerId === currentPlayer.id}
         />
       </div>

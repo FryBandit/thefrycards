@@ -49,9 +49,12 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
 
           <Section title="Advanced Keywords">
              <div className="space-y-2">
+                <p><strong>Immutable:</strong> The ultimate protection. A card with Immutable cannot be targeted, damaged, destroyed, or otherwise affected by an opponent's cards or abilities. It can only be defeated in combat.</p>
+                <p><strong>Resonance (X):</strong> A high-risk, high-reward ability. Upon playing the card, you reveal the top card of your deck. If its Command Number is X or higher, a bonus effect triggers.</p>
+                <p><strong>Amplify [Cost]:</strong> Offers tactical flexibility. You may play the card for its base effect, or pay an additional Amplify cost to get a more powerful version of the effect.</p>
                 <p><strong>Channel [Cost]:</strong> Play a card for an alternate, usually cheaper, cost to get a different, smaller effect. This provides flexibility, allowing you to use a situational card for a simple effect like drawing a card if you can't use its main ability.</p>
                 <p><strong>Scavenge [Cost]:</strong> Play a card directly from your graveyard by paying its Scavenge cost. A scavenged card is Voided (removed from the game permanently) when it leaves the field, preventing it from being used again.</p>
-                <p><strong>Recall [Cost]:</strong> An effect that returns one of your units from the field to your hand. This is a powerful way to save a damaged unit, remove negative effects from it, or re-use its powerful "Arrival" abilities.</p>
+                <p><strong>Recall:</strong> An effect that returns one of your units from the field to your hand. This is a powerful way to save a damaged unit, remove negative effects from it, or re-use its powerful "Arrival" abilities.</p>
                 <p><strong>Stagnate:</strong> A potent disruption effect that forces your opponent to skip their next Draw Phase, denying them resources.</p>
             </div>
           </Section>

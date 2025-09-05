@@ -355,6 +355,72 @@ export const CARD_DEFINITIONS: CardDefinition[] = [
     text: 'Stagnate: Your opponent skips their next Draw Phase.',
     keywords: { stagnate: true }
   },
+  // --- LATEST KEYWORD CARDS ---
+  {
+    id: 40,
+    name: 'Bastion of the Ancients',
+    type: CardType.UNIT,
+    cost: [{ type: DiceCostType.SUM_OF_X_PLUS, value: 11, count: 2 }],
+    strength: 2,
+    durability: 8,
+    commandNumber: 9,
+    text: 'Immutable. Entrenched.',
+    keywords: { immutable: true, entrenched: true },
+  },
+  {
+    id: 41,
+    name: 'Oracle Engine',
+    type: CardType.UNIT,
+    cost: [{ type: DiceCostType.STRAIGHT_3 }],
+    strength: 3,
+    durability: 4,
+    commandNumber: 6,
+    text: 'Arrival: Resonance (5) - Reveal the top card of your deck. If its Command Number is 5 or greater, this unit gets +3 Strength.',
+    keywords: { resonance: { value: 5, effect: { type: 'BUFF_STRENGTH', amount: 3 } } },
+  },
+  {
+    id: 42,
+    name: 'Power Surge',
+    type: CardType.EVENT,
+    cost: [{ type: DiceCostType.ANY_X_PLUS, value: 4 }],
+    commandNumber: 4,
+    text: 'Deal 2 damage to a target unit. Amplify [Spend a 6]: Deal 5 damage instead.',
+    keywords: { damage: 2, requiresTarget: true, amplify: { cost: [{ type: DiceCostType.EXACTLY_X, value: 6 }], effect: { type: 'DEAL_DAMAGE', amount: 5 } } },
+  },
+  // --- NEW KEYWORD IMPLEMENTATION CARDS ---
+  {
+    id: 43,
+    name: 'Archive Fiend',
+    type: CardType.UNIT,
+    cost: [{ type: DiceCostType.EXACTLY_X, value: 4 }],
+    strength: 1,
+    durability: 3,
+    commandNumber: 4,
+    text: 'Overload: This unit has +1 Strength for every 2 cards in your graveyard.',
+    keywords: { overload: { per: 2, amount: 1 } },
+  },
+  {
+    id: 44,
+    name: 'Replicator Swarm',
+    type: CardType.UNIT,
+    cost: [{ type: DiceCostType.ANY_X_PLUS, value: 3 }],
+    strength: 1,
+    durability: 1,
+    commandNumber: 2,
+    text: 'Echo: When this unit enters the field, create a token copy of it. Tokens are Voided when they leave the field.',
+    keywords: { echo: true },
+  },
+  {
+    id: 45,
+    name: 'Punisher Droid',
+    type: CardType.UNIT,
+    cost: [{ type: DiceCostType.SUM_OF_X_PLUS, value: 7, count: 2 }],
+    strength: 2,
+    durability: 2,
+    commandNumber: 5,
+    text: 'Arrival: Snipe (1). Executioner (2): When this unit destroys a unit with an ability, the opponent loses 2 Command.',
+    keywords: { snipe: 1, executioner: { amount: 2 }, requiresTarget: true },
+  },
 ];
 
 const CARDS_BY_ID = new Map(CARD_DEFINITIONS.map(c => [c.id, c]));
@@ -378,18 +444,18 @@ export const buildDeck = (): CardDefinition[] => {
     // 8 Units
     deck.push(findCard(32)); // Phase Striker
     deck.push(findCard(31)); // Viper Assassin
-    deck.push(findCard(37)); // Scrapheap Scuttler (NEW)
-    deck.push(findCard(26)); // Siege Automaton
+    deck.push(findCard(37)); // Scrapheap Scuttler
     deck.push(findCard(17)); // Command Sergeant
-    deck.push(findCard(35)); // Retaliation Bot
-    deck.push(findCard(6));  // Code Weaver
-    deck.push(findCard(15)); // System-Killer KAIJU
+    deck.push(findCard(40)); // Bastion of the Ancients
+    deck.push(findCard(43)); // Archive Fiend (NEW)
+    deck.push(findCard(44)); // Replicator Swarm (NEW)
+    deck.push(findCard(45)); // Punisher Droid (NEW)
     
     // 5 Events
-    deck.push(findCard(36)); // Glitch Cascade (NEW)
+    deck.push(findCard(42)); // Power Surge
     deck.push(findCard(19)); // System Corruption
-    deck.push(findCard(38)); // Emergency Teleport (NEW)
-    deck.push(findCard(39)); // DDoS Attack (NEW)
+    deck.push(findCard(38)); // Emergency Teleport
+    deck.push(findCard(39)); // DDoS Attack
     deck.push(findCard(16)); // Overclock
     
     // 2 Artifacts

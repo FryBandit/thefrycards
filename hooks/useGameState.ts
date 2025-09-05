@@ -3,6 +3,7 @@
 
 
 
+
 import { useReducer } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats } from '../game/types';
 import { buildDeck } from '../game/cards';
@@ -14,7 +15,7 @@ type Action =
   | { type: 'ADVANCE_PHASE'; payload?: { assault: boolean } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
-  | { type: 'PLAY_CARD'; payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; } } }
+  | { type: 'PLAY_CARD'; payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; } } }
   | { type: 'ACTIVATE_ABILITY'; payload: { cardInstanceId: string } }
   | { type: 'AI_ACTION' };
 
@@ -253,7 +254,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       }
   };
 
-  const checkForDestroyedUnits = (sourcePlayerId: number): boolean => {
+  const checkForDestroyedUnits = (sourcePlayerId: number, sourceCard?: CardInGame): boolean => {
       let changed = false;
       for (let i = 0; i < 2; i++) {
           const player = newState.players[i];
@@ -271,14 +272,19 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                   } else {
                       player.units = player.units.filter(u => u.instanceId !== unit.instanceId);
                       
-                      if (unit.isScavenged) {
+                      if (unit.isScavenged || unit.isToken) {
                         player.void.push(unit);
-                        log(`${unit.name} was destroyed and Voided (Scavenged).`);
+                        log(`${unit.name} was destroyed and Voided (${unit.isToken ? 'Token' : 'Scavenged'}).`);
                       } else {
                         player.graveyard.push(unit);
                         log(`${unit.name} was destroyed.`);
                       }
                       
+                       // Executioner check (must happen before other on-destroy effects might change the board)
+                      if (sourceCard?.keywords?.executioner && player.id !== sourcePlayerId) {
+                        damagePlayer(player, sourceCard.keywords.executioner.amount, `${sourceCard.name}'s Executioner`);
+                      }
+
                       let standardPenaltyApplies = true;
 
                       // --- On-destruction keyword triggers ---
@@ -344,7 +350,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       let currentPlayer = newState.players[newState.currentPlayerId];
       let opponentPlayer = newState.players[1 - newState.currentPlayerId];
       
-      const cost = options?.isChanneled ? cardToPlay.keywords.channel.cost : (options?.isScavenged ? cardToPlay.keywords.scavenge.cost : cardToPlay.cost);
+      let cost = cardToPlay.cost;
+      if (options?.isChanneled) cost = cardToPlay.keywords.channel.cost;
+      if (options?.isScavenged) cost = cardToPlay.keywords.scavenge.cost;
+      if (options?.isAmplified) cost = cardToPlay.cost.concat(cardToPlay.keywords.amplify.cost);
+
       const costCheck = checkDiceCost({ cost }, newState.dice);
       if(!costCheck.canPay) return state;
 
@@ -385,7 +395,34 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           case CardType.EVENT: currentPlayer.graveyard.push(cardToPlay); break;
       }
 
+      // Echo keyword
+      if (cardToPlay.type === CardType.UNIT && cardToPlay.keywords?.echo) {
+        log(`${cardToPlay.name} Echoes, creating a token copy!`);
+        const tokenCopy: CardInGame = {
+            ...cardToPlay,
+            instanceId: `${cardToPlay.id}-token-${Date.now()}-${Math.random()}`,
+            isToken: true,
+        };
+        currentPlayer.units.push(tokenCopy);
+      }
+
       // Keyword-based Effects
+      if (cardToPlay.keywords?.resonance) {
+          if (currentPlayer.deck.length > 0) {
+              const topCard = currentPlayer.deck[currentPlayer.deck.length - 1];
+              log(`${cardToPlay.name}'s Resonance reveals ${topCard.name}.`);
+              if (topCard.commandNumber >= cardToPlay.keywords.resonance.value) {
+                  const effect = cardToPlay.keywords.resonance.effect;
+                  if (effect.type === 'BUFF_STRENGTH') {
+                      const cardInPlay = currentPlayer.units.find(u => u.instanceId === cardToPlay.instanceId);
+                      if (cardInPlay) cardInPlay.strengthModifier += effect.amount;
+                      log(`Resonance successful! ${cardToPlay.name} gains +${effect.amount} Strength.`);
+                  }
+              } else {
+                  log(`Resonance failed. Top card's Command Number was too low.`);
+              }
+          }
+      }
       if (cardToPlay.keywords?.stagnate) {
           opponentPlayer.skipNextDrawPhase = true;
           log(`${opponentPlayer.name} will skip their next Draw Phase due to Stagnate!`);
@@ -403,6 +440,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                   durabilityModifier: 0,
                   hasAssaulted: false,
                   isScavenged: false, // Recall cleanses scavenge status
+                  isToken: false, // and token status
               }
               currentPlayer.units.splice(targetIndex, 1);
               currentPlayer.hand.push(baseCard);
@@ -424,7 +462,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       if (cardToPlay.keywords?.barrage) {
           log(`${cardToPlay.name}'s Barrage deals ${cardToPlay.keywords.barrage} damage to all enemy units!`);
           opponentPlayer.units.forEach(unit => {
-              dealDamageToUnit(unit, cardToPlay.keywords.barrage, cardToPlay, opponentPlayer);
+              if (unit.keywords?.immutable) {
+                log(`${unit.name} is Immutable and ignores Barrage.`);
+              } else {
+                dealDamageToUnit(unit, cardToPlay.keywords.barrage, cardToPlay, opponentPlayer);
+              }
           });
           // Note: Barrage does not directly damage player in this version.
       }
@@ -442,16 +484,28 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       if(cardToPlay.keywords?.voidTarget && targetInstanceId) {
         const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
         if (target) {
-            opponentPlayer.units = opponentPlayer.units.filter(u => u.instanceId !== targetInstanceId);
-            opponentPlayer.void.push(target);
-            log(`${target.name} was voided by ${cardToPlay.name}.`);
+            if (target.keywords?.immutable) {
+                log(`${target.name} is Immutable and cannot be voided.`);
+            } else {
+                opponentPlayer.units = opponentPlayer.units.filter(u => u.instanceId !== targetInstanceId);
+                opponentPlayer.void.push(target);
+                log(`${target.name} was voided by ${cardToPlay.name}.`);
+            }
         }
       }
        if ((cardToPlay.keywords?.damage || cardToPlay.keywords?.snipe) && targetInstanceId) {
           const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
           if (target) {
-              const damage = cardToPlay.keywords.damage || cardToPlay.keywords.snipe;
+            if (target.keywords?.immutable) {
+                log(`${target.name} is Immutable and cannot be damaged by ${cardToPlay.name}.`);
+            } else {
+              let damage = cardToPlay.keywords.damage || cardToPlay.keywords.snipe;
+              if (options?.isAmplified && cardToPlay.keywords.amplify?.effect.type === 'DEAL_DAMAGE') {
+                  damage = cardToPlay.keywords.amplify.effect.amount;
+                  log(`${cardToPlay.name} is Amplified!`);
+              }
               dealDamageToUnit(target, damage, cardToPlay, opponentPlayer);
+            }
           }
       }
       if (cardToPlay.keywords?.sabotage) {
@@ -465,8 +519,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       if (cardToPlay.keywords?.corrupt && targetInstanceId) {
           const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
           if (target) {
-              target.strengthModifier -= cardToPlay.keywords.corrupt;
-              log(`${target.name} gets -${cardToPlay.keywords.corrupt} Strength.`);
+              if (target.keywords?.immutable) {
+                log(`${target.name} is Immutable and cannot be corrupted.`);
+              } else {
+                target.strengthModifier -= cardToPlay.keywords.corrupt;
+                log(`${target.name} gets -${cardToPlay.keywords.corrupt} Strength.`);
+              }
           }
       }
       if (cardToPlay.keywords?.discard) {
@@ -486,11 +544,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       switch(cardToPlay.id) {
           case 15: { // System-Killer KAIJU
               log(`KAIJU's Annihilate voids all other units!`);
-              const opponentUnitsToVoid = [...opponentPlayer.units];
-              const playerUnitsToVoid = [...currentPlayer.units.filter(u => u.instanceId !== cardToPlay.instanceId)];
+              const opponentUnitsToVoid = opponentPlayer.units.filter(u => !u.keywords?.immutable);
+              const playerUnitsToVoid = currentPlayer.units.filter(u => u.instanceId !== cardToPlay.instanceId && !u.keywords?.immutable);
+              
+              const opponentUnitsKept = opponentPlayer.units.filter(u => u.keywords?.immutable);
+              const playerUnitsKept = currentPlayer.units.filter(u => u.instanceId === cardToPlay.instanceId || u.keywords?.immutable);
 
-              currentPlayer.units = [cardToPlay];
-              opponentPlayer.units = [];
+              currentPlayer.units = playerUnitsKept;
+              opponentPlayer.units = opponentUnitsKept;
               
               playerUnitsToVoid.forEach(u => {
                 currentPlayer.void.push(u);
@@ -506,7 +567,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           }
       }
       
-      checkForDestroyedUnits(currentPlayer.id);
+      checkForDestroyedUnits(currentPlayer.id, cardToPlay);
       if (opponentPlayer.command <= 0) newState.winner = currentPlayer;
 
       newState.players[newState.currentPlayerId] = currentPlayer;

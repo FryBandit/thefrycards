@@ -14,6 +14,8 @@ interface CardProps {
   onActivate?: () => void;
   isChannelable?: boolean;
   onChannel?: () => void;
+  isAmplifiable?: boolean;
+  onAmplify?: () => void;
   effectiveStrength?: number;
   effectiveDurability?: number;
   origin?: 'hand' | 'graveyard';
@@ -22,6 +24,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({ 
     card, isPlayable = false, isTargetable = false, inHand = false, onClick, 
     isActivatable = false, onActivate, isChannelable = false, onChannel,
+    isAmplifiable = false, onAmplify,
     effectiveStrength, effectiveDurability, origin = 'hand' 
 }) => {
   const typeColor = {
@@ -32,8 +35,9 @@ const Card: React.FC<CardProps> = ({
   }[card.type];
 
   const originClasses = origin === 'graveyard' ? 'opacity-80 border-dashed border-gray-500' : '';
+  const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
 
-  const baseClasses = `relative w-40 h-56 bg-cyber-surface/80 backdrop-blur-sm rounded-lg p-2 border-2 flex flex-col justify-between shadow-lg text-white transition-all duration-200 transform ${typeColor} ${originClasses}`;
+  const baseClasses = `relative w-40 h-56 bg-cyber-surface/80 backdrop-blur-sm rounded-lg p-2 border-2 flex flex-col justify-between shadow-lg text-white transition-all duration-200 transform ${typeColor} ${originClasses} ${tokenClasses}`;
   const interactiveClasses = onClick ? "cursor-pointer" : "";
   const inHandClasses = inHand ? "hover:-translate-y-2" : "";
   const playableClasses = isPlayable ? "ring-4 ring-neon-cyan shadow-neon-cyan scale-105" : "border-cyber-border";
@@ -80,9 +84,9 @@ const Card: React.FC<CardProps> = ({
           </div>
         )}
       </div>
-      {(onActivate || onChannel) && !inHand && (
+      {((onActivate && !inHand) || (onChannel && inHand) || (onAmplify && inHand)) && (
         <div className="absolute -bottom-3 left-1 right-1 flex justify-center space-x-1">
-            {onActivate && (
+            {onActivate && !inHand && (
                  <button
                     onClick={(e) => { e.stopPropagation(); onActivate(); }}
                     disabled={!isActivatable}
@@ -91,13 +95,22 @@ const Card: React.FC<CardProps> = ({
                     Activate
                 </button>
             )}
-            {onChannel && (
+            {onChannel && inHand && (
                  <button
                     onClick={(e) => { e.stopPropagation(); onChannel(); }}
                     disabled={!isChannelable}
                     className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isChannelable ? 'bg-neon-cyan text-cyber-bg shadow-neon-cyan hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                 >
                     Channel
+                </button>
+            )}
+            {onAmplify && inHand && (
+                 <button
+                    onClick={(e) => { e.stopPropagation(); onAmplify?.(); }}
+                    disabled={!isAmplifiable}
+                    className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isAmplifiable ? 'bg-red-500 text-white shadow-lg shadow-red-500/50 hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                >
+                    Amplify
                 </button>
             )}
         </div>

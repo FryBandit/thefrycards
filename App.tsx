@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useEffect, useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameLog from './components/GameLog';
@@ -13,12 +14,12 @@ import { CardInGame, TurnPhase, CardType } from './game/types';
 const App: React.FC = () => {
   const { state, dispatch, aiAction } = useGameState();
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
-  const [targetingCard, setTargetingCard] = useState<CardInGame | null>(null);
+  const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
 
   const handleStartGame = () => {
     dispatch({ type: 'START_GAME' });
     setView('game');
-    setTargetingCard(null);
+    setTargetingInfo(null);
   };
 
   const handleDieClick = (id: number) => {
@@ -39,15 +40,15 @@ const App: React.FC = () => {
   const handleCardClick = (card: CardInGame) => {
     if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
     
-    if (targetingCard) { // Cancel targeting
-        setTargetingCard(null);
+    if (targetingInfo) { // Cancel targeting
+        setTargetingInfo(null);
         return;
     }
 
     if (!isCardPlayable(card)) return;
 
     if (card.keywords?.requiresTarget) {
-        setTargetingCard(card);
+        setTargetingInfo({ card, isAmplify: false });
         return;
     }
     
@@ -63,23 +64,25 @@ const App: React.FC = () => {
   }
 
   const handleFieldCardClick = (targetCard: CardInGame) => {
-      if (state.currentPlayerId !== 0 || !targetingCard) return;
+      if (state.currentPlayerId !== 0 || !targetingInfo) return;
+      const { card, isAmplify } = targetingInfo;
 
       const player = state.players[0];
       const opponent = state.players[1];
 
       let isTargetable = false;
-      if (targetingCard.keywords?.recall) {
+      if (card.keywords?.recall) {
           isTargetable = player.units.some(u => u.instanceId === targetCard.instanceId);
       } else {
           isTargetable = opponent.units.some(u => u.instanceId === targetCard.instanceId) 
+            && !targetCard.keywords?.immutable
             && !targetCard.keywords?.stealth 
             && (!targetCard.keywords?.breach || targetCard.hasAssaulted);
       }
       
       if (isTargetable) {
-          dispatch({ type: 'PLAY_CARD', payload: { card: targetingCard, targetInstanceId: targetCard.instanceId } });
-          setTargetingCard(null);
+          dispatch({ type: 'PLAY_CARD', payload: { card, targetInstanceId: targetCard.instanceId, options: { isAmplified: isAmplify } } });
+          setTargetingInfo(null);
       }
   }
 
@@ -90,7 +93,7 @@ const App: React.FC = () => {
     if (!canPayCost) return false;
 
     if (card.keywords?.requiresTarget) {
-        const opponentHasTargets = state.players[1].units.filter(u => !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted)).length > 0;
+        const opponentHasTargets = state.players[1].units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted)).length > 0;
         const playerHasTargets = card.keywords?.recall ? state.players[0].units.length > 0 : false;
         return opponentHasTargets || playerHasTargets;
     }
@@ -112,6 +115,14 @@ const App: React.FC = () => {
     return checkDiceCost({ cost: card.keywords.channel.cost }, state.dice).canPay;
   }
 
+  const isCardAmplifiable = (card: CardInGame): boolean => {
+    if (!card.keywords?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+        return false;
+    }
+    const combinedCost = { cost: card.cost.concat(card.keywords.amplify.cost) };
+    return checkDiceCost(combinedCost, state.dice).canPay;
+  };
+
   const isCardScavengeable = (card: CardInGame): boolean => {
       if (!card.keywords?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
           return false;
@@ -131,9 +142,18 @@ const App: React.FC = () => {
     }
   }
 
+  const handleAmplifyClick = (card: CardInGame) => {
+    if (!isCardAmplifiable(card)) return;
+    if (card.keywords?.requiresTarget) {
+      setTargetingInfo({ card, isAmplify: true });
+    } else {
+      dispatch({ type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } });
+    }
+  };
+
   const handleAdvancePhase = (assault: boolean = false) => {
       if(state.currentPlayerId === 0) {
-        setTargetingCard(null); // Cancel targeting on phase advance
+        setTargetingInfo(null); // Cancel targeting on phase advance
         dispatch({ type: 'ADVANCE_PHASE', payload: { assault } });
       }
   };
@@ -178,16 +198,18 @@ const App: React.FC = () => {
         isCardScavengeable={isCardScavengeable}
         isCardChannelable={isCardChannelable}
         onChannelClick={handleChannelClick}
+        isCardAmplifiable={isCardAmplifiable}
+        onAmplifyClick={handleAmplifyClick}
         onAdvancePhase={handleAdvancePhase}
         onShowRules={() => setView('howToPlay')}
-        targetingCard={targetingCard}
+        targetingCard={targetingInfo?.card ?? null}
         isCardActivatable={isCardActivatable}
         onActivateCard={handleActivateCard}
       />
       <GameLog log={state.log} />
-      {targetingCard && (
-        <div className="absolute bottom-1/2 translate-y-28 left-1/2 -translate-x-1/2 bg-neon-pink text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 shadow-neon-pink">
-          Select a target for {targetingCard.name}
+      {targetingInfo && (
+        <div className={`absolute bottom-1/2 translate-y-28 left-1/2 -translate-x-1/2 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
+          Select a target for {targetingInfo.card.name} {targetingInfo.isAmplify ? '(Amplified)' : ''}
         </div>
       )}
       {state.winner && (

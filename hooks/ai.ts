@@ -5,7 +5,7 @@ import { checkDiceCost } from './useGameState';
 type AIAction = 
     | { type: 'ROLL_DICE' }
     | { type: 'TOGGLE_DIE_KEPT', payload: { id: number, keep: boolean } }
-    | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; } } }
+    | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; } } }
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
     | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
 
@@ -138,6 +138,25 @@ export const getAiAction = (state: GameState): AIAction | null => {
             }
         }
 
+        // 0.5 Check for high-value amplify plays
+        for (const card of aiPlayer.hand) {
+            if (card.keywords?.amplify) {
+                const combinedCost = { cost: card.cost.concat(card.keywords.amplify.cost) };
+                if (checkDiceCost(combinedCost, availableDice).canPay) {
+                    const validTargets = humanPlayer.units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted));
+                    if (card.keywords.amplify.effect.type === 'DEAL_DAMAGE' && validTargets.length > 0) {
+                        const amplifiedDamage = card.keywords.amplify.effect.amount;
+                        const lethalTargets = validTargets.filter(t => getEffectiveStats(t, humanPlayer).durability - t.damage <= amplifiedDamage);
+                        if (lethalTargets.length > 0) {
+                            const bestTarget = [...lethalTargets].sort((a, b) => (b.strength || 0) - (a.strength || 0))[0];
+                            return { type: 'PLAY_CARD', payload: { card, targetInstanceId: bestTarget.instanceId, options: { isAmplified: true } } };
+                        }
+                    }
+                }
+            }
+        }
+
+
         // 1. Check if any card can be played with current dice
         for (const card of aiPlayer.hand) {
             // Check Channel first, as it's often a utility play
@@ -152,25 +171,35 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const playableCards = aiPlayer.hand
             .filter(card => checkDiceCost(card, availableDice).canPay)
             .sort((a,b) => {
-                // Prioritize high-impact cards like Barrage or Stagnate
-                const aImpact = (a.keywords?.barrage ? humanPlayer.units.length * 2 : 0) + (a.keywords?.stagnate ? 5 : 0);
-                const bImpact = (b.keywords?.barrage ? humanPlayer.units.length * 2 : 0) + (b.keywords?.stagnate ? 5 : 0);
-                if (aImpact !== bImpact) return bImpact - aImpact;
+                 const getCardScore = (card: CardInGame): number => {
+                    let score = 0;
+                    // Keyword priorities
+                    if (card.keywords?.echo) score += 15; // Very high priority
+                    if (card.keywords?.stagnate) score += 10;
+                    if (card.keywords?.barrage) score += 5 + humanPlayer.units.length * 2; // Scales with targets
+                    if (card.keywords?.executioner && (card.keywords.damage || card.keywords.snipe)) {
+                        const damage = card.keywords.damage || card.keywords.snipe || 0;
+                        const hasLethalTarget = humanPlayer.units.some(u => !u.keywords?.immutable && getEffectiveStats(u, humanPlayer).durability - u.damage <= damage);
+                        if(hasLethalTarget) score += 12; // High priority if it can kill something
+                        else score += 5;
+                    }
+                    if (card.keywords?.recall && aiPlayer.units.some(u => u.damage > 0)) score += 8; // Good if we can save someone
+                    if (card.keywords?.draw) score += 6;
+                    if (card.keywords?.overload) score += aiPlayer.graveyard.length; // Scales with graveyard
 
-                // Then utility events like drawing or recalling a damaged unit
-                if (a.keywords?.recall) return -1;
-                if (b.keywords?.recall) return 1;
-                if (a.keywords?.draw && !b.keywords?.draw) return -1;
-                if (!a.keywords?.draw && b.keywords?.draw) return 1;
+                    // Card Type priorities
+                    if (card.type === CardType.UNIT) score += 5;
+                    if (card.type === CardType.EVENT) score += 2;
 
-                // Then other events
-                if (a.type === CardType.EVENT && b.type !== CardType.EVENT) return -1;
-                if (a.type !== CardType.EVENT && b.type === CardType.EVENT) return 1;
-                
-                // Then by modified command number (penalizing Malice)
-                const aScore = (a.commandNumber) - (a.keywords?.malice || 0) * 2;
-                const bScore = (b.commandNumber) - (b.keywords?.malice || 0) * 2;
-                return bScore - aScore;
+                    // Base value
+                    score += card.commandNumber;
+                    
+                    // Drawbacks
+                    if (card.keywords?.malice) score -= card.keywords.malice * 2;
+
+                    return score;
+                }
+                return getCardScore(b) - getCardScore(a);
             });
         
         if (playableCards.length > 0) {
@@ -187,7 +216,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                         continue; // No good recall target, try next card
                     }
                     
-                    const validTargets = humanPlayer.units.filter(u => !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted));
+                    const validTargets = humanPlayer.units.filter(u => !u.keywords?.immutable && !u.keywords?.stealth && (!u.keywords?.breach || u.hasAssaulted));
                     if (validTargets.length > 0) {
                         // Priority 0: Venomous Snipe on highest durability target
                         if (cardToPlay.keywords?.venomous && cardToPlay.keywords?.snipe) {
