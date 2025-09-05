@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CardInGame, CardType } from '../game/types';
 
@@ -118,14 +119,14 @@ const Card: React.FC<CardProps> = ({
             
             {/* Visible Status Icons */}
             <div className="absolute top-1 left-1 flex flex-col space-y-1 z-10">
-                {card.keywords?.shield && (
+                {card.abilities?.shield && (
                     <div 
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50
                             ${card.shieldUsedThisTurn ? 'bg-gray-600 opacity-70' : 'bg-blue-500'}`}
                         title={card.shieldUsedThisTurn ? 'Shield Used' : 'Shield Active'}
                     >S</div>
                 )}
-                {card.keywords?.entrenched && (
+                {card.abilities?.entrenched && (
                     <div className="w-6 h-6 bg-yellow-600 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" title="Entrenched">E</div>
                 )}
             </div>

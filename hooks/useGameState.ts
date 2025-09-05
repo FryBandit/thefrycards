@@ -1,4 +1,6 @@
 
+
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, getEffectiveStats, CardDefinition } from '../game/types';
 import { buildDeckFromCards } from '../game/cards';
@@ -93,13 +95,13 @@ const getInitialLoadingState = (): GameState => ({
 
 
 // Cost Checking Logic
-export const checkDiceCost = (card: { cost: DiceCost[], keywords?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
+export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
     let availableDice = dice.filter(d => !d.isSpent);
     
     // Handle Wild keyword: transform costs before checking
-    const costToUse = card.keywords?.wild 
-        ? card.cost.map(c => c.type === DiceCostType.EXACTLY_X ? { type: DiceCostType.ANY_X_DICE, count: 1 } : c)
-        : card.cost;
+    const costToUse = card.abilities?.wild 
+        ? card.dice_cost.map(c => c.type === DiceCostType.EXACTLY_X ? { type: DiceCostType.ANY_X_DICE, count: 1 } : c)
+        : card.dice_cost;
         
     if (!costToUse || costToUse.length === 0) return { canPay: true, diceToSpend: [] };
     
@@ -316,20 +318,20 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
     const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
 
     // Handle recall (targets own units)
-    if (targetingCard.keywords?.recall) {
+    if (targetingCard.abilities?.recall) {
         return !isOpponentTarget && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
     }
     // Handle augment (targets own units)
-    if (targetingCard.keywords?.augment) {
+    if (targetingCard.abilities?.augment) {
         return !isOpponentTarget && targetCard.type === CardType.UNIT && targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
     }
     
     // Handle standard targeting (targets opponent units)
     if (isOpponentTarget && targetCard.type === CardType.UNIT) {
         // Check for protections
-        if (targetCard.keywords?.immutable) return false;
-        if (targetCard.keywords?.stealth) return false;
-        if (targetCard.keywords?.breach && !targetCard.hasAssaulted) return false;
+        if (targetCard.abilities?.immutable) return false;
+        if (targetCard.abilities?.stealth) return false;
+        if (targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
         
         return true;
     }
@@ -360,8 +362,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         // Handle Fortify keyword
         if (type === 'damage') {
             const fortifyValue = player.locations
-                .filter(l => l.keywords?.fortify)
-                .reduce((max, l) => Math.max(max, l.keywords!.fortify!.value), 0);
+                .filter(l => l.abilities?.fortify)
+                .reduce((max, l) => Math.max(max, l.abilities!.fortify!.value), 0);
 
             if (fortifyValue > 0 && player.command - amount < fortifyValue) {
                 const prevented = player.command - fortifyValue;
@@ -375,12 +377,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     }
 
     const dealDamageToUnit = (target: CardInGame, amount: number, sourceCard: CardInGame | null, targetOwner: Player) => {
-        if (target.keywords?.immutable) {
+        if (target.abilities?.immutable) {
             log(`${target.name} is Immutable and ignores damage from ${sourceCard?.name || 'Effect'}.`);
             return;
         }
 
-        if (target.keywords?.shield && !target.shieldUsedThisTurn) {
+        if (target.abilities?.shield && !target.shieldUsedThisTurn) {
             target.shieldUsedThisTurn = true;
             log(`${target.name}'s Shield prevents the damage from ${sourceCard?.name || 'Effect'}!`);
             return; // Prevent damage
@@ -388,14 +390,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         let finalAmount = amount;
 
-        if (target.keywords?.fragile && sourceCard?.type === CardType.EVENT) {
+        if (target.abilities?.fragile && sourceCard?.type === CardType.EVENT) {
             finalAmount *= 2;
             log(`${target.name} is Fragile and takes double damage!`);
         }
         target.damage += finalAmount;
         log(`${sourceCard?.name || 'Effect'} deals ${finalAmount} damage to ${target.name}.`);
 
-        if (sourceCard?.keywords?.venomous && finalAmount > 0) {
+        if (sourceCard?.abilities?.venomous && finalAmount > 0) {
             const { durability } = getEffectiveStats(target, targetOwner);
             target.damage = durability; // Mark for destruction
             log(`${sourceCard.name}'s Venomous ability marks ${target.name} for destruction!`);
@@ -429,22 +431,22 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         }
                         
                         // Executioner check (must happen before other on-destroy effects might change the board)
-                        if (sourceCard?.keywords?.executioner && player.id !== sourcePlayerId) {
-                          damagePlayer(player, sourceCard.keywords.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
+                        if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) {
+                          damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
                         }
 
                         let standardPenaltyApplies = true;
 
                         // --- On-destruction keyword triggers ---
-                        if (unit.keywords?.bounty && player.id !== sourcePlayerId) {
-                            opponent.command += unit.keywords.bounty.amount;
-                            log(`${opponent.name} gains ${unit.keywords.bounty.amount} Command from ${unit.name}'s Bounty.`);
+                        if (unit.abilities?.bounty && player.id !== sourcePlayerId) {
+                            opponent.command += unit.abilities.bounty.amount;
+                            log(`${opponent.name} gains ${unit.abilities.bounty.amount} Command from ${unit.name}'s Bounty.`);
                         }
-                        if (unit.keywords?.malice) {
-                            damagePlayer(player, unit.keywords.malice, `${unit.name}'s Malice`, 'loss');
+                        if (unit.abilities?.malice) {
+                            damagePlayer(player, unit.abilities.malice, `${unit.name}'s Malice`, 'loss');
                         }
-                        if (unit.keywords?.martyrdom) {
-                            const effect = unit.keywords.martyrdom;
+                        if (unit.abilities?.martyrdom) {
+                            const effect = unit.abilities.martyrdom;
                             log(`${unit.name}'s Martyrdom triggers!`);
                             switch(effect.type) {
                                 case 'DRAW_CARD': {
@@ -461,8 +463,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                     break;
                             }
                         }
-                        if (unit.keywords?.haunt) {
-                          damagePlayer(opponent, unit.keywords.haunt, `${unit.name}'s Haunt`, 'loss');
+                        if (unit.abilities?.haunt) {
+                          damagePlayer(opponent, unit.abilities.haunt, `${unit.name}'s Haunt`, 'loss');
                           standardPenaltyApplies = false; // Haunt overrides standard penalty.
                         } 
                         
@@ -479,9 +481,29 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         return changed;
     }
 
+    const resolveAnnihilate = (sourceCard: CardInGame, player: Player, opponent: Player) => {
+        log(`${sourceCard.name}'s Annihilate voids all other units!`);
+        const opponentUnitsToVoid = opponent.units.filter(u => !u.abilities?.immutable);
+        const playerUnitsToVoid = player.units.filter(u => u.instanceId !== sourceCard.instanceId && !u.abilities?.immutable);
+        
+        opponent.units = opponent.units.filter(u => u.abilities?.immutable);
+        player.units = player.units.filter(u => u.instanceId === sourceCard.instanceId || u.abilities?.immutable);
+        
+        playerUnitsToVoid.forEach(u => {
+          player.void.push(u);
+          log(`${u.name} is voided.`);
+        });
+
+        opponentUnitsToVoid.forEach(u => {
+          opponent.void.push(u);
+          log(`${u.name} is voided.`);
+          damagePlayer(opponent, u.commandNumber, `${u.name}'s voiding`, 'loss');
+        });
+    };
+
     const resolveArrivalAbilities = (card: CardInGame, player: Player, opponent: Player, amplified: boolean) => {
         // Echo keyword
-        if (card.type === CardType.UNIT && card.keywords?.echo) {
+        if (card.type === CardType.UNIT && card.abilities?.echo) {
             log(`${card.name} Echoes, creating a token copy!`);
             const tokenCopy: CardInGame = {
                 ...card,
@@ -493,12 +515,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         }
 
         // Keyword-based Effects
-        if (card.keywords?.resonance) {
+        if (card.abilities?.resonance) {
             if (player.deck.length > 0) {
                 const topCard = player.deck[player.deck.length - 1];
                 log(`${card.name}'s Resonance reveals ${topCard.name}.`);
-                if (topCard.commandNumber >= card.keywords.resonance.value) {
-                    const effect = card.keywords.resonance.effect;
+                if (topCard.commandNumber >= card.abilities.resonance.value) {
+                    const effect = card.abilities.resonance.effect;
                     if (effect.type === 'BUFF_STRENGTH') {
                         const cardInPlay = player.units.find(u => u.instanceId === card.instanceId);
                         if (cardInPlay) cardInPlay.strengthModifier += effect.amount;
@@ -509,40 +531,40 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 }
             }
         }
-        if (card.keywords?.stagnate) {
+        if (card.abilities?.stagnate) {
             opponent.skipNextDrawPhase = true;
             log(`${opponent.name} will skip their next Draw Phase due to Stagnate!`);
         }
-        if(card.keywords?.fateweave) {
+        if(card.abilities?.fateweave) {
             if(newState.rollCount > 0) {
-            newState.maxRolls += card.keywords.fateweave;
+            newState.maxRolls += card.abilities.fateweave;
             log(`${player.name} gains an extra roll from Fateweave!`);
             }
         }
-        if(card.keywords?.foresight && player.deck.length > 0) {
+        if(card.abilities?.foresight && player.deck.length > 0) {
             log(`Foresight reveals ${player.name}'s top card: ${player.deck[player.deck.length - 1].name}`);
         }
-        if(card.keywords?.draw) {
-            const { player: p, drawnCards, failedDraws } = drawCards(player, card.keywords.draw);
+        if(card.abilities?.draw) {
+            const { player: p, drawnCards, failedDraws } = drawCards(player, card.abilities.draw);
             player = p;
             if (drawnCards.length > 0) log(`${player.name} draws ${drawnCards.length} card(s).`);
             if (failedDraws > 0) {
                 damagePlayer(player, failedDraws, 'Fatigue', 'damage');
             }
         }
-        if (card.keywords?.barrage) {
-            log(`${card.name}'s Barrage deals ${card.keywords.barrage} damage to all enemy units!`);
+        if (card.abilities?.barrage) {
+            log(`${card.name}'s Barrage deals ${card.abilities.barrage} damage to all enemy units!`);
             opponent.units.forEach(unit => {
-                if (unit.keywords?.breach && !unit.hasAssaulted) {
+                if (unit.abilities?.breach && !unit.hasAssaulted) {
                     log(`${unit.name} is protected from ${card.name}'s Barrage by Breach.`);
                     return; 
                 }
-                dealDamageToUnit(unit, card.keywords.barrage, card, opponent);
+                dealDamageToUnit(unit, card.abilities.barrage, card, opponent);
             });
         }
-        if (card.keywords?.purge) {
-            log(`${card.name} purges ${card.keywords.purge} cards from ${opponent.name}'s graveyard.`);
-            for (let i=0; i < card.keywords.purge; i++) {
+        if (card.abilities?.purge) {
+            log(`${card.name} purges ${card.abilities.purge} cards from ${opponent.name}'s graveyard.`);
+            for (let i=0; i < card.abilities.purge; i++) {
                 if (opponent.graveyard.length > 0) {
                     const randomIndex = Math.floor(Math.random() * opponent.graveyard.length);
                     const purgedCard = opponent.graveyard.splice(randomIndex, 1)[0];
@@ -551,17 +573,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 }
             }
         }
-        if (card.keywords?.sabotage) {
-            opponent.diceModifier -= card.keywords.sabotage;
-            log(`${opponent.name} will roll ${card.keywords.sabotage} fewer dice next turn!`);
+        if (card.abilities?.sabotage) {
+            opponent.diceModifier -= card.abilities.sabotage;
+            log(`${opponent.name} will roll ${card.abilities.sabotage} fewer dice next turn!`);
         }
-        if (card.keywords?.warp) {
+        if (card.abilities?.warp) {
             newState.extraTurns += 1;
             log(`${player.name} will take an extra turn!`);
         }
-        if (card.keywords?.discard) {
+        if (card.abilities?.discard) {
             if (opponent.hand.length > 0) {
-                const discardCount = card.keywords.discard;
+                const discardCount = card.abilities.discard;
                 for(let i=0; i < discardCount; i++) {
                     if(opponent.hand.length === 0) break;
                     const randomIndex = Math.floor(Math.random() * opponent.hand.length);
@@ -572,52 +594,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
          // Card-specific (unique) effects / High-rarity keywords
-        if (card.keywords?.annihilate) {
-            log(`${card.name}'s Annihilate voids all other units!`);
-            const opponentUnitsToVoid = opponent.units.filter(u => !u.keywords?.immutable);
-            const playerUnitsToVoid = player.units.filter(u => u.instanceId !== card.instanceId && !u.keywords?.immutable);
-            
-            const opponentUnitsKept = opponent.units.filter(u => u.keywords?.immutable);
-            const playerUnitsKept = player.units.filter(u => u.instanceId === card.instanceId || u.keywords?.immutable);
-
-            player.units = playerUnitsKept;
-            opponent.units = opponentUnitsKept;
-            
-            playerUnitsToVoid.forEach(u => {
-              player.void.push(u);
-              log(`${u.name} is voided.`);
-            });
-
-            opponentUnitsToVoid.forEach(u => {
-              opponent.void.push(u);
-              log(`${u.name} is voided.`);
-              damagePlayer(opponent, u.commandNumber, `${u.name}'s voiding`, 'loss');
-            });
-        }
-        switch(card.id) {
-            case 15: { // System-Killer KAIJU (also has annihilate, but for legacy)
-                log(`KAIJU's Annihilate voids all other units!`);
-                const opponentUnitsToVoid = opponent.units.filter(u => !u.keywords?.immutable);
-                const playerUnitsToVoid = player.units.filter(u => u.instanceId !== card.instanceId && !u.keywords?.immutable);
-                
-                const opponentUnitsKept = opponent.units.filter(u => u.keywords?.immutable);
-                const playerUnitsKept = player.units.filter(u => u.instanceId === card.instanceId || u.keywords?.immutable);
-
-                player.units = playerUnitsKept;
-                opponent.units = opponentUnitsKept;
-                
-                playerUnitsToVoid.forEach(u => {
-                  player.void.push(u);
-                  log(`${u.name} is voided.`);
-                });
-
-                opponentUnitsToVoid.forEach(u => {
-                  opponent.void.push(u);
-                  log(`${u.name} is voided.`);
-                  damagePlayer(opponent, u.commandNumber, `${u.name}'s voiding`, 'loss');
-                });
-                break;
-            }
+        if (card.abilities?.annihilate) {
+            resolveAnnihilate(card, player, opponent);
         }
         return { player, opponent };
     }
@@ -668,11 +646,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         let currentPlayer = newState.players[newState.currentPlayerId];
         let opponentPlayer = newState.players[1 - newState.currentPlayerId];
         
-        let costConfig = { cost: cardToPlay.cost, keywords: cardToPlay.keywords };
-        if (options?.isChanneled) costConfig = { cost: cardToPlay.keywords.channel.cost, keywords: cardToPlay.keywords };
-        if (options?.isScavenged) costConfig = { cost: cardToPlay.keywords.scavenge.cost, keywords: cardToPlay.keywords };
-        if (options?.isAmplified) costConfig = { cost: cardToPlay.cost.concat(cardToPlay.keywords.amplify.cost), keywords: cardToPlay.keywords };
-        if (cardToPlay.keywords?.augment) costConfig = { cost: cardToPlay.keywords.augment.cost, keywords: cardToPlay.keywords };
+        let costConfig = { dice_cost: cardToPlay.dice_cost, abilities: cardToPlay.abilities };
+        if (options?.isChanneled) costConfig = { dice_cost: cardToPlay.abilities.channel.cost, abilities: cardToPlay.abilities };
+        if (options?.isScavenged) costConfig = { dice_cost: cardToPlay.abilities.scavenge.cost, abilities: cardToPlay.abilities };
+        if (options?.isAmplified) costConfig = { dice_cost: cardToPlay.dice_cost.concat(cardToPlay.abilities.amplify.cost), abilities: cardToPlay.abilities };
+        if (cardToPlay.abilities?.augment) costConfig = { dice_cost: cardToPlay.abilities.augment.cost, abilities: cardToPlay.abilities };
 
         const costCheck = checkDiceCost(costConfig, newState.dice);
         if(!costCheck.canPay) return state;
@@ -695,7 +673,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         // Handle Channel effect
         if(options?.isChanneled) {
           log(`...using its Channel ability.`);
-          const effect = cardToPlay.keywords.channel.effect;
+          const effect = cardToPlay.abilities.channel.effect;
           switch(effect.type) {
             case 'DRAW': {
               const { player: p, drawnCards, failedDraws } = drawCards(currentPlayer, effect.value);
@@ -713,10 +691,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         }
 
         // Place card in play or graveyard
-        if (cardToPlay.keywords?.riftwalk) {
-            log(`${cardToPlay.name} Riftwalks and will return in ${cardToPlay.keywords.riftwalk.turns} turn(s).`);
-            currentPlayer.riftwalkZone.push({ card: cardToPlay, turnsRemaining: cardToPlay.keywords.riftwalk.turns });
-        } else if (cardToPlay.keywords?.augment && targetInstanceId) {
+        if (cardToPlay.abilities?.riftwalk) {
+            log(`${cardToPlay.name} Riftwalks and will return in ${cardToPlay.abilities.riftwalk.turns} turn(s).`);
+            currentPlayer.riftwalkZone.push({ card: cardToPlay, turnsRemaining: cardToPlay.abilities.riftwalk.turns });
+        } else if (cardToPlay.abilities?.augment && targetInstanceId) {
             const targetUnit = currentPlayer.units.find(u => u.instanceId === targetInstanceId);
             if(targetUnit) {
                 targetUnit.attachments = targetUnit.attachments || [];
@@ -729,8 +707,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             switch(cardToPlay.type) {
                 case CardType.UNIT: currentPlayer.units.push(cardToPlay); break;
                 case CardType.LOCATION: 
-                    if (cardToPlay.keywords?.landmark) {
-                        const existingLandmarkIndex = currentPlayer.locations.findIndex(l => l.keywords?.landmark);
+                    if (cardToPlay.abilities?.landmark) {
+                        const existingLandmarkIndex = currentPlayer.locations.findIndex(l => l.abilities?.landmark);
                         if (existingLandmarkIndex > -1) {
                             const removed = currentPlayer.locations.splice(existingLandmarkIndex, 1)[0];
                             currentPlayer.graveyard.push(removed);
@@ -740,7 +718,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     currentPlayer.locations.push(cardToPlay); 
                     break;
                 case CardType.ARTIFACT: 
-                    if(cardToPlay.keywords?.consume) cardToPlay.counters = cardToPlay.keywords.consume.initial;
+                    if(cardToPlay.abilities?.consume) cardToPlay.counters = cardToPlay.abilities.consume.initial;
                     currentPlayer.artifacts.push(cardToPlay); 
                     break;
                 case CardType.EVENT: currentPlayer.graveyard.push(cardToPlay); break;
@@ -748,7 +726,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         }
 
         // Instability keyword
-        if (cardToPlay.keywords?.instability) {
+        if (cardToPlay.abilities?.instability) {
             currentPlayer.diceModifier -= 1;
             log(`${cardToPlay.name}'s Instability means ${currentPlayer.name} rolls one fewer die next turn.`);
         }
@@ -758,7 +736,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         opponentPlayer = arrivalResult.opponent;
 
         // Targeted effects
-        if (cardToPlay.keywords?.recall && targetInstanceId) {
+        if (cardToPlay.abilities?.recall && targetInstanceId) {
             const targetIndex = currentPlayer.units.findIndex(u => u.instanceId === targetInstanceId);
             if (targetIndex > -1) {
                 const target = currentPlayer.units[targetIndex];
@@ -777,10 +755,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 currentPlayer.hand.push(baseCard);
             }
         }
-        if(cardToPlay.keywords?.voidTarget && targetInstanceId) {
+        if(cardToPlay.abilities?.voidTarget && targetInstanceId) {
           const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
           if (target) {
-              if (target.keywords?.immutable) {
+              if (target.abilities?.immutable) {
                   log(`${target.name} is Immutable and cannot be voided.`);
               } else {
                   opponentPlayer.units = opponentPlayer.units.filter(u => u.instanceId !== targetInstanceId);
@@ -789,25 +767,25 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               }
           }
         }
-         if ((cardToPlay.keywords?.damage || cardToPlay.keywords?.snipe) && targetInstanceId) {
+         if ((cardToPlay.abilities?.damage || cardToPlay.abilities?.snipe) && targetInstanceId) {
             const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
             if (target) {
-              let damage = cardToPlay.keywords.damage || cardToPlay.keywords.snipe;
-              if (options?.isAmplified && cardToPlay.keywords.amplify?.effect.type === 'DEAL_DAMAGE') {
-                  damage = cardToPlay.keywords.amplify.effect.amount;
+              let damage = cardToPlay.abilities.damage || cardToPlay.abilities.snipe;
+              if (options?.isAmplified && cardToPlay.abilities.amplify?.effect.type === 'DEAL_DAMAGE') {
+                  damage = cardToPlay.abilities.amplify.effect.amount;
                   log(`${cardToPlay.name} is Amplified!`);
               }
               dealDamageToUnit(target, damage, cardToPlay, opponentPlayer);
             }
         }
-        if (cardToPlay.keywords?.corrupt && targetInstanceId) {
+        if (cardToPlay.abilities?.corrupt && targetInstanceId) {
             const target = opponentPlayer.units.find(u => u.instanceId === targetInstanceId);
             if (target) {
-                if (target.keywords?.immutable) {
+                if (target.abilities?.immutable) {
                   log(`${target.name} is Immutable and cannot be corrupted.`);
                 } else {
-                  target.strengthModifier -= cardToPlay.keywords.corrupt;
-                  log(`${target.name} gets -${cardToPlay.keywords.corrupt} Strength.`);
+                  target.strengthModifier -= cardToPlay.abilities.corrupt;
+                  log(`${target.name} gets -${cardToPlay.abilities.corrupt} Strength.`);
                 }
             }
         }
@@ -827,9 +805,9 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         
         const card = [...currentPlayer.units, ...currentPlayer.locations, ...currentPlayer.artifacts].find(c => c.instanceId === cardInstanceId);
         
-        if (!card || !card.keywords?.activate) return state;
+        if (!card || !card.abilities?.activate) return state;
 
-        const costCheck = checkDiceCost({ ...card, cost: card.keywords.activate.cost }, newState.dice);
+        const costCheck = checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, newState.dice);
         if (!costCheck.canPay) return state;
         
         costCheck.diceToSpend.forEach(dts => {
@@ -838,12 +816,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         log(`${currentPlayer.name} activated ${card.name}.`);
 
-        if(card.keywords.consume) {
+        if(card.abilities.consume) {
             card.counters = (card.counters || 1) - 1;
             log(`${card.name} has ${card.counters} counter(s) remaining.`);
         }
 
-        switch(card.keywords.activate.effect.type) {
+        switch(card.abilities.activate.effect.type) {
             case 'fortify_command':
                 currentPlayer.isCommandFortified = true;
                 log(`${currentPlayer.name}'s Command is fortified until their next turn!`);
@@ -853,7 +831,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 if (availableDice.length > 0) {
                     const dieToSpike = availableDice.sort((a,b) => a.value - b.value)[0];
                     const originalValue = dieToSpike.value;
-                    dieToSpike.value = Math.min(6, dieToSpike.value + card.keywords.activate.effect.value);
+                    dieToSpike.value = Math.min(6, dieToSpike.value + card.abilities.activate.effect.value);
                     log(`Spiked a die from ${originalValue} to ${dieToSpike.value}.`);
                 } else {
                     log(`No available dice to Spike.`);
@@ -870,7 +848,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
         
-        if (card.keywords.consume && card.counters <= 0) {
+        if (card.abilities.consume && card.counters <= 0) {
             log(`${card.name} is consumed and sent to the graveyard.`);
             currentPlayer.artifacts = currentPlayer.artifacts.filter(a => a.instanceId !== cardInstanceId);
             currentPlayer.graveyard.push(card);
@@ -912,8 +890,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     currentPlayer.command++;
                     log(`${currentPlayer.name} gained 1 command from Data Haven.`);
                 }
-                if (loc.keywords?.generator) {
-                    const effect = loc.keywords.generator;
+                if (loc.abilities?.generator) {
+                    const effect = loc.abilities.generator;
                     log(`${loc.name}'s Generator ability triggers.`);
                     if(effect.type === 'GAIN_COMMAND') {
                         currentPlayer.command += effect.value;
@@ -927,7 +905,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             });
             // Decay effects
             currentPlayer.units.forEach(unit => {
-                if(unit.keywords?.decay) {
+                if(unit.abilities?.decay) {
                     unit.damage++;
                     log(`${unit.name} takes 1 damage from Decay.`);
                 }
@@ -962,15 +940,15 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               let phasingDamage = 0;
               let commandGained = 0;
               currentPlayer.units.forEach(unit => {
-                if (!unit.keywords?.entrenched) {
+                if (!unit.abilities?.entrenched) {
                    const { strength } = getEffectiveStats(unit, currentPlayer, { isAssaultPhase: true });
-                   if (unit.keywords?.phasing) {
+                   if (unit.abilities?.phasing) {
                       phasingDamage += strength;
                    } else {
                       totalDamage += strength;
                    }
-                   if (unit.keywords?.siphon) {
-                      commandGained += unit.keywords.siphon;
+                   if (unit.abilities?.siphon) {
+                      commandGained += unit.abilities.siphon;
                    }
                    unit.hasAssaulted = true; // Mark unit as having assaulted for Breach keyword
                 }

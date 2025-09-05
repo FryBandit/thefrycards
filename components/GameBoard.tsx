@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, getEffectiveStats, CardType } from '../game/types';
 import { isCardTargetable } from '../hooks/useGameState';
@@ -36,7 +37,7 @@ const FieldArea: React.FC<{
                             card={card} 
                             onClick={cardIsTargetable ? () => onCardClick(card) : undefined}
                             isTargetable={cardIsTargetable}
-                            onActivate={card.keywords?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
+                            onActivate={card.abilities?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
                             isActivatable={currentPlayerId === player.id && isCardActivatable(card)}
                             effectiveStrength={effectiveStrength}
                             effectiveDurability={effectiveDurability}
@@ -132,9 +133,9 @@ const HandArea: React.FC<{
                                 inHand={true}
                                 isPlayable={isCurrentPlayer && isPlayableFromSource}
                                 onClick={() => clickHandler(card)}
-                                onChannel={card.keywords?.channel && card.source === 'hand' && isCurrentPlayer ? () => onChannelClick(card) : undefined}
+                                onChannel={card.abilities?.channel && card.source === 'hand' && isCurrentPlayer ? () => onChannelClick(card) : undefined}
                                 isChannelable={isCurrentPlayer && isCardChannelable(card)}
-                                onAmplify={card.keywords?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
+                                onAmplify={card.abilities?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
                                 isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
                                 origin={card.source}
                                 onExamine={onExamineCard}
@@ -259,7 +260,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <div className="flex gap-2 pointer-events-auto">
                     <button
                         onClick={() => onAdvancePhase(true)}
-                        disabled={currentPlayer.units.filter(u => !u.keywords?.entrenched).length === 0}
+                        disabled={currentPlayer.units.filter(u => !u.abilities?.entrenched).length === 0}
                         className="bg-neon-pink text-cyber-bg px-6 py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
                     >
                         Assault

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CardInGame } from '../game/types';
 import Card from './Card';
@@ -6,9 +7,10 @@ interface CardViewerModalProps {
   title: string;
   cards: CardInGame[];
   onClose: () => void;
+  onExamine: (card: CardInGame) => void;
 }
 
-const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose }) => {
+const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose, onExamine }) => {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 font-sans p-4" onClick={onClose}>
       <div className="bg-cyber-surface border-2 border-neon-cyan rounded-lg shadow-2xl p-6 text-white w-full max-w-4xl h-[80vh] flex flex-col shadow-neon-cyan" onClick={e => e.stopPropagation()}>
@@ -25,8 +27,7 @@ const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose
           {cards.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {cards.map(card => (
-                // FIX: Added onExamine prop to satisfy CardProps. The examine feature is disabled in this view.
-                <Card key={card.instanceId} card={card} onExamine={() => {}} />
+                <Card key={card.instanceId} card={card} onExamine={onExamine} />
               ))}
             </div>
           ) : (

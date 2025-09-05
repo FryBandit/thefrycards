@@ -1,4 +1,5 @@
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -31,12 +32,12 @@ export interface CardDefinition {
   id: number;
   name: string;
   type: CardType;
-  cost: DiceCost[];
+  dice_cost: DiceCost[];
   strength?: number;
   durability?: number;
   commandNumber: number;
   text: string;
-  keywords?: { 
+  abilities?: { 
     [key: string]: any; 
     immutable?: boolean; 
     resonance?: { value: number; effect: { type: 'BUFF_STRENGTH', amount: number } }; 
@@ -142,19 +143,19 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     let durability = (card.durability ?? 1) + card.durabilityModifier;
     
     // Overload keyword
-    if (card.keywords?.overload) {
-        const bonus = Math.floor(owner.graveyard.length / card.keywords.overload.per) * card.keywords.overload.amount;
+    if (card.abilities?.overload) {
+        const bonus = Math.floor(owner.graveyard.length / card.abilities.overload.per) * card.abilities.overload.amount;
         strength += bonus;
     }
 
     // Synergy keyword
-    if (card.keywords?.synergy) {
-        const faction = card.keywords.synergy.faction;
+    if (card.abilities?.synergy) {
+        const faction = card.abilities.synergy.faction;
         const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
             .filter(c => c.instanceId !== card.instanceId && c.faction === faction)
             .length;
         if (synergyCount > 0) {
-            const effect = card.keywords.synergy.effect;
+            const effect = card.abilities.synergy.effect;
             const totalBonus = synergyCount * effect.amount;
             if (effect.type === 'BUFF_STRENGTH') strength += totalBonus;
             if (effect.type === 'BUFF_DURABILITY') durability += totalBonus;
@@ -173,12 +174,12 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     if (owner.locations.some(l => l.id === 12)) durability += 1; // Hardened Subnet
     
     // Rally
-    const rallySources = owner.units.filter(u => u.keywords?.rally && u.instanceId !== card.instanceId).length;
+    const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
     strength += rallySources;
 
     // Assault phase specific buffs
-    if (context.isAssaultPhase && card.keywords?.assault) {
-        strength += card.keywords.assault;
+    if (context.isAssaultPhase && card.abilities?.assault) {
+        strength += card.abilities.assault;
     }
     return { strength, durability, rallyBonus: rallySources };
 };

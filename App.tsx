@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabaseClient';
@@ -111,7 +113,7 @@ const App: React.FC = () => {
 
     if (!isCardPlayable(card)) return;
 
-    if (card.keywords?.requiresTarget || card.keywords?.augment) {
+    if (card.abilities?.requiresTarget || card.abilities?.augment) {
         setTargetingInfo({ card, isAmplify: false });
         return;
     }
@@ -143,56 +145,54 @@ const App: React.FC = () => {
   const isCardPlayable = (card: CardInGame): boolean => {
     if (state.phase !== TurnPhase.ROLL_SPEND) return false;
     
-    let cost = card.cost;
+    let dice_cost = card.dice_cost;
     // Augment has a different cost and is handled like a targeted ability
-    if (card.keywords?.augment) {
-        cost = card.keywords.augment.cost;
+    if (card.abilities?.augment) {
+        dice_cost = card.abilities.augment.cost;
     }
 
-    const canPayCost = checkDiceCost({ ...card, cost }, state.dice).canPay;
+    const canPayCost = checkDiceCost({ ...card, dice_cost }, state.dice).canPay;
     if (!canPayCost) return false;
 
-    // Landmark rule: can only play if you don't already have one (replacement is handled in reducer)
-    // if (card.keywords?.landmark && state.players[0].locations.some(l => l.keywords?.landmark)) {
-    //     return false; // Decided to handle replacement in reducer instead, making it always "playable" if cost is met
-    // }
-
-    if (card.keywords?.requiresTarget || card.keywords?.augment) {
-        const opponentHasTargets = state.players[1].units.some(u => isCardTargetable(card, u, state.players[0], state.players[1]));
-        const playerHasTargets = card.keywords?.recall || card.keywords?.augment ? state.players[0].units.some(u => isCardTargetable(card, u, state.players[0], state.players[0])) : false;
-        return opponentHasTargets || playerHasTargets;
+    if (card.abilities?.requiresTarget || card.abilities?.augment) {
+        const hasAnyTarget = state.players.some(targetPlayer => 
+            targetPlayer.units.some(targetUnit => 
+                isCardTargetable(card, targetUnit, state.players[0], targetPlayer)
+            )
+        );
+        return hasAnyTarget;
     }
 
     return true;
   };
   
   const isCardActivatable = (card: CardInGame): boolean => {
-    if (!card.keywords?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    return checkDiceCost({ ...card, cost: card.keywords.activate.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, state.dice).canPay;
   };
 
   const isCardChannelable = (card: CardInGame): boolean => {
-    if (!card.keywords?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    return checkDiceCost({ ...card, cost: card.keywords.channel.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost }, state.dice).canPay;
   }
 
   const isCardAmplifiable = (card: CardInGame): boolean => {
-    if (!card.keywords?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
         return false;
     }
-    const combinedCost = { ...card, cost: card.cost.concat(card.keywords.amplify.cost) };
+    const combinedCost = { ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) };
     return checkDiceCost(combinedCost, state.dice).canPay;
   };
 
   const isCardScavengeable = (card: CardInGame): boolean => {
-      if (!card.keywords?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
           return false;
       }
-      return checkDiceCost({ ...card, cost: card.keywords.scavenge.cost }, state.dice).canPay;
+      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost }, state.dice).canPay;
   }
 
   const handleActivateCard = (card: CardInGame) => {
@@ -216,7 +216,7 @@ const App: React.FC = () => {
 
   const handleAmplifyClick = (card: CardInGame) => {
     if (!isCardAmplifiable(card)) return;
-    if (card.keywords?.requiresTarget) {
+    if (card.abilities?.requiresTarget) {
       setTargetingInfo({ card, isAmplify: true });
     } else {
       dispatch({ type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } });
@@ -352,6 +352,7 @@ const App: React.FC = () => {
             title={viewingZone.title}
             cards={viewingZone.player[viewingZone.zone]}
             onClose={() => setViewingZone(null)}
+            onExamine={handleExamineCard}
           />
       )}
       {examiningCard && (

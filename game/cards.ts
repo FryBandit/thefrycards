@@ -1,5 +1,5 @@
 
-import { CardDefinition, CardType } from './types';
+import { CardDefinition, CardType, DiceCost } from './types';
 import { supabase } from '../lib/supabaseClient';
 
 // Helper to shuffle arrays
@@ -13,16 +13,14 @@ const shuffle = <T,>(array: T[]): T[] => {
 };
 
 export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
-    // The raw data from Supabase might have 'abilities' as a JSON string
-    // which needs to be parsed into the 'keywords' object.
-    type RawCardData = Omit<CardDefinition, 'keywords'> & {
-      abilities?: string | { [key: string]: any };
-      keywords?: string | { [key: string]: any };
+    // The raw data from Supabase is expected to have 'abilities' as a JSON object
+    // and 'dice_cost' as a JSON array. The CardDefinition type has been updated to reflect this.
+    type RawCardData = Omit<CardDefinition, 'abilities' | 'dice_cost'> & {
+      abilities?: { [key: string]: any }; // This is now the source of abilities
+      dice_cost?: DiceCost[]; // New field
+      cost?: DiceCost[]; // Old field for fallback
     };
 
-    // FIX: The Supabase client handles auth headers automatically.
-    // The previous manual implementation used a deprecated `supabase.options` property, which caused a crash.
-    // Relying on the client's default behavior is safer and cleaner.
     const { data, error } = await supabase.functions.invoke('get-all-cards');
 
 
@@ -40,22 +38,12 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
 
     // Process the raw data to match the CardDefinition type
     return rawCards.map(rawCard => {
-        const { abilities, keywords, ...rest } = rawCard;
-        const card: CardDefinition = { ...rest, keywords: {} };
-
-        const abilitiesSource = keywords || abilities;
-
-        if (typeof abilitiesSource === 'string') {
-            try {
-                card.keywords = JSON.parse(abilitiesSource);
-            } catch (e) {
-                console.error(`Failed to parse abilities for card ${card.name}:`, abilitiesSource);
-                card.keywords = {};
-            }
-        } else if (typeof abilitiesSource === 'object' && abilitiesSource !== null) {
-            card.keywords = abilitiesSource;
-        }
-
+        const { abilities, dice_cost, cost, ...rest } = rawCard;
+        const card: CardDefinition = { 
+            ...rest, 
+            abilities: abilities || {},
+            dice_cost: dice_cost || cost || [],
+        };
         return card;
     });
 };
