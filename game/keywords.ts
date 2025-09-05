@@ -1,3 +1,5 @@
+
+
 export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // High-Rarity & Mythic
   'Annihilate': 'When a unit with Annihilate enters the battlefield, it voids all other units. The opponent loses command equal to the command number of each of their voided units. Immutable units are immune. Annihilate bypasses on-destruction effects like Haunt or Martyrdom.',

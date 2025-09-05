@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { CardInGame, CardType } from '../game/types';
 import KeywordText from './KeywordText';
