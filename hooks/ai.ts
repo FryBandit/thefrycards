@@ -212,7 +212,12 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
 
 // Main function to decide the AI's next move
 export const getAiAction = (state: GameState): AIAction | null => {
-    if (state.currentPlayerId !== 1 || !state.isProcessing || state.winner) {
+    if (!state.isProcessing || state.winner) {
+        return null;
+    }
+
+    // The AI can only act during its turn (currentPlayerId: 1) or during its specific mulligan phase.
+    if (state.phase !== TurnPhase.AI_MULLIGAN && state.currentPlayerId !== 1) {
         return null;
     }
     

@@ -62,6 +62,10 @@ const FieldArea: React.FC<{
                     <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {backRowCards.map(renderCard)}
                     </div>
+                    {/* Separator */}
+                    {frontRowCards.length > 0 && (
+                        <div className="w-3/4 h-px bg-neon-cyan/20"></div>
+                    )}
                     {/* Front Row (Units) */}
                     <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {frontRowCards.map(renderCard)}
@@ -134,8 +138,8 @@ const HandArea: React.FC<{
 
 
     return (
-        <div className="h-64 flex-shrink-0 flex justify-center items-end pb-4">
-            <div className="flex justify-center items-end -space-x-24">
+        <div className="h-72 flex-shrink-0 flex justify-center items-end pb-12">
+            <div className="flex justify-center items-end -space-x-24 h-full">
                  {allPlayableCards.map((card, i) => {
                     const numCards = allPlayableCards.length;
                     const rotation = (i - (numCards - 1) / 2) * 5;
@@ -146,7 +150,7 @@ const HandArea: React.FC<{
                     return (
                         <div 
                             key={card.instanceId} 
-                            className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-20 origin-bottom hover:!rotate-0" 
+                            className="transition-all duration-300 ease-in-out hover:-translate-y-24 hover:scale-110 hover:z-40 origin-bottom hover:!rotate-0" 
                             style={{ transform: `rotate(${rotation}deg)`}}
                             onMouseEnter={() => card.source === 'hand' && setHoveredCardInHand(card)}
                             onMouseLeave={() => setHoveredCardInHand(null)}
@@ -325,8 +329,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
             <div className="text-xs opacity-80 text-white tracking-widest leading-tight">{`${phase} Phase`}</div>
         </div>
 
-        <div className="flex-grow flex items-center justify-center">
-            {phase === TurnPhase.ROLL_SPEND && isPlayerTurn && (
+        <div className="flex-grow flex items-center justify-center min-w-[560px]">
+            {phase === TurnPhase.ROLL_SPEND && isPlayerTurn ? (
                 <DiceTray
                     dice={dice}
                     rollCount={rollCount}
@@ -337,6 +341,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     valuableDiceForHover={valuableDiceForHover}
                     lastActionDetails={gameState.lastActionDetails}
                 />
+            ) : (
+                <div className="text-center text-cyber-primary/60 italic p-4 text-lg">
+                    {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
+                </div>
             )}
         </div>
         

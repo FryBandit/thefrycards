@@ -245,23 +245,25 @@ const App: React.FC = () => {
 
   // Main game loop and AI logic
   useEffect(() => {
-    if (state.winner || !state.isProcessing || state.turn === 0 || state.phase === TurnPhase.MULLIGAN) return;
+    // Exit if the game is over, waiting for player input, or not started.
+    if (state.winner || !state.isProcessing || state.turn === 0) return;
 
     let timeoutId: number | undefined;
+    
+    // Determine if it's an AI's turn to act. This includes its regular turn and the special mulligan phase.
+    const isAiTurnToAct = state.currentPlayerId === 1 || state.phase === TurnPhase.AI_MULLIGAN;
 
-    // Auto-advance for phases that require no user input
-    if (state.phase === TurnPhase.START) {
-       timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
-    }
-    // AI Turn Logic
-    else if (state.currentPlayerId === 1 && aiAction) {
-       console.log("AI Action:", aiAction);
-       timeoutId = window.setTimeout(() => {
-         dispatch(aiAction);
-       }, 1200);
+    if (isAiTurnToAct && aiAction) {
+        console.log("AI Action:", aiAction);
+        timeoutId = window.setTimeout(() => {
+          dispatch(aiAction);
+        }, 1200);
+    } else if (state.phase === TurnPhase.START) {
+        // Auto-advance start phase for any player
+        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
     } else if (state.isProcessing) {
-      // If no AI action, but still processing, mark as not processing for player
-       dispatch({ type: 'AI_ACTION' });
+        // If still processing but it's not an AI action or auto-advance phase, it must be the player's turn. Unlock the UI.
+        dispatch({ type: 'AI_ACTION' });
     }
     
     return () => {
