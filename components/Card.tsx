@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { CardInGame, CardType, DiceCost, DiceCostType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -123,8 +124,6 @@ const Card: React.FC<CardProps> = ({
     effectiveStrength, effectiveDurability, origin = 'hand',
     isActivating = false, rallyBonus = 0, onExamine
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
   const typeColor = {
     [CardType.UNIT]: 'border-unit shadow-unit/30',
     [CardType.EVENT]: 'border-event shadow-event/30',
@@ -239,9 +238,7 @@ const Card: React.FC<CardProps> = ({
   return (
     <div className={`relative ${cardSizeClasses}`}>
       <div 
-        className={`absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        className={`group absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
       >
         <div 
             className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses} ${playableClasses}`}
@@ -258,20 +255,19 @@ const Card: React.FC<CardProps> = ({
                     <CardFace />
                 </div>
             )}
-
-            {isHovered && card.imageUrl && (
-                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-lg flex flex-col justify-between text-white p-2">
-                    <CardFace/>
-                 </div>
+            
+            {card.imageUrl && (
+                <div className="absolute inset-0 bg-gradient-to-t from-cyber-surface via-cyber-surface/70 to-transparent rounded-lg flex flex-col justify-between text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    <CardFace />
+                </div>
             )}
-            {isHovered && (
-                <button
-                    onClick={(e) => { e.stopPropagation(); onExamine(card); }}
-                    className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20"
-                >
-                    Examine
-                </button>
-            )}
+            
+            <button
+                onClick={(e) => { e.stopPropagation(); onExamine(card); }}
+                className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"
+            >
+                Examine
+            </button>
             
             {/* Visible Status Icons */}
             <div className="absolute top-1 left-1 flex flex-col space-y-1 z-10">

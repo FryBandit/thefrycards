@@ -246,33 +246,39 @@ const App: React.FC = () => {
 
   // Main game loop and AI logic
   useEffect(() => {
-    // Exit if the game is over, waiting for player input, or not started.
     if (state.winner || !state.isProcessing || state.turn === 0) return;
 
     let timeoutId: number | undefined;
-    
-    // Determine if it's an AI's turn to act. This includes its regular turn and the special mulligan phase.
     const isAiTurnToAct = state.currentPlayerId === 1 || state.phase === TurnPhase.AI_MULLIGAN;
 
-    if (isAiTurnToAct && aiAction) {
-        console.log("AI Action:", aiAction);
-        timeoutId = window.setTimeout(() => {
-          dispatch(aiAction);
-        }, 1200);
+    if (isAiTurnToAct) {
+        if (aiAction) {
+            console.log("AI Action:", aiAction);
+            timeoutId = window.setTimeout(() => {
+                dispatch(aiAction);
+            }, 1800);
+        } else {
+            // Failsafe: If AI computes no action, advance the phase to prevent a soft lock.
+            console.error("AI returned no action during its turn. Advancing phase to prevent stall.");
+            timeoutId = window.setTimeout(() => {
+                dispatch({ type: 'ADVANCE_PHASE' });
+            }, 1800);
+        }
     } else if (state.phase === TurnPhase.START) {
         // Auto-advance start phase for any player
-        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1000);
+        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1500);
     } else if (state.isProcessing) {
-        // If still processing but it's not an AI action or auto-advance phase, it must be the player's turn. Unlock the UI.
+        // If it's not the AI's turn but still processing, it's the player's turn. Unlock the UI.
         dispatch({ type: 'AI_ACTION' });
     }
-    
+
     return () => {
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
     };
-  }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
+}, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
+
 
   if (allCards === null || allCards.length === 0) {
     return <LoadingScreen loadingError={loadingError} />;

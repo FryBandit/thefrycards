@@ -16,7 +16,19 @@ interface DiceTrayProps {
 
 const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieClick, onRoll, canRoll, valuableDiceForHover, isHoveredCardPlayable, lastActionDetails }) => {
   const [isRolling, setIsRolling] = useState(false);
-  const sortedDice = [...dice].sort((a, b) => a.value - b.value);
+  
+  // Group dice by value
+  const groupedDice = dice.reduce((acc, die) => {
+    (acc[die.value] = acc[die.value] || []).push(die);
+    return acc;
+  }, {} as Record<number, DieType[]>);
+
+  // Sort groups by die value
+  const sortedGroups = Object.keys(groupedDice)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map(value => groupedDice[value]);
+
 
   const handleRoll = () => {
     if (!canRoll || isRolling) return;
@@ -29,18 +41,22 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
 
   return (
     <div className="bg-cyber-surface/70 backdrop-blur-sm p-2 sm:p-4 rounded-lg flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 border-2 border-cyber-border">
-      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
-        {sortedDice.map((die) => (
-          <Die 
-            key={die.id} 
-            die={die} 
-            onClick={() => onDieClick(die.id)} 
-            isRolling={isRolling && !die.isKept && !die.isSpent}
-            isHighlighted={valuableDiceForHover.has(die.id)}
-            isHoveredCardPlayable={isHoveredCardPlayable}
-            isTrayRolling={isRolling}
-            lastActionDetails={lastActionDetails}
-          />
+      <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-4 gap-y-2">
+        {sortedGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="flex gap-2 sm:gap-3">
+                {group.map((die) => (
+                <Die 
+                    key={die.id} 
+                    die={die} 
+                    onClick={() => onDieClick(die.id)} 
+                    isRolling={isRolling && !die.isKept && !die.isSpent}
+                    isHighlighted={valuableDiceForHover.has(die.id)}
+                    isHoveredCardPlayable={isHoveredCardPlayable}
+                    isTrayRolling={isRolling}
+                    lastActionDetails={lastActionDetails}
+                />
+                ))}
+            </div>
         ))}
       </div>
       <div className="flex flex-col items-center space-y-1 sm:space-y-2">
