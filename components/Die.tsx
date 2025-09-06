@@ -61,7 +61,7 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
     [LastActionType.ACTIVATE]: 'shadow-unit',
   };
 
-  const baseClasses = "w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center text-4xl sm:text-5xl font-bold transition-all duration-200 border-2";
+  const baseClasses = "relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center text-4xl sm:text-5xl font-bold transition-all duration-200 border-2";
   
   let stateClasses = "";
   if (die.isSpent) {
@@ -92,6 +92,13 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
       aria-label={`Die showing ${displayValue}, ${die.isKept ? 'kept' : die.isSpent ? 'spent' : 'available'}`}
     >
       {dieFace}
+       {die.isKept && (
+          <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-cyber-bg" title="Kept">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
     </button>
   );
 };

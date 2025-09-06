@@ -1,5 +1,7 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+
+
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
 import Modal from './components/Modal';
@@ -30,6 +32,9 @@ const App: React.FC = () => {
   // State for block assignments
   const [blockAssignments, setBlockAssignments] = useState<Map<string, string>>(new Map()); // blockerId -> attackerId
   const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(null);
+
+  // State for animations
+  const [isOpponentDrawing, setIsOpponentDrawing] = useState(false);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -86,6 +91,7 @@ const App: React.FC = () => {
     setTargetingInfo(null);
     setViewingZone(null);
     setExaminingCard(null);
+    setConfirmation(null);
   };
 
   const handleMulliganChoice = (mulligan: boolean) => {
@@ -106,6 +112,30 @@ const App: React.FC = () => {
       dispatch({ type: 'ROLL_DICE' });
     }
   };
+
+  const isCardPlayable = useCallback((card: CardInGame): boolean => {
+    if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
+    
+    let dice_cost: DiceCost[] | undefined = card.dice_cost;
+    // Augment has a different cost and is handled like a targeted ability
+    if (card.abilities?.augment) {
+        dice_cost = card.abilities.augment.cost;
+    }
+
+    const canPayCost = checkDiceCost({ ...card, dice_cost: dice_cost || [] }, state.dice).canPay;
+    if (!canPayCost) return false;
+
+    if (card.abilities?.requiresTarget || card.abilities?.augment) {
+        const hasAnyTarget = state.players.some(targetPlayer => 
+            [...targetPlayer.units, ...targetPlayer.locations, ...targetPlayer.artifacts].some(targetUnit => 
+                isCardTargetable(card, targetUnit, state.players[0], targetPlayer)
+            )
+        );
+        return hasAnyTarget;
+    }
+
+    return true;
+  }, [state.phase, state.rollCount, state.dice, state.players]);
   
   const handleHandCardClick = (card: CardInGame) => {
     if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
@@ -125,6 +155,13 @@ const App: React.FC = () => {
     // Play card without target
     dispatch({ type: 'PLAY_CARD', payload: { card } });
   };
+  
+  const isCardScavengeable = useCallback((card: CardInGame): boolean => {
+      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
+          return false;
+      }
+      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost || [] }, state.dice).canPay;
+  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
   const handleGraveyardCardClick = (card: CardInGame) => {
       if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
@@ -189,31 +226,7 @@ const App: React.FC = () => {
     dispatch({ type: 'DECLARE_BLOCKS', payload: { assignments } });
   };
 
-  const isCardPlayable = (card: CardInGame): boolean => {
-    if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
-    
-    let dice_cost: DiceCost[] | undefined = card.dice_cost;
-    // Augment has a different cost and is handled like a targeted ability
-    if (card.abilities?.augment) {
-        dice_cost = card.abilities.augment.cost;
-    }
-
-    const canPayCost = checkDiceCost({ ...card, dice_cost: dice_cost || [] }, state.dice).canPay;
-    if (!canPayCost) return false;
-
-    if (card.abilities?.requiresTarget || card.abilities?.augment) {
-        const hasAnyTarget = state.players.some(targetPlayer => 
-            [...targetPlayer.units, ...targetPlayer.locations, ...targetPlayer.artifacts].some(targetUnit => 
-                isCardTargetable(card, targetUnit, state.players[0], targetPlayer)
-            )
-        );
-        return hasAnyTarget;
-    }
-
-    return true;
-  };
-  
-  const isCardActivatable = (card: CardInGame): boolean => {
+  const isCardActivatable = useCallback((card: CardInGame): boolean => {
     if (!card.abilities?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
@@ -221,29 +234,22 @@ const App: React.FC = () => {
         return false;
     }
     return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost || [] }, state.dice).canPay;
-  };
+  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
-  const isCardChannelable = (card: CardInGame): boolean => {
+  const isCardChannelable = useCallback((card: CardInGame): boolean => {
     if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
     return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost || [] }, state.dice).canPay;
-  }
+  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
-  const isCardAmplifiable = (card: CardInGame): boolean => {
+  const isCardAmplifiable = useCallback((card: CardInGame): boolean => {
     if (!card.abilities?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
     const combinedCost = { ...card, dice_cost: (card.dice_cost || []).concat(card.abilities.amplify.cost || []) };
     return checkDiceCost(combinedCost, state.dice).canPay;
-  };
-
-  const isCardScavengeable = (card: CardInGame): boolean => {
-      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
-          return false;
-      }
-      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost || [] }, state.dice).canPay;
-  }
+  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
   const handleActivateCard = (card: CardInGame) => {
     if (isCardActivatable(card)) {
@@ -309,12 +315,19 @@ const App: React.FC = () => {
     // AI needs to act if it's its turn OR if it's the BLOCK phase and the player is attacking
     const isAiTurnToAct = !isPlayerCurrent || (state.phase === TurnPhase.BLOCK && isPlayerCurrent) || state.phase === TurnPhase.AI_MULLIGAN;
 
+    // Trigger opponent draw animation
+    if (state.isProcessing && state.phase === TurnPhase.DRAW && state.currentPlayerId === 1) {
+        setIsOpponentDrawing(true);
+        setTimeout(() => setIsOpponentDrawing(false), 1200); // Animation duration
+    }
+
     if (isAiTurnToAct) {
         if (aiAction) {
             console.log("AI Action:", aiAction);
+            const randomDelay = 1200 + Math.random() * 1000;
             timeoutId = window.setTimeout(() => {
                 dispatch(aiAction);
-            }, 1800);
+            }, randomDelay);
         } else {
             // Failsafe: If AI computes no action, advance the phase to prevent a soft lock.
             console.error("AI returned no action. Advancing phase to prevent stall.");
@@ -379,6 +392,7 @@ const App: React.FC = () => {
         onConfirmBlocks={handleConfirmBlocks}
         selectedBlockerId={selectedBlockerId}
         blockAssignments={blockAssignments}
+        isOpponentDrawing={isOpponentDrawing}
       />
 
       {/* HUD Elements */}
@@ -410,7 +424,7 @@ const App: React.FC = () => {
       </button>
 
       {/* Overlays */}
-       <PhaseAnnouncer phase={state.phase} />
+       <PhaseAnnouncer phase={state.phase} turn={state.turn} />
       
       <ConfirmModal 
         isOpen={!!confirmation}

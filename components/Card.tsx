@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CardInGame, CardType, DiceCost, DiceCostType } from '../game/types';
 import KeywordText from './KeywordText';
 import Tooltip from './Tooltip';
@@ -29,6 +29,8 @@ interface CardProps {
   isPotentialBlocker?: boolean;
   blockingTargetName?: string;
   isPotentialAttacker?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 // Helper function to render dice costs
@@ -134,7 +136,7 @@ const CardTypeIcon: React.FC<{ type: CardType, className?: string }> = ({ type, 
     ),
     [CardType.ARTIFACT]: (
       <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61-.25-1.17-.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23-.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
       </svg>
     ),
   };
@@ -149,8 +151,20 @@ const Card: React.FC<CardProps> = ({
     effectiveStrength, effectiveDurability, origin = 'hand',
     isActivating = false, rallyBonus = 0, onExamine,
     isAttacking = false, isBlocker = false, isSelectedAsBlocker = false, isPotentialBlocker = false, blockingTargetName,
-    isPotentialAttacker = false,
+    isPotentialAttacker = false, onMouseEnter, onMouseLeave,
 }) => {
+  const [damageAnimClass, setDamageAnimClass] = useState('');
+  const prevDamage = useRef(card.damage);
+
+  useEffect(() => {
+    if (card.damage > prevDamage.current) {
+        setDamageAnimClass('animate-flash-damage');
+        const timer = setTimeout(() => setDamageAnimClass(''), 500); // Match animation duration
+        return () => clearTimeout(timer);
+    }
+    prevDamage.current = card.damage;
+  }, [card.damage]);
+
   const typeColor = {
     [CardType.UNIT]: 'border-unit shadow-unit/30',
     [CardType.EVENT]: 'border-event shadow-event/30',
@@ -165,10 +179,13 @@ const Card: React.FC<CardProps> = ({
     [CardType.ARTIFACT]: 'text-artifact',
   };
 
+  const isClickToExamine = !onClick && !!onExamine;
+  const effectiveOnClick = isClickToExamine ? () => onExamine(card) : onClick;
+
   const originClasses = origin === 'graveyard' ? 'opacity-80 border-dashed border-gray-500' : '';
   const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
 
-  const interactiveClasses = (onClick || onExamine) ? "cursor-pointer" : "";
+  const interactiveClasses = effectiveOnClick ? "cursor-pointer" : "";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
   
@@ -250,7 +267,7 @@ const Card: React.FC<CardProps> = ({
                             
                             return (
                                 <>
-                                    <span className={healthColorClass}>{currentHealth}</span>
+                                    <span className={`${healthColorClass} ${damageAnimClass}`}>{currentHealth}</span>
                                     <span>/</span>
                                     <span>{effective}</span>
                                 </>
@@ -273,10 +290,12 @@ const Card: React.FC<CardProps> = ({
     <div className={`relative ${cardSizeClasses}`}>
       <div 
         className={`group absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass} ${attackingClasses} ${blockerClasses} ${selectedBlockerClasses} ${potentialBlockerClasses} ${potentialAttackerClasses}`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         <div 
             className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses} ${playableClasses}`}
-            onClick={onClick}
+            onClick={effectiveOnClick}
         >
             {card.imageUrl ? (
                 isVideo ? (
@@ -304,13 +323,15 @@ const Card: React.FC<CardProps> = ({
                     <span className="font-bold">BLOCKING:</span>&nbsp;<span className="truncate">{blockingTargetName}</span>
                 </div>
             )}
-
-            <button
-                onClick={(e) => { e.stopPropagation(); onExamine(card); }}
-                className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"
-            >
-                Examine
-            </button>
+            
+            {!isClickToExamine && onExamine && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onExamine(card); }}
+                    className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"
+                >
+                    Examine
+                </button>
+            )}
             
             {/* Visible Status Icons */}
             <div className="absolute top-1 left-1 flex flex-col space-y-1 z-10">

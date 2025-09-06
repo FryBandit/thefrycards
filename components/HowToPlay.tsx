@@ -1,5 +1,6 @@
 import React from 'react';
 import { KEYWORD_DEFINITIONS } from '../game/keywords';
+import KeywordText from './KeywordText';
 
 interface HowToPlayProps {
   onPlay: () => void;
@@ -13,7 +14,7 @@ const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
     }
 
     return (
-        <p><strong className="text-neon-cyan">{name}:</strong> {definition}</p>
+        <p><strong className="text-neon-cyan">{name}:</strong> <KeywordText text={definition} /></p>
     );
 }
 

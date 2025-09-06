@@ -1,3 +1,4 @@
+
 import { Die, DiceCost, DiceCostType, CardInGame, Player, CardType } from './types';
 
 // Helper to shuffle arrays
@@ -122,9 +123,18 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
 
     // Augment keyword (from attachments)
     if (card.attachments && card.attachments.length > 0) {
-        // Generic buff from any attachment for now, can be specified later
-        strength += card.attachments.length;
-        durability += card.attachments.length;
+        card.attachments.forEach(attachment => {
+            if (attachment.abilities?.augment?.effect?.buffs) {
+                attachment.abilities.augment.effect.buffs.forEach((buff: { type: string, amount: number }) => {
+                    if (buff.type === 'STRENGTH') {
+                        strength += buff.amount;
+                    }
+                    if (buff.type === 'DURABILITY') {
+                        durability += buff.amount;
+                    }
+                });
+            }
+        });
     }
 
     // Buffs from player's other cards (Locations/Artifacts with passive buffs)

@@ -11,14 +11,14 @@ interface PlayerInfoPanelProps {
 const StatDisplay: React.FC<{ value: number; animClass: string; children: React.ReactNode; }> = ({ value, animClass, children }) => (
     <div className="flex flex-col items-center justify-center bg-black/20 p-1 rounded w-full h-full">
         {children}
-        <div className={`font-bold text-base md:text-lg text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-lg md:text-xl text-neon-yellow ${animClass}`}>{value}</div>
     </div>
 );
 
 const ClickableStatDisplay: React.FC<{ value: number; animClass: string; onClick: () => void; children: React.ReactNode; }> = ({ value, animClass, onClick, children }) => (
     <button onClick={onClick} className="flex flex-col items-center justify-center bg-black/20 p-1 rounded hover:bg-cyber-primary transition-colors border-2 border-transparent hover:border-neon-cyan w-full h-full">
         {children}
-        <div className={`font-bold text-base md:text-lg text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-lg md:text-xl text-neon-yellow ${animClass}`}>{value}</div>
     </button>
 );
 

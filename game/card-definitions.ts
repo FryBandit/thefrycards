@@ -7,7 +7,7 @@ export const cardDefinitions: CardDefinition[] = [
     id: 1,
     name: "Lost Signal",
     type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 3 }],
+    dice_cost: [{ type: DiceCostType.ANY_X_DICE, count: 1 }],
     strength: undefined,
     durability: undefined,
     text: "Target opponent discards 1 card.",
@@ -187,11 +187,18 @@ export const cardDefinitions: CardDefinition[] = [
     id: 12,
     name: "The Hunger",
     type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
+    dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
-    text: "Corrupt 3. Siphon 3.",
-    abilities: { "corrupt": 3, "siphon": 3, "requiresTarget": true },
+    text: "Target a unit. Gain 3 Command. Amplify: Also apply Corrupt 3 to the target.",
+    abilities: {
+      "siphon": 3,
+      "requiresTarget": true,
+      "amplify": {
+        "cost": [{ "type": "EXACT_VALUE", "count": 1, "value": 6 }],
+        "effect": { "type": "CORRUPT", "amount": 3 }
+      }
+    },
     faction: "Space Horror",
     rarity: "Super-Rare",
     flavor_text: "The darkness wants more than just light.",
@@ -351,7 +358,7 @@ export const cardDefinitions: CardDefinition[] = [
     id: 22,
     name: "Chrono Rift",
     type: CardType.LOCATION,
-    dice_cost: [],
+    dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 6 }],
     strength: undefined,
     durability: undefined,
     text: "Instability. Generator: Draw 1 card.",
@@ -416,7 +423,7 @@ export const cardDefinitions: CardDefinition[] = [
     id: 26,
     name: "Singularity of Fear",
     type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 28, "count": 5 }],
+    dice_cost: [{ type: DiceCostType.NO_DUPLICATES, count: 5 }],
     strength: undefined,
     durability: undefined,
     text: "Void all units. Purge 3. Target opponent discards 3 cards.",
@@ -778,7 +785,7 @@ export const cardDefinitions: CardDefinition[] = [
     id: 255,
     name: "Kindling Fiend",
     type: CardType.UNIT,
-    dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 2 }],
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, value: 8, count: 2 }],
     strength: 5,
     durability: 2,
     commandNumber: 7,
@@ -795,11 +802,19 @@ export const cardDefinitions: CardDefinition[] = [
     id: 256,
     name: "Conduit of Ire",
     type: CardType.ARTIFACT,
-    dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
+    dice_cost: [],
     strength: undefined,
     durability: undefined,
-    text: "Augment. Amplify.",
-    abilities: { "augment": { "cost": [{ type: DiceCostType.ANY_PAIR }] }, "amplify": { "cost": [{ type: DiceCostType.MIN_VALUE, "count": 1, "value": 6 }], "effect": { "type": "DEAL_DAMAGE", "amount": 5 } } },
+    text: "Augment. Augmented unit has +2 Strength and Venomous.",
+    abilities: {
+      "augment": {
+        "cost": [{ type: DiceCostType.THREE_OF_A_KIND }],
+        "effect": {
+          "grants": ["VENOMOUS"],
+          "buffs": [{ "type": "STRENGTH", "amount": 2 }]
+        }
+      }
+    },
     faction: "Artifice & Ruin",
     rarity: "Rare",
     flavor_text: "Grasp it, and feel the forest's fury surge through your veins.",

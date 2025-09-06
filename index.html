@@ -43,6 +43,8 @@
               'zoom-announce': 'zoom-in-out-fade 2s ease-in-out forwards',
               'modal-show': 'fade-in-scale-up 0.3s ease-out forwards',
               'fade-in-left': 'fade-in-left 0.2s ease-out forwards',
+              'flash-damage': 'flash-damage 0.5s ease-in-out',
+              'opponent-draw': 'opponent-draw 1.2s ease-out forwards',
             },
             keyframes: {
               'pulse-bright': {
@@ -83,6 +85,10 @@
                 '0%, 100%': { color: '#f038ff' },
                 '50%': { color: '#22c55e', transform: 'scale(1.15)' },
               },
+               'flash-damage': {
+                '0%, 100%': { color: 'inherit' },
+                '50%': { color: '#ef4444', transform: 'scale(1.2)' },
+              },
               'pulse-yellow': {
                 '0%, 100%': { transform: 'scale(1)' },
                 '50%': { transform: 'scale(1.25)' },
@@ -110,6 +116,10 @@
               'fade-in-left': {
                 '0%': { opacity: '0', transform: 'translateX(-20px) scale(0.98)' },
                 '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
+              },
+              'opponent-draw': {
+                '0%': { transform: 'translate(0, 0) rotate(5deg) scale(0.9)', opacity: '1' },
+                '100%': { transform: 'translate(-35vw, 20vh) rotate(-15deg) scale(1)', opacity: '0' },
               },
             }
           },

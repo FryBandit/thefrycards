@@ -1,13 +1,14 @@
 
 
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useState } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
-import { isCardTargetable } from '../hooks/useGameState';
-import { findValuableDiceForCost } from '../game/utils';
+import { isCardTargetable, checkDiceCost } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
 import Card from './Card';
 import CardPreview from './CardPreview';
+import CombatPreviewTooltip from './CombatPreviewTooltip';
 
 // Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
 // MOVED TO game/utils.ts
@@ -27,7 +28,8 @@ const FieldArea: React.FC<{
     onExamineCard: (card: CardInGame) => void;
     selectedBlockerId?: string | null;
     blockAssignments?: Map<string, string>;
-}> = ({ player, players, gameState, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, onExamineCard, selectedBlockerId, blockAssignments }) => {
+    setHoveredAttackerId: (id: string | null) => void;
+}> = ({ player, players, gameState, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, onExamineCard, selectedBlockerId, blockAssignments, setHoveredAttackerId }) => {
     
     const { phase, currentPlayerId, combatants } = gameState;
     const backRowCards = [...player.locations, ...player.artifacts];
@@ -43,7 +45,7 @@ const FieldArea: React.FC<{
         const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
         
         // Combat states
-        const isAttacking = phase === TurnPhase.BLOCK && combatants?.some(c => c.attackerId === card.instanceId) || false;
+        const isAttacking = (phase === TurnPhase.BLOCK || phase === TurnPhase.ASSAULT) && combatants?.some(c => c.attackerId === card.instanceId) || false;
         const isBlocker = phase === TurnPhase.BLOCK && blockAssignments?.has(card.instanceId) || false;
         const isSelectedAsBlocker = phase === TurnPhase.BLOCK && selectedBlockerId === card.instanceId;
         
@@ -60,6 +62,8 @@ const FieldArea: React.FC<{
             blockingTargetName = attackerCard?.name;
         }
 
+        const canBeHoveredForCombatPreview = isOpponent && isAttacking && selectedBlockerId;
+        
         return (
             <Card 
                 key={card.instanceId} 
@@ -79,6 +83,8 @@ const FieldArea: React.FC<{
                 isPotentialBlocker={isPotentialBlocker}
                 blockingTargetName={blockingTargetName}
                 isPotentialAttacker={isPotentialAttacker}
+                onMouseEnter={canBeHoveredForCombatPreview ? () => setHoveredAttackerId(card.instanceId) : undefined}
+                onMouseLeave={canBeHoveredForCombatPreview ? () => setHoveredAttackerId(null) : undefined}
             />
         );
     };
@@ -236,6 +242,7 @@ interface GameBoardProps {
   onConfirmBlocks: () => void;
   selectedBlockerId: string | null;
   blockAssignments: Map<string, string>;
+  isOpponentDrawing: boolean;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -244,13 +251,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
     lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
-    onMulligan, showConfirmation, onConfirmBlocks, selectedBlockerId, blockAssignments
+    onMulligan, showConfirmation, onConfirmBlocks, selectedBlockerId, blockAssignments,
+    isOpponentDrawing,
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
-  const currentPlayer = players[currentPlayerId];
-  const opponentPlayer = players[1 - currentPlayerId];
+  const player = players[0];
+  const opponent = players[1];
 
   const isPlayerTurn = currentPlayerId === 0;
+
+  const [hoveredAttackerId, setHoveredAttackerId] = useState<string | null>(null);
 
   const isHoveredCardPlayable = useMemo(() => {
     if (!hoveredCardInHand || !isPlayerTurn) return true; // Default to true to not show red when no card is hovered
@@ -259,11 +269,20 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   const valuableDiceForHover = useMemo(() => {
     if (!hoveredCardInHand || !isPlayerTurn) return new Set<number>();
-    const diceToConsider = gameState.dice.filter(d => !d.isSpent);
-    const costs = hoveredCardInHand.dice_cost || [];
-    const valuableDice = costs.flatMap(cost => findValuableDiceForCost(cost, diceToConsider));
-    return new Set(valuableDice.map(d => d.id));
+    const result = checkDiceCost(hoveredCardInHand, gameState.dice);
+    return new Set(result.diceToSpend.map(d => d.id));
   }, [hoveredCardInHand, gameState.dice, isPlayerTurn]);
+  
+  const combatPreviewData = useMemo(() => {
+    if (phase === TurnPhase.BLOCK && selectedBlockerId && hoveredAttackerId) {
+        const blocker = player.units.find(u => u.instanceId === selectedBlockerId);
+        const attacker = opponent.units.find(u => u.instanceId === hoveredAttackerId);
+        if (blocker && attacker) {
+            return { blocker, attacker };
+        }
+    }
+    return null;
+  }, [phase, selectedBlockerId, hoveredAttackerId, player.units, opponent.units]);
 
 
   const getPhaseAction = () => {
@@ -303,6 +322,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
     <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
       
       <CardPreview card={hoveredCardInHand} />
+      {combatPreviewData && (
+        <CombatPreviewTooltip 
+            attacker={combatPreviewData.attacker}
+            blocker={combatPreviewData.blocker}
+            attackerPlayer={opponent}
+            blockerPlayer={player}
+        />
+      )}
 
       {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
       {phase === TurnPhase.BLOCK && <div className="absolute inset-0 bg-black/30 z-20 pointer-events-none" />}
@@ -345,11 +372,19 @@ const GameBoard: React.FC<GameBoardProps> = ({
             </div>
         </div>
       )}
+      
+      {isOpponentDrawing && (
+        <div className="absolute top-4 right-40 w-32 h-44 md:w-48 md:h-64 z-[60] pointer-events-none">
+            <div className="w-full h-full bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center animate-opponent-draw">
+                <span className="text-xl md:text-2xl font-black text-neon-pink/50">CARD</span>
+            </div>
+        </div>
+      )}
 
       {/* Opponent's Side (reversed column) */}
       <div className="flex-1 flex flex-col-reverse">
         <FieldArea 
-            player={opponentPlayer}
+            player={opponent}
             players={players}
             gameState={gameState}
             onCardClick={onBoardCardClick} 
@@ -361,9 +396,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onExamineCard={onExamineCard}
             selectedBlockerId={selectedBlockerId}
             blockAssignments={blockAssignments}
+            setHoveredAttackerId={setHoveredAttackerId}
         />
         <HandArea 
-            player={opponentPlayer}
+            player={opponent}
             isOpponent={true} 
             onCardClick={() => {}}
             onGraveyardCardClick={() => {}}
@@ -373,7 +409,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onChannelClick={() => {}}
             isCardAmplifiable={() => false}
             onAmplifyClick={() => {}}
-            isCurrentPlayer={currentPlayerId === opponentPlayer.id}
+            isCurrentPlayer={currentPlayerId === opponent.id}
             onExamineCard={onExamineCard}
             setHoveredCardInHand={setHoveredCardInHand}
         />
@@ -421,7 +457,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <div className="flex gap-2 pointer-events-auto">
                     <button
                         onClick={() => onAdvancePhase(true)}
-                        disabled={currentPlayer.units.filter(u => !u.abilities?.entrenched).length === 0}
+                        disabled={player.units.filter(u => !u.abilities?.entrenched).length === 0}
                         className="bg-neon-pink text-cyber-bg px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
                     >
                         Assault
@@ -449,7 +485,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
       {/* Player's Side */}
        <div className="flex-1 flex flex-col">
         <FieldArea 
-            player={currentPlayer} 
+            player={player} 
             players={players}
             gameState={gameState}
             onCardClick={onBoardCardClick} 
@@ -461,9 +497,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onExamineCard={onExamineCard}
             selectedBlockerId={selectedBlockerId}
             blockAssignments={blockAssignments}
+            setHoveredAttackerId={setHoveredAttackerId}
         />
         <HandArea 
-            player={currentPlayer}
+            player={player}
             isOpponent={false} 
             onCardClick={onHandCardClick}
             onGraveyardCardClick={onGraveyardCardClick}
@@ -473,7 +510,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onChannelClick={onChannelClick}
             isCardAmplifiable={isCardAmplifiable}
             onAmplifyClick={onAmplifyClick}
-            isCurrentPlayer={currentPlayerId === currentPlayer.id}
+            isCurrentPlayer={currentPlayerId === player.id}
             onExamineCard={onExamineCard}
             setHoveredCardInHand={setHoveredCardInHand}
         />

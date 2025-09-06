@@ -56,6 +56,9 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
     
     // Overload is already baked into effective strength via getEffectiveStats
 
+    // Negative Keywords
+    if (unit.abilities?.fragile) threat *= 0.75; // Less durable against events, so less of a stable threat.
+
     // A unit that's about to die is less of an immediate threat
     if (durability > 0 && unit.damage > 0) {
       threat *= (1 - (unit.damage / durability) * 0.75); // Reduce threat significantly if it's heavily damaged
@@ -76,12 +79,17 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     // --- SITUATIONAL SCORING based on threats ---
     if(target) {
         const targetThreat = getUnitThreat(target, humanPlayer, aiPlayer);
+        
         if (card.abilities?.damage || card.abilities?.snipe) {
-            const damage = card.abilities.damage || card.abilities.snipe || 0;
+            let damage = card.abilities.damage || card.abilities.snipe || 0;
+            // Account for fragile
+            if (card.type === CardType.EVENT && target.abilities?.fragile) {
+                damage *= 2;
+            }
             const { durability } = getEffectiveStats(target, humanPlayer);
             score += targetThreat * 1.2;
             if (durability - target.damage <= damage) {
-                score += targetThreat * 1.5; // Extra value for killing a high threat target
+                score += targetThreat * 1.5 + (target.abilities?.fragile ? 10 : 0); // Extra value for killing a high threat/fragile target
             }
         }
         if (card.abilities?.voidTarget) {
@@ -541,8 +549,10 @@ export const getAiAction = (state: GameState): AIAction | null => {
             possiblePlays.sort((a, b) => b.score - a.score);
             console.log("AI Possible Plays:", possiblePlays.map(p => `${p.description} (Score: ${p.score.toFixed(1)})`).join(', '));
             
-            // Easy AI is more hesitant and needs a better reason to act.
-            const playThreshold = aiConfig.difficulty === 'easy' ? 8 : 3;
+            // On the last roll, be more willing to make a play.
+            const isLastRoll = rollCount >= state.maxRolls;
+            const playThreshold = isLastRoll ? 1 : (aiConfig.difficulty === 'easy' ? 8 : 3);
+            
             if (possiblePlays[0].score > playThreshold) {
                 return possiblePlays[0].action;
             }

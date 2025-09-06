@@ -1,3 +1,4 @@
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -386,36 +387,45 @@ export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key:
 
 export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGame, sourcePlayer: Player, targetPlayer: Player): boolean => {
     if (!targetingCard) return false;
-    
-    const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
 
-    // Handle abilities that MUST target own units
-    if (targetingCard.abilities?.recall || targetingCard.abilities?.augment) {
-        if (isOpponentTarget) return false; // Explicitly cannot target opponents with these
-        
-        // Both recall and augment target units
-        if (targetCard.type !== CardType.UNIT) return false;
-        
-        // Check if the card is in the player's unit list
-        return targetPlayer.units.some(u => u.instanceId === targetCard.instanceId);
+    // --- Absolute Protections ---
+    if (targetCard.abilities?.immutable) return false;
+
+    // --- Conditional Protections ---
+    const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
+    if (isOpponentTarget && targetingCard.type === CardType.EVENT) {
+        if (targetCard.abilities?.stealth) return false;
+        if (targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
+    }
+
+    // --- Ability-based Targeting Rules ---
+    const abilities = targetingCard.abilities;
+    const mustTargetOpponent = abilities?.damage || abilities?.snipe || abilities?.corrupt || abilities?.voidTarget;
+    const mustTargetFriendly = abilities?.recall || abilities?.augment;
+
+    if (mustTargetOpponent && !isOpponentTarget) {
+        return false;
     }
     
-    // Handle standard targeting which is usually opponents
-    if (isOpponentTarget) {
-        if (targetCard.abilities?.immutable) return false;
-        if (targetCard.type === CardType.UNIT) {
-            // Stealth only protects from events
-            if (targetingCard.type === CardType.EVENT && targetCard.abilities?.stealth) return false;
-            // Breach only protects from events
-            if (targetingCard.type === CardType.EVENT && targetCard.abilities?.breach && !targetCard.hasAssaulted) return false;
-        }
-        return true; // Is a valid opponent target
+    if (mustTargetFriendly && isOpponentTarget) {
+        return false;
     }
-    
-    // Default: cannot target own units unless an ability like recall/augment is present
-    return false;
+
+    // --- Default Case ---
+    // If no specific rules prevent targeting, it is allowed. This is more flexible for future abilities.
+    return true;
 };
 
+
+const cardHasAbility = (card: CardInGame, ability: string): boolean => {
+    if ((card.abilities as any)?.[ability]) {
+        return true;
+    }
+    if (card.attachments && card.attachments.length > 0) {
+        return card.attachments.some(att => att.abilities?.augment?.effect?.grants?.includes(ability.toUpperCase()));
+    }
+    return false;
+};
 
 const gameReducer = (state: GameState, action: Action): GameState => {
   try {
@@ -488,7 +498,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         target.damage += finalAmount;
         log(`${sourceCard?.name || 'Effect'} deals ${finalAmount} damage to ${target.name}.`);
 
-        if (sourceCard?.abilities?.venomous && finalAmount > 0) {
+        if (sourceCard && cardHasAbility(sourceCard, 'venomous') && finalAmount > 0) {
             const { durability } = getEffectiveStats(target, targetOwner);
             target.damage = durability; // Mark for destruction
             log(`${sourceCard.name}'s Venomous ability marks ${target.name} for destruction!`);
@@ -749,22 +759,23 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (newState.phase !== TurnPhase.MULLIGAN) return state;
           newState.lastActionDetails = null;
           const { mulligan } = action.payload;
-          const player = newState.players[0];
+          let player = newState.players[0];
 
           if (mulligan) {
               log(`You chose to mulligan.`);
               logAction('Mulliganed their hand.');
               const handToReturn = [...player.hand];
               player.hand = [];
+              player.deck.push(...handToReturn);
+              player.deck = shuffle(player.deck);
               const { player: p1 } = drawCards(player, 3);
-              p1.deck.push(...handToReturn);
-              p1.deck = shuffle(p1.deck);
-              newState.players[0] = p1;
+              player = p1;
           } else {
               log(`You kept your starting hand.`);
               logAction('Kept their hand.');
           }
-          newState.players[0].hasMulliganed = true;
+          player.hasMulliganed = true;
+          newState.players[0] = player;
           
           newState.phase = TurnPhase.AI_MULLIGAN;
           newState.isProcessing = true;
@@ -775,22 +786,23 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (newState.phase !== TurnPhase.AI_MULLIGAN) return state;
           newState.lastActionDetails = null;
           const { mulligan } = action.payload;
-          const ai = newState.players[1];
+          let ai = newState.players[1];
 
           if (mulligan) {
               log(`CPU chose to mulligan.`);
               logAction('Mulliganed their hand.');
               const handToReturn = [...ai.hand];
               ai.hand = [];
+              ai.deck.push(...handToReturn);
+              ai.deck = shuffle(ai.deck);
               const { player: p2 } = drawCards(ai, 3);
-              p2.deck.push(...handToReturn);
-              p2.deck = shuffle(p2.deck);
-              newState.players[1] = p2;
+              ai = p2;
           } else {
               log(`CPU kept its starting hand.`);
               logAction('Kept their hand.');
           }
-          newState.players[1].hasMulliganed = true;
+          ai.hasMulliganed = true;
+          newState.players[1] = ai;
 
           newState.phase = TurnPhase.START;
           newState.isProcessing = true;
@@ -880,6 +892,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         
         const diceCostString = costCheck.diceToSpend.map(d => d.value).sort().join(', ');
         
+        // Siphon on event logic
+        if (cardToPlay.type === CardType.EVENT && cardToPlay.abilities?.siphon) {
+            currentPlayer.command += cardToPlay.abilities.siphon;
+            log(`${currentPlayer.name} gains ${cardToPlay.abilities.siphon} command from ${cardToPlay.name}.`);
+        }
+        
         // Remove card from its source location
         if(options?.isScavenged) {
           currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToPlay.instanceId);
@@ -959,13 +977,16 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     currentPlayer.graveyard.push(cardToPlay);
                     if (cardToPlay.abilities?.chain_reaction) {
                         log(`${cardToPlay.name} starts a Chain Reaction!`);
-                        if (currentPlayer.deck.length > 0) {
-                            const chainedCardDef = currentPlayer.deck.pop()!;
-                            const chainedCard: CardInGame = {
-                                ...chainedCardDef,
-                                instanceId: `${chainedCardDef.id}-chained-${Date.now()}-${Math.random()}`,
-                                damage: 0, strengthModifier: 0, durabilityModifier: 0, hasAssaulted: false, attachments: []
-                            };
+                        const { player: p, drawnCards, fatigueDamage } = drawCards(currentPlayer, 1);
+                        currentPlayer = p;
+
+                        if (fatigueDamage.length > 0) {
+                            fatigueDamage.forEach(dmg => {
+                                damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
+                                log(`Chain Reaction fizzles: deck is empty. ${currentPlayer.name} takes ${dmg} Fatigue damage!`);
+                            });
+                        } else if (drawnCards.length > 0) {
+                            const chainedCard = drawnCards[0];
                             log(`Chain Reaction triggers ${chainedCard.name}!`);
                             logAction(`Chain Reaction played ${chainedCard.name}.`);
                     
@@ -984,10 +1005,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 }
                             } else {
                                 log(`Chain reaction fizzles: ${chainedCard.name} is not an event and is returned to the deck.`);
-                                currentPlayer.deck.push(chainedCardDef); // Put it back
+                                // Since drawCards removes it, we need to find its definition and put it back.
+                                const cardDef = { ...chainedCard };
+                                delete (cardDef as any).instanceId; // Make it a definition again
+                                currentPlayer.deck.push(cardDef);
                             }
-                        } else {
-                            log(`Chain Reaction fizzles: deck is empty.`);
                         }
                     }
                     break;
@@ -1024,14 +1046,18 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     const targetIndex = currentPlayer.units.findIndex(u => u.instanceId === target.instanceId);
                     if (targetIndex > -1) {
                         const recalledUnit = currentPlayer.units.splice(targetIndex, 1)[0];
-                        if (recalledUnit.isScavenged) {
+                        if (recalledUnit.isToken) {
                             currentPlayer.void.push(recalledUnit);
-                            log(`${recalledUnit.name} was Scavenged and is Voided when Recalled.`);
+                            log(`${recalledUnit.name} was a Token and is Voided when Recalled.`);
                         } else {
                             log(`${recalledUnit.name} is Recalled to ${currentPlayer.name}'s hand.`);
+                             if (recalledUnit.isScavenged) {
+                                log('It retains its Scavenged property.');
+                            }
                             const baseCard = {
-                                ...recalledUnit, damage: 0, strengthModifier: 0, durabilityModifier: 0, hasAssaulted: false,
-                                isScavenged: false, isToken: false, attachments: [],
+                                ...recalledUnit,
+                                damage: 0, strengthModifier: 0, durabilityModifier: 0, hasAssaulted: false,
+                                isToken: false, attachments: [],
                             };
                             currentPlayer.hand.push(baseCard);
                         }
@@ -1062,6 +1088,16 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 } else {
                   target.strengthModifier -= cardToPlay.abilities.corrupt;
                   log(`${target.name} gets -${cardToPlay.abilities.corrupt} Strength.`);
+                }
+            }
+            if (options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'CORRUPT') {
+                log(`${cardToPlay.name} is Amplified!`);
+                const corruptAmount = cardToPlay.abilities.amplify.effect.amount;
+                if (target.abilities?.immutable) {
+                  log(`${target.name} is Immutable and cannot be corrupted.`);
+                } else {
+                  target.strengthModifier -= corruptAmount;
+                  log(`${target.name} gets -${corruptAmount} Strength.`);
                 }
             }
         }
