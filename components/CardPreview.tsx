@@ -81,7 +81,7 @@ const renderDiceCost = (costs: DiceCost[]) => {
         }
         return (
              <Tooltip key={index} content={textContent}>
-                <div className="bg-black/40 text-neon-pink px-1.5 py-0.5 rounded-sm flex items-center gap-1 font-mono text-xs cursor-help">{content}</div>
+                <div className="bg-black/40 text-vivid-pink px-1.5 py-0.5 rounded-sm flex items-center gap-1 font-mono text-xs cursor-help">{content}</div>
             </Tooltip>
         );
     });
@@ -106,7 +106,7 @@ const CardTypeIcon: React.FC<{ type: CardType, className?: string }> = ({ type, 
     ),
     [CardType.ARTIFACT]: (
       <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61-.25-1.17-.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61-.25-1.17-.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23-.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
       </svg>
     ),
   };
@@ -140,7 +140,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({ card }) => {
   return (
     <div className="fixed top-1/2 -translate-y-1/2 left-4 w-72 h-[26rem] z-40 pointer-events-none animate-fade-in-left">
       <div
-        className={`relative w-full h-full rounded-xl border-4 bg-cyber-surface shadow-2xl text-white ${typeColor} shadow-black/50`}
+        className={`relative w-full h-full rounded-xl border-4 bg-arcane-surface shadow-2xl text-white ${typeColor} shadow-black/50`}
       >
         {card.imageUrl ? (
           isVideo ? (
@@ -150,7 +150,7 @@ const CardPreview: React.FC<CardPreviewProps> = ({ card }) => {
           )
         ) : null}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-cyber-surface via-cyber-surface/80 to-transparent rounded-lg flex flex-col justify-between text-white p-3">
+        <div className="absolute inset-0 bg-gradient-to-t from-arcane-surface via-arcane-surface/80 to-transparent rounded-lg flex flex-col justify-between text-white p-3">
           {/* Card Face Content */}
           <div className="h-full flex flex-col justify-between text-sm">
             <div className="flex justify-between items-start font-bold">
@@ -160,14 +160,14 @@ const CardPreview: React.FC<CardPreviewProps> = ({ card }) => {
                   {renderDiceCost(card.dice_cost)}
                 </div>
               </div>
-              {card.commandNumber !== undefined && (
-                <span className={`flex-shrink-0 w-9 h-9 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-xl ${typeColor} text-white`}>
-                  {card.commandNumber}
+              {card.moraleValue !== undefined && (
+                <span className={`flex-shrink-0 w-9 h-9 bg-arcane-bg/80 rounded-full flex items-center justify-center font-black text-xl ${typeColor} text-white`}>
+                  {card.moraleValue}
                 </span>
               )}
             </div>
 
-            <div className="text-xs text-neon-yellow/80 my-2 flex-grow p-2 bg-black/40 rounded font-mono overflow-y-auto">
+            <div className="text-xs text-vivid-yellow/80 my-2 flex-grow p-2 bg-black/40 rounded font-mono overflow-y-auto">
               <KeywordText text={card.text} />
             </div>
 
@@ -179,10 +179,10 @@ const CardPreview: React.FC<CardPreviewProps> = ({ card }) => {
                 </div>
                 {card.type === CardType.UNIT && (
                   <div className="flex items-center space-x-2 font-bold">
-                    <div className={`bg-neon-pink px-2.5 py-1.5 rounded flex items-center justify-center text-cyber-bg text-base`}>
+                    <div className={`bg-vivid-pink px-2.5 py-1.5 rounded flex items-center justify-center text-arcane-bg text-base`}>
                       <span>{card.strength ?? 0}</span>
                     </div>
-                    <div className={`bg-neon-cyan px-2.5 py-1.5 rounded flex items-center justify-center text-cyber-bg text-base`}>
+                    <div className={`bg-vivid-cyan px-2.5 py-1.5 rounded flex items-center justify-center text-arcane-bg text-base`}>
                       <span>{card.durability ?? 1}</span>
                     </div>
                   </div>

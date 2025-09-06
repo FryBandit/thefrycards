@@ -42,11 +42,10 @@ export interface CardDefinition {
   dice_cost: DiceCost[];
   strength?: number;
   durability?: number;
-  commandNumber?: number;
+  moraleValue?: number;
   text: string;
   abilities: { [key: string]: any; };
   imageUrl?: string;
-  faction?: string;
   rarity?: string;
   flavor_text?: string;
   card_set?: string;
@@ -58,8 +57,8 @@ export interface CardInGame extends CardDefinition {
   damage: number;
   strengthModifier: number;
   durabilityModifier: number;
-  hasAssaulted: boolean;
-  isScavenged?: boolean;
+  hasStruck: boolean;
+  isReclaimed?: boolean;
   isToken?: boolean;
   shieldUsedThisTurn?: boolean;
   counters?: number; // For Consume
@@ -69,18 +68,18 @@ export interface CardInGame extends CardDefinition {
 export interface Player {
   id: number;
   name:string;
-  command: number;
+  morale: number;
   deck: CardDefinition[];
   hand: CardInGame[];
   units: CardInGame[];
   locations: CardInGame[];
   artifacts: CardInGame[];
   graveyard: CardInGame[];
-  void: CardInGame[];
-  riftwalkZone: { card: CardInGame, turnsRemaining: number }[]; // For Riftwalk
+  oblivion: CardInGame[];
+  vanishZone: { card: CardInGame, turnsRemaining: number }[]; // For Vanish
   diceModifier: number;
   shieldUsedThisTurn: boolean;
-  isCommandFortified: boolean;
+  isMoraleFortified: boolean;
   skipNextDrawPhase: boolean;
   fatigueCounter: number;
   hasMulliganed: boolean;
@@ -92,7 +91,7 @@ export enum TurnPhase {
   START = 'Start',
   ROLL_SPEND = 'Roll & Spend',
   DRAW = 'Draw',
-  ASSAULT = 'Assault',
+  STRIKE = 'Strike',
   BLOCK = 'Block',
   END = 'End',
 }
@@ -106,8 +105,8 @@ export interface Die {
 
 export enum LastActionType {
     PLAY = 'play',
-    CHANNEL = 'channel',
-    SCAVENGE = 'scavenge',
+    EVOKE = 'evoke',
+    RECLAIM = 'reclaim',
     ACTIVATE = 'activate',
 }
 

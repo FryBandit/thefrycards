@@ -1,4 +1,5 @@
 
+
 import { Die, DiceCost, DiceCostType, CardInGame, Player, CardType } from './types';
 
 // Helper to shuffle arrays
@@ -89,7 +90,7 @@ export const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
     }
 }
 // Shared game logic for calculating effective stats.
-export const getEffectiveStats = (card: CardInGame, owner: Player, context: { isAssaultPhase?: boolean } = {}) => {
+export const getEffectiveStats = (card: CardInGame, owner: Player, context: { isStrikePhase?: boolean } = {}) => {
     if (card.type !== CardType.UNIT) {
         return { 
             strength: card.strength ?? 0, 
@@ -109,9 +110,9 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
 
     // Synergy keyword
     if (card.abilities?.synergy) {
-        const faction = card.abilities.synergy.faction;
+        const cardSet = card.abilities.synergy.card_set;
         const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
-            .filter(c => c.instanceId !== card.instanceId && c.faction === faction)
+            .filter(c => c.instanceId !== card.instanceId && c.card_set === cardSet)
             .length;
         if (synergyCount > 0) {
             const effect = card.abilities.synergy.effect;
@@ -141,9 +142,9 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     owner.locations.forEach(loc => {
         if (loc.abilities?.passive_buff?.type === 'STRENGTH') {
             const buff = loc.abilities.passive_buff;
-            // Faction-specific buff
-            if (buff.faction) {
-                if (card.faction === buff.faction) {
+            // card_set-specific buff
+            if (buff.card_set) {
+                if (card.card_set === buff.card_set) {
                     strength += buff.value;
                 }
             } 
@@ -156,9 +157,9 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     owner.artifacts.forEach(art => {
         if (art.abilities?.passive_buff?.type === 'STRENGTH') {
             const buff = art.abilities.passive_buff;
-            // Faction-specific buff
-            if (buff.faction) {
-                if (card.faction === buff.faction) {
+            // card_set-specific buff
+            if (buff.card_set) {
+                if (card.card_set === buff.card_set) {
                     strength += buff.value;
                 }
             } 
@@ -177,10 +178,25 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
         strength += rallySources;
         rallyBonus = rallySources;
     }
+    
+    // Self Rally Buff: Add +1 strength for each other friendly unit with Rally
+    const otherRallyUnits = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId);
+    if (otherRallyUnits.length > 0 && card.abilities?.rally) {
+        strength += otherRallyUnits.length;
+        rallyBonus += otherRallyUnits.length;
+    }
 
-    // Assault phase specific buffs
-    if (context.isAssaultPhase && card.abilities?.assault) {
-        strength += card.abilities.assault;
+    // Grant Rally Buff: This unit grants buffs to other units
+    if (card.abilities?.rally) {
+        // This logic is implicitly handled by each unit calculating its own bonus.
+        // We calculate rallyBonus for UI display purposes here.
+        rallyBonus = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+    }
+
+
+    // Strike phase specific buffs
+    if (context.isStrikePhase && card.abilities?.strike) {
+        strength += card.abilities.strike;
     }
     return { strength, durability, rallyBonus };
 };

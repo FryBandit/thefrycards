@@ -9,7 +9,8 @@ import { isCardTargetable, checkDiceCost } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
 import Card from './Card';
 import CardPreview from './CardPreview';
-import CombatPreviewTooltip from './CombatPreviewTooltip';
+// FIX: Changed to a named import as CombatPreviewTooltip does not have a default export. This resolves the module resolution error.
+import { CombatPreviewTooltip } from './CombatPreviewTooltip';
 
 // Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
 // MOVED TO game/utils.ts
@@ -42,19 +43,19 @@ const FieldArea: React.FC<{
         const targetPlayer = player;
         const cardIsTargetable = targetingCard ? isCardTargetable(targetingCard, card, sourcePlayer, targetPlayer) : false;
 
-        const isAssaultPhase = phase === TurnPhase.ASSAULT || phase === TurnPhase.BLOCK;
-        const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
+        const isStrikePhase = phase === TurnPhase.STRIKE || phase === TurnPhase.BLOCK;
+        const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isStrikePhase });
         
         // Combat states
-        const isAttacking = (phase === TurnPhase.BLOCK || phase === TurnPhase.ASSAULT) && combatants?.some(c => c.attackerId === card.instanceId) || false;
+        const isAttacking = (phase === TurnPhase.BLOCK || phase === TurnPhase.STRIKE) && combatants?.some(c => c.attackerId === card.instanceId) || false;
         const isBlocker = phase === TurnPhase.BLOCK && blockAssignments?.has(card.instanceId) || false;
         const isSelectedAsBlocker = phase === TurnPhase.BLOCK && selectedBlockerId === card.instanceId;
         
         const isPlayerDefender = phase === TurnPhase.BLOCK && currentPlayerId === 1; // AI is attacking, Player is defending
         const isPotentialBlocker = isPlayerDefender && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched && !isBlocker;
 
-        const isPlayerAttackerInAssaultPhase = phase === TurnPhase.ASSAULT && currentPlayerId === 0;
-        const isPotentialAttacker = isPlayerAttackerInAssaultPhase && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched;
+        const isPlayerAttackerInStrikePhase = phase === TurnPhase.STRIKE && currentPlayerId === 0;
+        const isPotentialAttacker = isPlayerAttackerInStrikePhase && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched;
 
         let blockingTargetName: string | undefined;
         if (isBlocker) {
@@ -100,7 +101,7 @@ const FieldArea: React.FC<{
                     </div>
                     {/* Separator */}
                     {frontRowCards.length > 0 && backRowCards.length > 0 && (
-                        <div className="w-3/4 h-px bg-gradient-to-r from-cyber-bg via-neon-cyan to-cyber-bg my-1"></div>
+                        <div className="w-3/4 h-px bg-gradient-to-r from-arcane-bg via-vivid-cyan to-arcane-bg my-1"></div>
                     )}
                     {/* Front Row (Units) */}
                     <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full flex-1 min-h-0">
@@ -108,7 +109,7 @@ const FieldArea: React.FC<{
                     </div>
                 </div>
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-cyber-primary/50 italic text-lg">FIELD EMPTY</div>
+                <div className="w-full h-full flex items-center justify-center text-arcane-primary/50 italic text-lg">FIELD EMPTY</div>
             )}
         </div>
     );
@@ -122,17 +123,18 @@ const HandArea: React.FC<{
     onCardClick: (card: CardInGame) => void;
     onGraveyardCardClick: (card: CardInGame) => void;
     isCardPlayable: (card: CardInGame) => boolean;
-    isCardScavengeable: (card: CardInGame) => boolean;
-    isCardChannelable: (card: CardInGame) => boolean;
-    onChannelClick: (card: CardInGame) => void;
+    isCardReclaimable: (card: CardInGame) => boolean;
+// FIX: Changed `isCardChannelable` to `isCardEvokeable` and its return type from `void` to `boolean` to match the expected prop type and game logic.
+    isCardEvokeable: (card: CardInGame) => boolean;
+    onEvokeClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
     onAmplifyClick: (card: CardInGame) => void;
     isCurrentPlayer: boolean;
     onExamineCard: (card: CardInGame) => void;
     setHoveredCardInHand: (card: CardInGame | null) => void;
 }> = ({ 
-    player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardScavengeable, 
-    isCardChannelable, onChannelClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard,
+    player, isOpponent, onCardClick, onGraveyardCardClick, isCardPlayable, isCardReclaimable, 
+    isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard,
     setHoveredCardInHand
 }) => {
     if (isOpponent) {
@@ -150,8 +152,8 @@ const HandArea: React.FC<{
                                     className="transition-all duration-300 ease-in-out origin-top" 
                                     style={{ transform: `rotate(${rotation}deg)`}}
                                 >
-                                    <div className="w-32 h-44 md:w-48 md:h-64 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
-                                        <span className="text-xl md:text-2xl font-black text-neon-pink/50">CARD</span>
+                                    <div className="w-32 h-44 md:w-48 md:h-64 bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center">
+                                        <span className="text-xl md:text-2xl font-black text-vivid-pink/50">CARD</span>
                                     </div>
                                 </div>
                             )
@@ -159,7 +161,7 @@ const HandArea: React.FC<{
                     </div>
                 }
                 {player.hand.length > 0 && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-cyber-bg/80 text-neon-yellow font-black text-2xl md:text-3xl rounded-full w-16 h-16 md:w-20 md:h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none shadow-lg shadow-neon-yellow/50">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-arcane-bg/80 text-vivid-yellow font-black text-2xl md:text-3xl rounded-full w-16 h-16 md:w-20 md:h-20 flex items-center justify-center border-4 border-vivid-yellow pointer-events-none shadow-lg shadow-vivid-yellow/50">
                         {player.hand.length}
                     </div>
                 )}
@@ -169,8 +171,8 @@ const HandArea: React.FC<{
     
     // Player's Fanned Hand
     const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
-    const scavengeableCards = player.graveyard.filter(isCardScavengeable).map(c => ({ ...c, source: 'graveyard' as const }));
-    const allPlayableCards = [...scavengeableCards, ...handCards];
+    const reclaimableCards = player.graveyard.filter(isCardReclaimable).map(c => ({ ...c, source: 'graveyard' as const }));
+    const allPlayableCards = [...reclaimableCards, ...handCards];
     
     const numCards = allPlayableCards.length;
     let overlapClass = '-space-x-24 md:-space-x-36';
@@ -185,7 +187,7 @@ const HandArea: React.FC<{
                  {allPlayableCards.map((card, i) => {
                     const rotation = (i - (numCards - 1) / 2) * 5;
                     
-                    const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardScavengeable(card);
+                    const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardReclaimable(card);
                     const clickHandler = card.source === 'hand' ? onCardClick : onGraveyardCardClick;
 
                     return (
@@ -201,8 +203,8 @@ const HandArea: React.FC<{
                                 inHand={true}
                                 isPlayable={isCurrentPlayer && isPlayableFromSource}
                                 onClick={() => clickHandler(card)}
-                                onChannel={card.abilities?.channel && card.source === 'hand' && isCurrentPlayer ? () => onChannelClick(card) : undefined}
-                                isChannelable={isCurrentPlayer && isCardChannelable(card)}
+                                onChannel={card.abilities?.evoke && card.source === 'hand' && isCurrentPlayer ? () => onEvokeClick(card) : undefined}
+                                isChannelable={isCurrentPlayer && isCardEvokeable(card)}
                                 onAmplify={card.abilities?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
                                 isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
                                 origin={card.source}
@@ -225,12 +227,12 @@ interface GameBoardProps {
   onGraveyardCardClick: (card: CardInGame) => void;
   onBoardCardClick: (card: CardInGame) => void;
   isCardPlayable: (card: CardInGame) => boolean;
-  isCardScavengeable: (card: CardInGame) => boolean;
-  isCardChannelable: (card: CardInGame) => boolean;
-  onChannelClick: (card: CardInGame) => void;
+  isCardReclaimable: (card: CardInGame) => boolean;
+  isCardEvokeable: (card: CardInGame) => boolean;
+  onEvokeClick: (card: CardInGame) => void;
   isCardAmplifiable: (card: CardInGame) => boolean;
   onAmplifyClick: (card: CardInGame) => void;
-  onAdvancePhase: (assault?: boolean) => void;
+  onAdvancePhase: (strike?: boolean) => void;
   targetingCard: CardInGame | null;
   isCardActivatable: (card: CardInGame) => boolean;
   onActivateCard: (card: CardInGame) => void;
@@ -248,7 +250,7 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
     gameState, onDieClick, onRoll, onHandCardClick, onGraveyardCardClick, onBoardCardClick, 
-    isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
+    isCardPlayable, isCardReclaimable, isCardEvokeable, onEvokeClick,
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
     lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
@@ -312,7 +314,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
             return { text: "END PHASE", action, disabled: rollCount === 0 };
         }
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
-        case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
+        case TurnPhase.STRIKE: return null; // Handled by separate JSX below
         case TurnPhase.END: return { text: "END TURN", action: () => showConfirmation('End Turn?', 'Are you sure you want to end your turn?', () => onAdvancePhase()), disabled: false };
         default: return null;
     }
@@ -337,9 +339,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Mulligan UI */}
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
-        <div className="absolute inset-0 bg-cyber-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
-            <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
-            <p className="text-neon-yellow/70 mb-8">You may redraw your starting hand once.</p>
+        <div className="absolute inset-0 bg-arcane-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
+            <h2 className="text-4xl font-black text-vivid-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
+            <p className="text-vivid-yellow/70 mb-8">You may redraw your starting hand once.</p>
             <div className="flex justify-center items-end h-96 mb-8">
                 <div className="flex justify-center items-end -space-x-40 h-full">
                     {players[0].hand.map((card, i) => {
@@ -360,13 +362,13 @@ const GameBoard: React.FC<GameBoardProps> = ({
             <div className="flex space-x-6">
                 <button
                     onClick={() => onMulligan(false)}
-                    className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-neon-cyan uppercase tracking-wider"
+                    className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase tracking-wider"
                 >
                     Keep Hand
                 </button>
                 <button
                     onClick={() => onMulligan(true)}
-                    className="bg-cyber-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-primary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase tracking-wider"
+                    className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase tracking-wider"
                 >
                     Mulligan
                 </button>
@@ -376,8 +378,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
       
       {isOpponentDrawing && (
         <div className="absolute top-4 right-40 w-32 h-44 md:w-48 md:h-64 z-[60] pointer-events-none">
-            <div className="w-full h-full bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center animate-opponent-draw">
-                <span className="text-xl md:text-2xl font-black text-neon-pink/50">CARD</span>
+            <div className="w-full h-full bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center animate-opponent-draw">
+                <span className="text-xl md:text-2xl font-black text-vivid-pink/50">CARD</span>
             </div>
         </div>
       )}
@@ -405,9 +407,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onCardClick={() => {}}
             onGraveyardCardClick={() => {}}
             isCardPlayable={() => false}
-            isCardScavengeable={() => false}
-            isCardChannelable={() => false}
-            onChannelClick={() => {}}
+            isCardReclaimable={() => false}
+            isCardEvokeable={() => false}
+            onEvokeClick={() => {}}
             isCardAmplifiable={() => false}
             onAmplifyClick={() => {}}
             isCurrentPlayer={currentPlayerId === opponent.id}
@@ -417,11 +419,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
       </div>
 
       {/* Center Bar */}
-      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40 z-30">
-        <div className={`text-center w-full md:w-64 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-center bg-cyber-surface/80 p-2 rounded-lg border-2 shadow-lg transition-all duration-300 ${isPlayerTurn ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
+      <div className="flex-shrink-0 border-y-2 border-vivid-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40 z-30">
+        <div className={`text-center w-full md:w-64 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-center bg-arcane-surface/80 p-2 rounded-lg border-2 shadow-lg transition-all duration-300 ${isPlayerTurn ? 'border-vivid-cyan shadow-vivid-cyan animate-pulse-glow' : 'border-arcane-border'}`}>
             <div className='flex-1 text-left md:text-center'>
-                <div className="text-xs md:text-base font-bold text-neon-cyan tracking-[0.2em] leading-tight">TURN {turn}</div>
-                <div className="text-sm md:text-base font-semibold text-neon-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
+                <div className="text-xs md:text-base font-bold text-vivid-cyan tracking-[0.2em] leading-tight">TURN {turn}</div>
+                <div className="text-sm md:text-base font-semibold text-vivid-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
             </div>
             <div className='flex-1 text-right md:text-center'>
                  <div className="text-2xl md:text-5xl font-black text-white leading-none">{`${phase}`}</div>
@@ -447,25 +449,25 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     {currentPlayerId === 0 ? "Opponent is Declaring Blockers..." : "Declare Your Blockers!"}
                 </div>
             ) : (
-                <div className="text-center text-cyber-primary/60 italic p-2 md:p-4 text-sm md:text-lg">
+                <div className="text-center text-arcane-primary/60 italic p-2 md:p-4 text-sm md:text-lg">
                     {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
                 </div>
             )}
         </div>
         
         <div className="w-full md:w-64 flex items-center justify-center p-2 md:p-0">
-             {phase === TurnPhase.ASSAULT && isPlayerTurn ? (
+             {phase === TurnPhase.STRIKE && isPlayerTurn ? (
                 <div className="flex gap-2 pointer-events-auto">
                     <button
                         onClick={() => onAdvancePhase(true)}
                         disabled={player.units.filter(u => !u.abilities?.entrenched).length === 0}
-                        className="bg-neon-pink text-cyber-bg px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
+                        className="bg-vivid-pink text-arcane-bg px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
                     >
-                        Assault
+                        Strike
                     </button>
                     <button
                         onClick={() => onAdvancePhase(false)}
-                        className="bg-cyber-primary text-white px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors font-bold uppercase"
+                        className="bg-arcane-primary text-white px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors font-bold uppercase"
                     >
                         Skip
                     </button>
@@ -474,7 +476,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <button 
                     onClick={phaseAction.action}
                     disabled={phaseAction.disabled}
-                    className={`${phaseAction.style || 'bg-cyber-primary hover:bg-cyber-secondary'} text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border`}
+                    className={`${phaseAction.style || 'bg-arcane-primary hover:bg-arcane-secondary'} text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-arcane-border`}
                 >
                     {phaseAction.text}
                 </button>
@@ -506,9 +508,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
             onCardClick={onHandCardClick}
             onGraveyardCardClick={onGraveyardCardClick}
             isCardPlayable={isCardPlayable}
-            isCardScavengeable={isCardScavengeable}
-            isCardChannelable={isCardChannelable}
-            onChannelClick={onChannelClick}
+            isCardReclaimable={isCardReclaimable}
+            isCardEvokeable={isCardEvokeable}
+            onEvokeClick={onEvokeClick}
             isCardAmplifiable={isCardAmplifiable}
             onAmplifyClick={onAmplifyClick}
             isCurrentPlayer={currentPlayerId === player.id}

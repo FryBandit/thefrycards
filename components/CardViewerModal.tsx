@@ -14,12 +14,12 @@ interface CardViewerModalProps {
 const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose, onExamine }) => {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 font-sans p-4" onClick={onClose}>
-      <div className="bg-cyber-surface border-2 border-neon-cyan rounded-lg shadow-2xl p-6 text-white w-full max-w-4xl h-[80vh] flex flex-col shadow-neon-cyan" onClick={e => e.stopPropagation()}>
+      <div className="bg-arcane-surface border-2 border-vivid-cyan rounded-lg shadow-2xl p-6 text-white w-full max-w-4xl h-[80vh] flex flex-col shadow-vivid-cyan" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-neon-cyan uppercase tracking-widest">{title}</h2>
+            <h2 className="text-2xl font-bold text-vivid-cyan uppercase tracking-widest">{title}</h2>
              <button
                 onClick={onClose}
-                className="bg-cyber-border px-4 py-2 rounded-lg font-bold text-white hover:bg-cyber-primary transition-all uppercase border-2 border-cyber-border"
+                className="bg-arcane-border px-4 py-2 rounded-lg font-bold text-white hover:bg-arcane-primary transition-all uppercase border-2 border-arcane-border"
             >
                 Close
             </button>
@@ -32,7 +32,7 @@ const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose
               ))}
             </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-cyber-primary/50 italic text-2xl">
+            <div className="w-full h-full flex items-center justify-center text-arcane-primary/50 italic text-2xl">
               ZONE EMPTY
             </div>
           )}

@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
@@ -24,7 +26,7 @@ const App: React.FC = () => {
   const [allCards, setAllCards] = useState<CardDefinition[] | null>(null);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
-  const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'void'; title: string } | null>(null);
+  const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'oblivion'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
@@ -157,17 +159,18 @@ const App: React.FC = () => {
     dispatch({ type: 'PLAY_CARD', payload: { card } });
   };
   
-  const isCardScavengeable = useCallback((card: CardInGame): boolean => {
-      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
+  const isCardReclaimable = useCallback((card: CardInGame): boolean => {
+      if (!card.abilities?.reclaim || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
           return false;
       }
-      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost || [] }, state.dice).canPay;
+      return checkDiceCost({ ...card, dice_cost: card.abilities.reclaim.cost || [] }, state.dice).canPay;
   }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
   const handleGraveyardCardClick = (card: CardInGame) => {
       if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
-      if (isCardScavengeable(card)) {
-          dispatch({ type: 'PLAY_CARD', payload: { card, options: { isScavenged: true } } });
+      if (isCardReclaimable(card)) {
+// FIX: Corrected `isReclaimed` option name, which now matches the updated action type in `useGameState`.
+          dispatch({ type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } });
       }
   }
 
@@ -237,11 +240,11 @@ const App: React.FC = () => {
     return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost || [] }, state.dice).canPay;
   }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
-  const isCardChannelable = useCallback((card: CardInGame): boolean => {
-    if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
+  const isCardEvokeable = useCallback((card: CardInGame): boolean => {
+    if (!card.abilities?.evoke || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
-    return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost || [] }, state.dice).canPay;
+    return checkDiceCost({ ...card, dice_cost: card.abilities.evoke.cost || [] }, state.dice).canPay;
   }, [state.phase, state.rollCount, state.dice, state.currentPlayerId]);
 
   const isCardAmplifiable = useCallback((card: CardInGame): boolean => {
@@ -265,9 +268,10 @@ const App: React.FC = () => {
         }
     }, [lastActivatedCardId]);
 
-  const handleChannelClick = (card: CardInGame) => {
-    if(isCardChannelable(card)) {
-        dispatch({ type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } });
+  const handleEvokeClick = (card: CardInGame) => {
+    if(isCardEvokeable(card)) {
+// FIX: Corrected `isEvoked` option name, which now matches the updated action type in `useGameState`.
+        dispatch({ type: 'PLAY_CARD', payload: { card, options: { isEvoked: true } } });
     }
   }
 
@@ -280,10 +284,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAdvancePhase = (assault: boolean = false) => {
+  const handleAdvancePhase = (strike: boolean = false) => {
       if(state.currentPlayerId === 0) {
         setTargetingInfo(null); // Cancel targeting on phase advance
-        dispatch({ type: 'ADVANCE_PHASE', payload: { assault } });
+// FIX: Corrected payload key from `strike` to `strike` to match the updated action type in `useGameState`.
+        dispatch({ type: 'ADVANCE_PHASE', payload: { strike } });
       }
   };
   
@@ -366,7 +371,7 @@ const App: React.FC = () => {
   const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
-    <main className="relative w-screen h-screen font-sans bg-cyber-bg">
+    <main className="relative w-screen h-screen font-sans bg-arcane-bg">
       <GameBoard
         gameState={state}
         onDieClick={handleDieClick}
@@ -375,9 +380,9 @@ const App: React.FC = () => {
         onGraveyardCardClick={handleGraveyardCardClick}
         onBoardCardClick={handleBoardCardClick}
         isCardPlayable={isCardPlayable}
-        isCardScavengeable={isCardScavengeable}
-        isCardChannelable={isCardChannelable}
-        onChannelClick={handleChannelClick}
+        isCardReclaimable={isCardReclaimable}
+        isCardEvokeable={isCardEvokeable}
+        onEvokeClick={handleEvokeClick}
         isCardAmplifiable={isCardAmplifiable}
         onAmplifyClick={handleAmplifyClick}
         onAdvancePhase={handleAdvancePhase}
@@ -418,7 +423,7 @@ const App: React.FC = () => {
       
       <button 
         onClick={() => setView('howToPlay')} 
-        className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-cyber-primary/80 rounded-full flex items-center justify-center text-xl md:text-2xl font-black hover:bg-cyber-secondary transition-colors z-20 border-2 border-cyber-border"
+        className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-xl md:text-2xl font-black hover:bg-arcane-secondary transition-colors z-20 border-2 border-arcane-border"
         aria-label="How to Play"
       >
         ?
@@ -436,7 +441,7 @@ const App: React.FC = () => {
       />
 
       {targetingInfo && (
-        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-cyber-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-neon-pink shadow-neon-pink'}`}>
+        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-arcane-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-vivid-pink shadow-vivid-pink'}`}>
           Select a target for {targetingInfo.card.name} {targetingInfo.isAmplify ? '(Amplified)' : ''}
         </div>
       )}

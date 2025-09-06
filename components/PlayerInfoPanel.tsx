@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Player } from '../game/types';
 
@@ -5,36 +6,36 @@ interface PlayerInfoPanelProps {
     player: Player;
     isCurrent: boolean;
     isOpponent?: boolean;
-    onZoneClick: (zone: 'graveyard' | 'void') => void;
+    onZoneClick: (zone: 'graveyard' | 'oblivion') => void;
 }
 
 const StatDisplay: React.FC<{ value: number; animClass: string; children: React.ReactNode; }> = ({ value, animClass, children }) => (
     <div className="flex flex-col items-center justify-center bg-black/20 p-1 rounded w-full h-full">
         {children}
-        <div className={`font-bold text-lg md:text-xl text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-lg md:text-xl text-vivid-yellow ${animClass}`}>{value}</div>
     </div>
 );
 
 const ClickableStatDisplay: React.FC<{ value: number; animClass: string; onClick: () => void; children: React.ReactNode; }> = ({ value, animClass, onClick, children }) => (
-    <button onClick={onClick} className="flex flex-col items-center justify-center bg-black/20 p-1 rounded hover:bg-cyber-primary transition-colors border-2 border-transparent hover:border-neon-cyan active:scale-95 w-full h-full">
+    <button onClick={onClick} className="flex flex-col items-center justify-center bg-black/20 p-1 rounded hover:bg-arcane-primary transition-colors border-2 border-transparent hover:border-vivid-cyan active:scale-95 w-full h-full">
         {children}
-        <div className={`font-bold text-lg md:text-xl text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-lg md:text-xl text-vivid-yellow ${animClass}`}>{value}</div>
     </button>
 );
 
 
 const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, isOpponent = false, onZoneClick }) => {
-    // Command Animation
-    const [commandAnim, setCommandAnim] = useState('');
-    const prevCommand = useRef(player.command);
+    // Morale Animation
+    const [moraleAnim, setMoraleAnim] = useState('');
+    const prevMorale = useRef(player.morale);
     useEffect(() => {
-        if (prevCommand.current !== player.command) {
-            setCommandAnim(player.command < prevCommand.current ? 'animate-flash-red' : 'animate-flash-green');
-            const timer = setTimeout(() => setCommandAnim(''), 800);
-            prevCommand.current = player.command;
+        if (prevMorale.current !== player.morale) {
+            setMoraleAnim(player.morale < prevMorale.current ? 'animate-flash-red' : 'animate-flash-green');
+            const timer = setTimeout(() => setMoraleAnim(''), 800);
+            prevMorale.current = player.morale;
             return () => clearTimeout(timer);
         }
-    }, [player.command]);
+    }, [player.morale]);
     
     // Deck Animation
     const [deckAnim, setDeckAnim] = useState('');
@@ -72,24 +73,24 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
         }
     }, [player.graveyard.length]);
     
-    // Void Animation
-    const [voidAnim, setVoidAnim] = useState('');
-    const prevVoid = useRef(player.void.length);
+    // Oblivion Animation
+    const [oblivionAnim, setOblivionAnim] = useState('');
+    const prevOblivion = useRef(player.oblivion.length);
     useEffect(() => {
-        if (prevVoid.current !== player.void.length) {
-            setVoidAnim('animate-pulse-yellow');
-            const timer = setTimeout(() => setVoidAnim(''), 700);
-            prevVoid.current = player.void.length;
+        if (prevOblivion.current !== player.oblivion.length) {
+            setOblivionAnim('animate-pulse-yellow');
+            const timer = setTimeout(() => setOblivionAnim(''), 700);
+            prevOblivion.current = player.oblivion.length;
             return () => clearTimeout(timer);
         }
-    }, [player.void.length]);
+    }, [player.oblivion.length]);
 
 
     return (
-    <div className={`w-40 md:w-64 bg-cyber-surface/80 backdrop-blur-sm p-2 md:p-3 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
+    <div className={`w-40 md:w-64 bg-arcane-surface/80 backdrop-blur-sm p-2 md:p-3 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-vivid-cyan shadow-vivid-cyan animate-pulse-glow' : 'border-arcane-border'}`}>
         <div>
-            <h2 className={`text-lg md:text-xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
-            <p className={`text-3xl md:text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink ${commandAnim}`}>{player.command} <span className="text-sm md:text-base opacity-75">CMD</span></p>
+            <h2 className={`text-lg md:text-xl font-bold truncate ${isCurrent ? 'text-vivid-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
+            <p className={`text-3xl md:text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-vivid-pink ${moraleAnim}`}>{player.morale} <span className="text-sm md:text-base opacity-75">MOR</span></p>
         </div>
         <div className="grid grid-cols-2 gap-1 md:gap-2 text-center text-xs font-semibold">
             <StatDisplay value={player.deck.length} animClass={deckAnim}>
@@ -110,11 +111,11 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
                 </svg>
                 <div className="opacity-75">Grave</div>
             </ClickableStatDisplay>
-            <ClickableStatDisplay value={player.void.length} animClass={voidAnim} onClick={() => onZoneClick('void')}>
+            <ClickableStatDisplay value={player.oblivion.length} animClass={oblivionAnim} onClick={() => onZoneClick('oblivion')}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-75" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 4.332a6 6 0 118.485 8.485A6 6 0 014.332 4.332z" clipRule="evenodd" />
                 </svg>
-                <div className="opacity-75">Void</div>
+                <div className="opacity-75">Oblivion</div>
             </ClickableStatDisplay>
         </div>
     </div>

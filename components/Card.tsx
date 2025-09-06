@@ -111,7 +111,7 @@ const renderDiceCost = (costs: DiceCost[]) => {
         }
         return (
              <Tooltip key={index} content={textContent}>
-                <div className="bg-black/40 text-neon-pink px-1.5 py-0.5 rounded-sm flex items-center gap-1 font-mono text-xs cursor-help">{content}</div>
+                <div className="bg-black/40 text-vivid-pink px-1.5 py-0.5 rounded-sm flex items-center gap-1 font-mono text-xs cursor-help">{content}</div>
             </Tooltip>
         );
     });
@@ -136,7 +136,7 @@ const CardTypeIcon: React.FC<{ type: CardType, className?: string }> = ({ type, 
     ),
     [CardType.ARTIFACT]: (
       <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61-.25-1.17-.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23-.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61-.25-1.17-.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
       </svg>
     ),
   };
@@ -183,7 +183,7 @@ const Card: React.FC<CardProps> = ({
   const effectiveOnClick = isClickToExamine ? () => onExamine(card) : onClick;
 
   const originClasses = origin === 'graveyard' ? 'opacity-80 border-dashed border-gray-500' : '';
-  const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
+  const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-vivid-cyan' : '';
 
   const interactiveClasses = effectiveOnClick ? "cursor-pointer" : "";
   const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 z-30" : "";
@@ -192,13 +192,13 @@ const Card: React.FC<CardProps> = ({
   const attackingClasses = isAttacking ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 animate-pulse" : "";
   const blockerClasses = isBlocker ? "ring-4 ring-blue-500 shadow-lg shadow-blue-500/50" : "";
   const selectedBlockerClasses = isSelectedAsBlocker ? "ring-4 ring-yellow-400 shadow-lg shadow-yellow-400/50 scale-105" : "";
-  const potentialBlockerClasses = isPotentialBlocker ? "ring-2 ring-blue-300 ring-offset-2 ring-offset-cyber-bg" : "";
-  const potentialAttackerClasses = isPotentialAttacker ? "ring-2 ring-red-400 ring-offset-2 ring-offset-cyber-bg" : "";
+  const potentialBlockerClasses = isPotentialBlocker ? "ring-2 ring-blue-300 ring-offset-2 ring-offset-arcane-bg" : "";
+  const potentialAttackerClasses = isPotentialAttacker ? "ring-2 ring-red-400 ring-offset-2 ring-offset-arcane-bg" : "";
 
 
   const isActionable = (isPlayable || isActivatable) && !isTargetable;
   const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
-  const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
+  const hoverGlowClasses = isActionable ? 'hover:shadow-vivid-cyan hover:ring-4 hover:ring-vivid-cyan' : '';
   const playableClasses = isPlayable && !isTargetable && inHand ? 'animate-pulse-playable' : '';
 
   const isVideo = card.imageUrl?.endsWith('.mp4');
@@ -213,13 +213,13 @@ const Card: React.FC<CardProps> = ({
                     {renderDiceCost(card.dice_cost)}
                 </div>
             </div>
-            {card.commandNumber !== undefined && (
-              <span className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-base md:text-lg ${typeColor} text-white`}>
-                {card.commandNumber}
+            {card.moraleValue !== undefined && (
+              <span className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 bg-arcane-bg/80 rounded-full flex items-center justify-center font-black text-base md:text-lg ${typeColor} text-white`}>
+                {card.moraleValue}
               </span>
             )}
         </div>
-        <div className="text-[10px] md:text-xs text-neon-yellow/70 my-1 md:my-2 flex-grow p-1 bg-black/30 rounded font-mono">
+        <div className="text-[10px] md:text-xs text-vivid-yellow/70 my-1 md:my-2 flex-grow p-1 bg-black/30 rounded font-mono">
             <KeywordText text={card.text} />
         </div>
         <div>
@@ -231,7 +231,7 @@ const Card: React.FC<CardProps> = ({
                 {card.type === CardType.UNIT && (
                 <div className="flex items-center space-x-2 font-bold">
                     <Tooltip content="Strength: Damage dealt in combat.">
-                        <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
+                        <div className={`bg-vivid-pink px-2 py-1 rounded flex items-center justify-center text-arcane-bg text-xs md:text-sm space-x-1`}>
                             {(() => {
                                 const base = card.strength ?? 0;
                                 const effective = effectiveStrength ?? base;
@@ -251,13 +251,13 @@ const Card: React.FC<CardProps> = ({
                         </div>
                     </Tooltip>
                     <Tooltip content="Durability: The amount of damage a unit can sustain.">
-                        <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
+                        <div className={`bg-vivid-cyan px-2 py-1 rounded flex items-center justify-center text-arcane-bg text-xs md:text-sm space-x-1`}>
                             {(() => {
                                 const base = card.durability ?? 1;
                                 const effective = effectiveDurability ?? base;
                                 const currentHealth = effective - card.damage;
                                 
-                                let healthColorClass = 'text-cyber-bg';
+                                let healthColorClass = 'text-arcane-bg';
                                 if (card.damage > 0) {
                                     healthColorClass = 'text-red-700';
                                 } else if (effective > base) {
@@ -296,7 +296,7 @@ const Card: React.FC<CardProps> = ({
         onMouseLeave={onMouseLeave}
       >
         <div 
-            className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses} ${playableClasses}`}
+            className={`relative w-full h-full rounded-lg border-2 bg-arcane-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses} ${playableClasses}`}
             onClick={effectiveOnClick}
         >
             {card.imageUrl ? (
@@ -312,7 +312,7 @@ const Card: React.FC<CardProps> = ({
             )}
             
             {card.imageUrl && (
-                <div className="absolute inset-0 bg-gradient-to-t from-cyber-surface via-cyber-surface/70 to-transparent rounded-lg flex flex-col justify-between text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-0 bg-gradient-to-t from-arcane-surface via-arcane-surface/70 to-transparent rounded-lg flex flex-col justify-between text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <CardFace />
                 </div>
             )}
@@ -329,7 +329,7 @@ const Card: React.FC<CardProps> = ({
             {!isClickToExamine && onExamine && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onExamine(card); }}
-                    className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"
+                    className="absolute bottom-1 right-1 bg-arcane-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-arcane-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"
                 >
                     Examine
                 </button>
@@ -340,7 +340,7 @@ const Card: React.FC<CardProps> = ({
                 {card.strengthModifier < 0 && (
                     <div 
                         className="w-6 h-6 bg-red-800 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md border-2 border-white/50" 
-                        title={`Corrupted: ${card.strengthModifier} Strength`}>
+                        title={`Weakened: ${card.strengthModifier} Strength`}>
                         {card.strengthModifier}
                     </div>
                 )}
@@ -378,10 +378,11 @@ const Card: React.FC<CardProps> = ({
       {((onActivate && !inHand) || (onChannel && inHand) || (onAmplify && inHand)) && (
         <div className="absolute -bottom-4 left-0 right-0 flex justify-center space-x-1 z-20">
             {onActivate && !inHand && (
-                 <button onClick={(e) => { e.stopPropagation(); onActivate(); }} disabled={!isActivatable} className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isActivatable ? 'bg-neon-pink text-cyber-bg shadow-neon-pink hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>Activate</button>
+                 <button onClick={(e) => { e.stopPropagation(); onActivate(); }} disabled={!isActivatable} className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isActivatable ? 'bg-vivid-pink text-arcane-bg shadow-vivid-pink hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>Activate</button>
             )}
             {onChannel && inHand && (
-                 <button onClick={(e) => { e.stopPropagation(); onChannel(); }} disabled={!isChannelable} className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isChannelable ? 'bg-neon-cyan text-cyber-bg shadow-neon-cyan hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>Channel</button>
+// FIX: Changed button text from "Evoke" to "Channel" to match the ability name used in the game logic.
+                 <button onClick={(e) => { e.stopPropagation(); onChannel(); }} disabled={!isChannelable} className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isChannelable ? 'bg-vivid-cyan text-arcane-bg shadow-vivid-cyan hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>Evoke</button>
             )}
             {onAmplify && inHand && (
                  <button onClick={(e) => { e.stopPropagation(); onAmplify?.(); }} disabled={!isAmplifiable} className={`px-3 py-0.5 text-xs font-bold rounded-full transition-all uppercase tracking-wider ${isAmplifiable ? 'bg-red-500 text-white shadow-lg shadow-red-500/50 hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>Amplify</button>

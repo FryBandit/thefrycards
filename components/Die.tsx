@@ -55,9 +55,9 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   const spendAnimationType = wasJustSpent ? lastActionDetails?.type : null;
 
   const spendColor: { [key in LastActionType]: string } = {
-    [LastActionType.PLAY]: 'shadow-neon-pink',
-    [LastActionType.CHANNEL]: 'shadow-neon-cyan',
-    [LastActionType.SCAVENGE]: 'shadow-neon-yellow',
+    [LastActionType.PLAY]: 'shadow-vivid-pink',
+    [LastActionType.EVOKE]: 'shadow-vivid-cyan',
+    [LastActionType.RECLAIM]: 'shadow-vivid-yellow',
     [LastActionType.ACTIVATE]: 'shadow-unit',
   };
 
@@ -67,21 +67,21 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   if (die.isSpent) {
       stateClasses = "bg-gray-800/80 border-gray-600 text-gray-500 opacity-50";
   } else if (die.isKept) {
-      stateClasses = "bg-neon-cyan text-cyber-bg scale-105 border-neon-cyan shadow-neon-cyan";
+      stateClasses = "bg-vivid-cyan text-arcane-bg scale-105 border-vivid-cyan shadow-vivid-cyan";
   } else if (isHighlighted) {
       if (isHoveredCardPlayable) {
-        stateClasses = "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan";
+        stateClasses = "bg-arcane-primary/90 border-vivid-cyan ring-4 ring-offset-2 ring-offset-arcane-surface ring-vivid-cyan text-white shadow-vivid-cyan";
       } else {
-        stateClasses = "bg-red-900/80 border-red-500 ring-4 ring-offset-2 ring-offset-cyber-surface ring-red-500 text-white shadow-lg shadow-red-500/50";
+        stateClasses = "bg-red-900/80 border-red-500 ring-4 ring-offset-2 ring-offset-arcane-surface ring-red-500 text-white shadow-lg shadow-red-500/50";
       }
   } else {
-      stateClasses = "bg-cyber-surface/80 border-cyber-border text-neon-pink hover:bg-cyber-primary hover:border-neon-pink cursor-pointer";
+      stateClasses = "bg-arcane-surface/80 border-arcane-border text-vivid-pink hover:bg-arcane-primary hover:border-vivid-pink cursor-pointer";
   }
 
   const animationClass = isRolling 
     ? 'animate-roll-shake' 
     : spendAnimationType 
-    ? `animate-pulse-spend ${spendColor[spendAnimationType] || 'shadow-neon-pink'}`
+    ? `animate-pulse-spend ${spendColor[spendAnimationType] || 'shadow-vivid-pink'}`
     : '';
 
   return (
@@ -93,7 +93,7 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
     >
       {dieFace}
        {die.isKept && (
-          <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-cyber-bg" title="Kept">
+          <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-arcane-bg" title="Kept">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
             </svg>

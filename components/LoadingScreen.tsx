@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 const tips = [
   "You can 'keep' dice by clicking on them to save them from your next roll.",
   "Locations and Artifacts can provide powerful ongoing advantages.",
-  "Don't forget to Assault! Damage to the opponent's Command isn't automatic.",
-  "Some cards have Scavenge, allowing you to play them from your graveyard.",
+  "Don't forget to Strike! Damage to the opponent's Morale isn't automatic.",
+  "Some cards have Reclaim, allowing you to play them from your graveyard.",
   "Mulligan your starting hand if you don't have a good mix of cards.",
-  "Pay attention to a unit's Command Number. You'll lose that much Command if it's destroyed!",
+  "Pay attention to a unit's Morale Value. You'll lose that much Morale if it's destroyed!",
   "Use Events to surprise your opponent and disrupt their strategy.",
   "Building a board of units with Rally can create a powerful, snowballing army."
 ];
@@ -41,8 +41,8 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ loadingError }) => {
         style={{ backgroundImage: `linear-gradient(rgba(13, 2, 33, 0.8), rgba(13, 2, 33, 0.95)), url(${bgImage})` }}
     >
       <div className="text-center">
-        <h1 className="text-5xl md:text-6xl font-black text-neon-cyan mb-2 tracking-widest animate-pulse">DICE COMMAND</h1>
-        <p className="text-lg text-neon-pink/80 uppercase">A Cyber-Noir Strategy Card Game</p>
+        <h1 className="text-5xl md:text-6xl font-black text-vivid-cyan mb-2 tracking-widest animate-pulse">DICE COMMAND</h1>
+        <p className="text-lg text-vivid-pink/80 uppercase">A Cyber-Noir Strategy Card Game</p>
       </div>
 
       <div className="mt-16 text-center w-full max-w-lg">
@@ -55,13 +55,13 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ loadingError }) => {
         ) : (
             <>
                 <div className="relative w-24 h-24 mx-auto mb-6">
-                    <div className="absolute inset-0 border-4 border-cyber-primary rounded-full animate-spin"></div>
-                    <div className="absolute inset-2 border-4 border-neon-cyan rounded-full animate-spin" style={{animationDirection: 'reverse'}}></div>
+                    <div className="absolute inset-0 border-4 border-arcane-primary rounded-full animate-spin"></div>
+                    <div className="absolute inset-2 border-4 border-vivid-cyan rounded-full animate-spin" style={{animationDirection: 'reverse'}}></div>
                 </div>
-                <h2 className="text-2xl font-semibold text-neon-yellow tracking-wider">Loading Assets...</h2>
+                <h2 className="text-2xl font-semibold text-vivid-yellow tracking-wider">Loading Assets...</h2>
 
-                <div className="mt-8 bg-black/30 p-4 rounded-lg border border-cyber-border min-h-[6rem]">
-                    <p className="text-lg italic text-neon-yellow/80 transition-opacity duration-500">{tip}</p>
+                <div className="mt-8 bg-black/30 p-4 rounded-lg border border-arcane-border min-h-[6rem]">
+                    <p className="text-lg italic text-vivid-yellow/80 transition-opacity duration-500">{tip}</p>
                 </div>
             </>
         )}

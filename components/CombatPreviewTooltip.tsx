@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CardInGame, Player } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -9,8 +10,9 @@ interface CombatPreviewTooltipProps {
     blockerPlayer: Player;
 }
 
-const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ attacker, blocker, attackerPlayer, blockerPlayer }) => {
-    const { strength: attackerStrength } = getEffectiveStats(attacker, attackerPlayer, { isAssaultPhase: true });
+// FIX: Implemented the component to return JSX, resolving the 'not assignable to FC' type error.
+export const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ attacker, blocker, attackerPlayer, blockerPlayer }) => {
+    const { strength: attackerStrength } = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
     const { durability: attackerDurability } = getEffectiveStats(attacker, attackerPlayer);
     const { strength: blockerStrength, durability: blockerDurability } = getEffectiveStats(blocker, blockerPlayer);
 
@@ -26,37 +28,38 @@ const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ attacker, b
     const attackerWillBeDestroyed = attackerResultHealth <= 0;
     const blockerWillBeDestroyed = blockerResultHealth <= 0;
 
+// FIX: Implemented the sub-component to return JSX, resolving the type error.
+// FIX: Corrected a typo from `willBe` to `willBeDestroyed`.
     const OutcomeText: React.FC<{ name: string; willBeDestroyed: boolean; resultHealth: number; initialHealth: number }> = ({ name, willBeDestroyed, resultHealth, initialHealth }) => {
         if (willBeDestroyed) {
-            return <span className="text-red-400">{name} is destroyed.</span>;
+            return <p className="text-red-400">{name} will be destroyed ({initialHealth} → {resultHealth <= 0 ? 0 : resultHealth})</p>;
         }
-        return <span className="text-green-400">{name} survives with {resultHealth}/{initialHealth} health.</span>;
+        return <p className="text-green-400">{name} will survive ({initialHealth} → {resultHealth})</p>;
     };
-
+    
     return (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
-            <div className="bg-cyber-surface/90 backdrop-blur-md border-2 border-neon-cyan p-4 rounded-lg shadow-2xl shadow-neon-cyan/50 text-white font-mono text-center">
-                <h3 className="text-lg font-bold text-neon-cyan uppercase tracking-wider mb-3">Combat Preview</h3>
-                <div className="space-y-2 text-sm">
-                    <p>
-                        <span className="font-semibold text-neon-pink">{attacker.name}</span> ({attackerStrength} STR) attacks{' '}
-                        <span className="font-semibold text-neon-cyan">{blocker.name}</span> ({blockerStrength} STR).
-                    </p>
-                    <div className="border-t border-cyber-border my-2"></div>
-                    <div className="text-left space-y-1">
-                        <div>
-                            <span className="font-bold text-neon-pink">Attacker: </span>
-                            <OutcomeText name={attacker.name} willBeDestroyed={attackerWillBeDestroyed} resultHealth={attackerResultHealth} initialHealth={attackerDurability} />
-                        </div>
-                        <div>
-                            <span className="font-bold text-neon-cyan">Blocker: </span>
-                             <OutcomeText name={blocker.name} willBeDestroyed={blockerWillBeDestroyed} resultHealth={blockerResultHealth} initialHealth={blockerDurability} />
-                        </div>
-                    </div>
-                </div>
+        <div className="fixed top-1/2 -translate-y-1/2 right-4 w-72 p-4 bg-arcane-surface/90 backdrop-blur-sm border-2 border-vivid-pink rounded-lg shadow-2xl shadow-vivid-pink/20 z-40 text-sm font-mono text-white pointer-events-none animate-fade-in-right">
+            <h3 className="text-lg font-bold text-vivid-pink uppercase tracking-wider mb-3 text-center border-b border-vivid-pink/30 pb-2">Combat Preview</h3>
+            <div className="grid grid-cols-3 gap-2 items-center text-center mb-3">
+                <div className="font-bold text-vivid-cyan truncate" title={blocker.name}>{blocker.name}</div>
+                <div className="font-bold text-white">vs</div>
+                <div className="font-bold text-vivid-pink truncate" title={attacker.name}>{attacker.name}</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 items-center text-center mb-2">
+                <div>{blockerStrength} <span className="opacity-70">STR</span></div>
+                <div><span className="text-xs text-white/50">Strength</span></div>
+                <div>{attackerStrength} <span className="opacity-70">STR</span></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 items-center text-center mb-4">
+                <div>{blockerCurrentHealth} <span className="opacity-70">HP</span></div>
+                <div><span className="text-xs text-white/50">Health</span></div>
+                <div>{attackerCurrentHealth} <span className="opacity-70">HP</span></div>
+            </div>
+
+            <div className="border-t border-vivid-pink/30 pt-3 space-y-1 text-center">
+                <OutcomeText name={blocker.name} willBeDestroyed={blockerWillBeDestroyed} resultHealth={blockerResultHealth} initialHealth={blockerCurrentHealth} />
+                <OutcomeText name={attacker.name} willBeDestroyed={attackerWillBeDestroyed} resultHealth={attackerResultHealth} initialHealth={attackerCurrentHealth} />
             </div>
         </div>
     );
 };
-
-export default CombatPreviewTooltip;

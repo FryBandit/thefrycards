@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TurnPhase } from '../game/types';
 
@@ -7,14 +8,15 @@ interface PhaseAnnouncerProps {
 }
 
 const phaseStyles: { [key: string]: string } = {
-    [TurnPhase.MULLIGAN]: 'text-neon-yellow border-neon-yellow/50',
+    [TurnPhase.MULLIGAN]: 'text-vivid-yellow border-vivid-yellow/50',
     [TurnPhase.START]: 'text-white border-white/50',
-    [TurnPhase.ROLL_SPEND]: 'text-neon-cyan border-neon-cyan/50',
+    [TurnPhase.ROLL_SPEND]: 'text-vivid-cyan border-vivid-cyan/50',
     [TurnPhase.DRAW]: 'text-blue-400 border-blue-400/50',
-    [TurnPhase.ASSAULT]: 'text-red-400 border-red-400/50',
+// FIX: Replaced `TurnPhase.ASSAULT` with `TurnPhase.STRIKE` to match the updated game phase enum.
+    [TurnPhase.STRIKE]: 'text-red-400 border-red-400/50',
     [TurnPhase.BLOCK]: 'text-yellow-400 border-yellow-400/50',
     [TurnPhase.END]: 'text-gray-400 border-gray-400/50',
-    'default': 'text-neon-cyan border-neon-cyan/50'
+    'default': 'text-vivid-cyan border-vivid-cyan/50'
 };
 
 
