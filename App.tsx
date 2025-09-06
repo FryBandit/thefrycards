@@ -334,7 +334,7 @@ const App: React.FC = () => {
             console.error("AI returned no action. Advancing phase to prevent stall.");
             timeoutId = window.setTimeout(() => {
                 dispatch({ type: 'ADVANCE_PHASE' });
-            }, 1800);
+            }, 1000);
         }
     } else if (state.phase === TurnPhase.START) {
         // Auto-advance start phase for any player

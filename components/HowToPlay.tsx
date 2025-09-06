@@ -56,6 +56,10 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
             <p>Reduce the opponent's Command from 20 to 0. You lose Command when hit by enemy Units during an Assault, or when an opponent destroys one of your Units (you lose Command equal to that Unit's Command Number).</p>
           </Section>
 
+           <Section title="Hand Size">
+            <p>You can hold a maximum of 7 cards in your hand. If you would draw a card while your hand is full, the drawn card is sent to your Graveyard instead.</p>
+          </Section>
+
           <Section title="Turn Structure">
             <ol className="list-decimal list-inside space-y-2 font-semibold">
               <li><strong>Mulligan:</strong> At the start of the game, you may redraw your initial 3-card hand once.</li>

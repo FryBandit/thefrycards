@@ -1,4 +1,5 @@
 
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -45,13 +46,16 @@ const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): 
   };
 };
 
-const drawCards = (player: Player, count: number): { player: Player, drawnCards: CardInGame[], fatigueDamage: number[] } => {
+const drawCards = (player: Player, count: number): { player: Player, drawnToHand: CardInGame[], overdrawnToGraveyard: CardInGame[], fatigueDamage: number[] } => {
     const newPlayer = {...player};
-    newPlayer.hand = [...newPlayer.hand]; // ensure mutable
-    newPlayer.deck = [...newPlayer.deck]; // ensure mutable
+    newPlayer.hand = [...newPlayer.hand];
+    newPlayer.deck = [...newPlayer.deck];
+    newPlayer.graveyard = [...newPlayer.graveyard]; // Make sure we can modify it
 
-    const drawnCards: CardInGame[] = [];
+    const drawnToHand: CardInGame[] = [];
+    const overdrawnToGraveyard: CardInGame[] = [];
     const fatigueDamage: number[] = [];
+    const MAX_HAND_SIZE = 7;
 
     for(let i=0; i<count; i++) {
         if (newPlayer.deck.length > 0) {
@@ -65,14 +69,19 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
               hasAssaulted: false,
               attachments: [],
             };
-            drawnCards.push(newCard);
+            if (newPlayer.hand.length < MAX_HAND_SIZE) {
+                newPlayer.hand.push(newCard);
+                drawnToHand.push(newCard);
+            } else {
+                newPlayer.graveyard.push(newCard);
+                overdrawnToGraveyard.push(newCard);
+            }
         } else {
             newPlayer.fatigueCounter++;
             fatigueDamage.push(newPlayer.fatigueCounter);
         }
     }
-    newPlayer.hand = [...newPlayer.hand, ...drawnCards];
-    return { player: newPlayer, drawnCards, fatigueDamage };
+    return { player: newPlayer, drawnToHand, overdrawnToGraveyard, fatigueDamage };
 }
 
 const getInitialLoadingState = (): GameState => ({
@@ -562,8 +571,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                             log(`${unit.name}'s Martyrdom triggers!`);
                             switch(effect.type) {
                                 case 'DRAW_CARD': {
-                                    const { player: p, fatigueDamage } = drawCards(newState.players[player.id], effect.value);
+                                    const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(newState.players[player.id], effect.value);
                                     newState.players[player.id] = p;
+                                    if (overdrawnToGraveyard.length > 0) {
+                                        log(`${p.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
+                                    }
                                     if (fatigueDamage.length > 0) {
                                         fatigueDamage.forEach(dmg => {
                                             damagePlayer(p, dmg, 'Fatigue', 'damage');
@@ -673,8 +685,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
         if(card.abilities?.draw) {
-            const { player: p, fatigueDamage } = drawCards(player, card.abilities.draw);
+            const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(player, card.abilities.draw);
             player = p;
+            if (overdrawnToGraveyard.length > 0) {
+                log(`${player.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
+            }
             if (fatigueDamage.length > 0) {
                 fatigueDamage.forEach(dmg => {
                     damagePlayer(player, dmg, 'Fatigue', 'damage');
@@ -921,8 +936,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           const effect = cardToPlay.abilities.channel.effect;
           switch(effect.type) {
             case 'DRAW': {
-              const { player: p, fatigueDamage } = drawCards(currentPlayer, effect.value);
+              const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, effect.value);
               currentPlayer = p;
+              if (overdrawnToGraveyard.length > 0) {
+                log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
+              }
               if (fatigueDamage.length > 0) {
                   fatigueDamage.forEach(dmg => {
                     damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
@@ -976,12 +994,30 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     if(cardToPlay.abilities?.consume) cardToPlay.counters = cardToPlay.abilities.consume.initial;
                     currentPlayer.artifacts.push(cardToPlay); 
                     break;
-                case CardType.EVENT: 
+                case CardType.EVENT: {
                     currentPlayer.graveyard.push(cardToPlay);
-                    if (cardToPlay.abilities?.chain_reaction) {
-                        log(`${cardToPlay.name} starts a Chain Reaction!`);
-                        const { player: p, drawnCards, fatigueDamage } = drawCards(currentPlayer, 1);
+                    
+                    let cardToChain: CardInGame | undefined = cardToPlay.abilities?.chain_reaction ? cardToPlay : undefined;
+                    let chainDepth = 0;
+                    const MAX_CHAIN_DEPTH = 5; // Safety limit
+
+                    while(cardToChain && chainDepth < MAX_CHAIN_DEPTH) {
+                        chainDepth++;
+                        if (chainDepth === 1) {
+                            log(`${cardToChain.name} starts a Chain Reaction!`);
+                        } else {
+                            log(`Chain Reaction continues with ${cardToChain.name}!`);
+                        }
+                        
+                        const { player: p, drawnToHand, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, 1);
                         currentPlayer = p;
+
+                        if (overdrawnToGraveyard.length > 0) {
+                            log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard[0].name}.`);
+                        }
+                        const drawnCards = drawnToHand;
+
+                        cardToChain = undefined; // Assume chain ends unless a new event is drawn
 
                         if (fatigueDamage.length > 0) {
                             fatigueDamage.forEach(dmg => {
@@ -989,33 +1025,41 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 log(`Chain Reaction fizzles: deck is empty. ${currentPlayer.name} takes ${dmg} Fatigue damage!`);
                             });
                         } else if (drawnCards.length > 0) {
-                            const chainedCard = drawnCards[0];
-                            log(`Chain Reaction triggers ${chainedCard.name}!`);
-                            logAction(`Chain Reaction played ${chainedCard.name}.`);
+                            const nextCardInChain = drawnCards[0];
+                            logAction(`Chain Reaction played ${nextCardInChain.name}.`);
                     
-                            if (chainedCard.type === CardType.EVENT) {
-                                currentPlayer.graveyard.push(chainedCard);
-                                const arrivalResultChained = resolveArrivalAbilities(chainedCard, currentPlayer, opponentPlayer, false);
+                            if (nextCardInChain.type === CardType.EVENT) {
+                                log(`Chain Reaction triggers ${nextCardInChain.name}!`);
+                                currentPlayer.graveyard.push(nextCardInChain);
+                                const arrivalResultChained = resolveArrivalAbilities(nextCardInChain, currentPlayer, opponentPlayer, false);
                                 currentPlayer = arrivalResultChained.player;
                                 opponentPlayer = arrivalResultChained.opponent;
-                                if (chainedCard.abilities?.requiresTarget && (chainedCard.abilities.damage || chainedCard.abilities.snipe)) {
-                                    const validTargets = opponentPlayer.units.filter(u => !u.abilities?.immutable && isCardTargetable(chainedCard, u, currentPlayer, opponentPlayer));
+                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe)) {
+                                    const validTargets = opponentPlayer.units.filter(u => !u.abilities?.immutable && isCardTargetable(nextCardInChain, u, currentPlayer, opponentPlayer));
                                     if (validTargets.length > 0) {
                                         const randomTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
-                                        log(`${chainedCard.name} randomly targets ${randomTarget.name}.`);
-                                        dealDamageToUnit(randomTarget, chainedCard.abilities.damage || chainedCard.abilities.snipe, chainedCard, opponentPlayer);
+                                        log(`${nextCardInChain.name} randomly targets ${randomTarget.name}.`);
+                                        dealDamageToUnit(randomTarget, nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe, nextCardInChain, opponentPlayer);
                                     }
                                 }
+                                
+                                if (nextCardInChain.abilities?.chain_reaction) {
+                                    cardToChain = nextCardInChain; // Continue the chain
+                                }
                             } else {
-                                log(`Chain reaction fizzles: ${chainedCard.name} is not an event and is returned to the deck.`);
-                                // Convert CardInGame back to CardDefinition before returning to deck.
-                                const { id, name, type, dice_cost, strength, durability, commandNumber, text, abilities, imageUrl, faction, rarity, flavor_text, card_set, author } = chainedCard;
+                                log(`Chain reaction fizzles: ${nextCardInChain.name} is not an event and is returned to the deck.`);
+                                const { id, name, type, dice_cost, strength, durability, commandNumber, text, abilities, imageUrl, faction, rarity, flavor_text, card_set, author } = nextCardInChain;
                                 const originalCardDef: CardDefinition = { id, name, type, dice_cost, strength, durability, commandNumber, text, abilities, imageUrl, faction, rarity, flavor_text, card_set, author };
                                 currentPlayer.deck.push(originalCardDef);
                             }
                         }
                     }
+
+                    if (chainDepth >= MAX_CHAIN_DEPTH) {
+                        log(`Chain Reaction limit reached.`);
+                    }
                     break;
+                }
             }
         }
 
@@ -1282,8 +1326,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         currentPlayer.command += effect.value;
                     }
                     if(effect.type === 'DRAW_CARD') {
-                        const { player: p, fatigueDamage } = drawCards(currentPlayer, effect.value);
+                        const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, effect.value);
                         currentPlayer = p;
+                        if (overdrawnToGraveyard.length > 0) {
+                            log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
+                        }
                         if (fatigueDamage.length > 0) {
                             fatigueDamage.forEach(dmg => {
                                 damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
@@ -1352,14 +1399,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               log(`${currentPlayer.name} skips their Draw Phase due to Stagnate.`);
               currentPlayer.skipNextDrawPhase = false;
             } else {
-              const { player: p, fatigueDamage } = drawCards(currentPlayer, 1);
+              const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, 1);
               newState.players[newState.currentPlayerId] = p;
+              if (overdrawnToGraveyard.length > 0) {
+                  log(`${p.name}'s hand was full and discarded ${overdrawnToGraveyard[0].name}.`);
+              }
               if (fatigueDamage.length > 0) {
                   fatigueDamage.forEach(dmg => {
                     damagePlayer(p, dmg, 'Fatigue', 'damage');
                     log(`${p.name} has no cards left and takes ${dmg} Fatigue damage!`);
                   });
-              } else {
+              } else if (overdrawnToGraveyard.length === 0) {
                    log(`${p.name} drew a card.`);
               }
             }

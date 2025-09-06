@@ -40,7 +40,7 @@
               'flash-green': 'flash-green 0.8s ease-in-out',
               'pulse-yellow': 'pulse-yellow 0.7s ease-in-out',
               'pulse-playable': 'pulse-glow-playable 2.5s ease-in-out infinite',
-              'zoom-announce': 'zoom-in-out-fade 2s ease-in-out forwards',
+              'zoom-announce': 'zoom-in-out-fade 2.5s ease-in-out forwards',
               'modal-show': 'fade-in-scale-up 0.3s ease-out forwards',
               'fade-in-left': 'fade-in-left 0.2s ease-out forwards',
               'flash-damage': 'flash-damage 0.5s ease-in-out',
@@ -104,10 +104,10 @@
                 },
               },
               'zoom-in-out-fade': {
-                '0%': { opacity: '0', transform: 'scale(0.8)' },
-                '15%': { opacity: '1', transform: 'scale(1.05)' },
-                '85%': { opacity: '1', transform: 'scale(1)' },
-                '100%': { opacity: '0', transform: 'scale(0.9)' },
+                '0%': { opacity: '0', transform: 'scale(0.9) translateY(-20px)' },
+                '15%': { opacity: '1', transform: 'scale(1.1) translateY(0)' },
+                '85%': { opacity: '1', transform: 'scale(1.05)' },
+                '100%': { opacity: '0', transform: 'scale(1)' },
               },
               'fade-in-scale-up': {
                 '0%': { opacity: '0', transform: 'scale(0.95)' },
