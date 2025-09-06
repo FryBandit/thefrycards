@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import GameBoard from './components/GameBoard';
-import GameLog from './components/GameLog';
+import ActionHistory from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
 import PlayerInfoPanel from './components/PlayerInfoPanel';
@@ -317,9 +317,7 @@ const App: React.FC = () => {
       />
 
       {/* HUD Elements */}
-      <div className="absolute top-4 left-4 h-1/2 z-10 pointer-events-none">
-        <GameLog log={state.log} />
-      </div>
+      <ActionHistory history={state.actionHistory} players={state.players} />
 
       <div className="absolute bottom-4 left-4 h-40 z-10">
         <PlayerInfoPanel 

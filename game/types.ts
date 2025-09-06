@@ -101,6 +101,12 @@ export enum LastActionType {
     ACTIVATE = 'activate',
 }
 
+export interface ActionHistoryEntry {
+  turn: number;
+  playerId: number;
+  actions: string[];
+}
+
 export interface GameState {
   players: [Player, Player];
   currentPlayerId: number;
@@ -114,4 +120,5 @@ export interface GameState {
   isProcessing: boolean;
   extraTurns: number;
   lastActionDetails?: { type: LastActionType; spentDiceIds: number[] } | null;
+  actionHistory: ActionHistoryEntry[];
 }

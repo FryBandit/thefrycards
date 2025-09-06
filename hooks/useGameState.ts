@@ -98,6 +98,7 @@ const getInitialLoadingState = (): GameState => ({
     isProcessing: true,
     extraTurns: 0,
     lastActionDetails: null,
+    actionHistory: [],
 });
 
 
@@ -346,6 +347,20 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     newState.lastActionDetails = null;
     
     const log = (message: string) => newState.log.push(message);
+
+    const logAction = (message: string) => {
+        let lastHistoryEntry = newState.actionHistory[newState.actionHistory.length - 1];
+
+        if (!lastHistoryEntry || lastHistoryEntry.turn !== newState.turn || lastHistoryEntry.playerId !== newState.currentPlayerId) {
+            newState.actionHistory.push({
+                turn: newState.turn,
+                playerId: newState.currentPlayerId,
+                actions: [message],
+            });
+        } else {
+            lastHistoryEntry.actions.push(message);
+        }
+    };
     
     const damagePlayer = (player: Player, amount: number, source: string, type: 'damage' | 'loss' = 'damage') => {
         if (player.isCommandFortified) {
@@ -641,6 +656,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           isProcessing: false,
           extraTurns: 0,
           lastActionDetails: null,
+          actionHistory: [],
         };
       }
       
@@ -651,6 +667,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
           if (mulligan) {
               log(`You chose to mulligan.`);
+              logAction('Mulliganed their hand.');
               const handToShuffle = [...player.hand];
               player.deck.push(...handToShuffle);
               player.deck = shuffle(player.deck);
@@ -659,6 +676,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               newState.players[0] = p1;
           } else {
               log(`You kept your starting hand.`);
+              logAction('Kept their hand.');
           }
           player.hasMulliganed = true;
           
@@ -674,6 +692,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
           if (mulligan) {
               log(`CPU chose to mulligan.`);
+              logAction('Mulliganed their hand.');
               const handToShuffle = [...ai.hand];
               ai.deck.push(...handToShuffle);
               ai.deck = shuffle(ai.deck);
@@ -682,6 +701,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               newState.players[1] = p2;
           } else {
               log(`CPU kept its starting hand.`);
+              logAction('Kept their hand.');
           }
           ai.hasMulliganed = true;
 
@@ -690,16 +710,20 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           return newState;
       }
 
-      case 'ROLL_DICE':
+      case 'ROLL_DICE': {
         if (newState.rollCount >= newState.maxRolls) return state;
         const diceToRoll = newState.dice.filter(d => !d.isKept && !d.isSpent);
+        const rolledValues: number[] = [];
         diceToRoll.forEach(d => {
-          newState.dice.find(nd => nd.id === d.id)!.value = Math.floor(Math.random() * 6) + 1;
+          const newValue = Math.floor(Math.random() * 6) + 1;
+          newState.dice.find(nd => nd.id === d.id)!.value = newValue;
+          rolledValues.push(newValue);
         });
         newState.rollCount++;
         log(`${newState.players[newState.currentPlayerId].name} rolled dice.`);
+        logAction(`Rolled: [${rolledValues.join(', ')}]`);
         return newState;
-
+      }
       case 'TOGGLE_DIE_KEPT':
         const die = newState.dice.find(d => d.id === action.payload.id);
         if (die && !die.isSpent && newState.rollCount > 0) {
@@ -731,6 +755,30 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         const costCheck = checkDiceCost(costConfig, newState.dice);
         if(!costCheck.canPay) return state;
+
+        let logMessage = '';
+        if (options?.isScavenged) {
+            logMessage = `Scavenged ${cardToPlay.name}`;
+        } else if (options?.isChanneled) {
+            logMessage = `Channeled ${cardToPlay.name}`;
+        } else {
+            logMessage = `Played ${cardToPlay.name}`;
+        }
+        if (options?.isAmplified) {
+            logMessage += ' (Amplified)';
+        }
+        if (targetInstanceId) {
+            const targetOwner = newState.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === targetInstanceId));
+            const targetCard = targetOwner ? [...targetOwner.units, ...targetOwner.locations, ...targetOwner.artifacts].find(c => c.instanceId === targetInstanceId) : null;
+            if (targetCard) {
+                logMessage += ` targeting ${targetCard.name}.`;
+            } else {
+                logMessage += '.';
+            }
+        } else {
+            logMessage += '.';
+        }
+        logAction(logMessage);
 
         newState.lastActionDetails = { type: actionType, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
 
@@ -893,6 +941,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         const costCheck = checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, newState.dice);
         if (!costCheck.canPay) return state;
         
+        logAction(`Activated ${card.name}.`);
         newState.lastActionDetails = { type: LastActionType.ACTIVATE, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
         
         costCheck.diceToSpend.forEach(dts => {
@@ -1050,6 +1099,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                    unit.hasAssaulted = true; // Mark unit as having assaulted for Breach keyword
                 }
               });
+              
+              if (totalDamage > 0 || phasingDamage > 0) {
+                  logAction(`Assaulted for ${totalDamage + phasingDamage} total damage.`);
+              } else {
+                  logAction(`Declared an assault with no units.`);
+              }
 
               if (phasingDamage > 0) {
                   opponentPlayer.command -= phasingDamage; // Phasing is unpreventable, bypasses damagePlayer for fortify check
@@ -1073,10 +1128,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               }
             } else {
               log(`${currentPlayer.name} skips the assault.`);
+              logAction('Skipped the assault.');
             }
             newState.phase = TurnPhase.END;
             break;
           case TurnPhase.END:
+              logAction('Ended their turn.');
               currentPlayer.shieldUsedThisTurn = false;
               if (newState.extraTurns > 0) {
                   newState.extraTurns--;
