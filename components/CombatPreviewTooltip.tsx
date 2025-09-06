@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { CardInGame, Player } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -10,7 +11,6 @@ interface CombatPreviewTooltipProps {
     blockerPlayer: Player;
 }
 
-// FIX: Implemented the component to return JSX, resolving the 'not assignable to FC' type error.
 export const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ attacker, blocker, attackerPlayer, blockerPlayer }) => {
     const { strength: attackerStrength } = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
     const { durability: attackerDurability } = getEffectiveStats(attacker, attackerPlayer);
@@ -28,8 +28,6 @@ export const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ atta
     const attackerWillBeDestroyed = attackerResultHealth <= 0;
     const blockerWillBeDestroyed = blockerResultHealth <= 0;
 
-// FIX: Implemented the sub-component to return JSX, resolving the type error.
-// FIX: Corrected a typo from `willBe` to `willBeDestroyed`.
     const OutcomeText: React.FC<{ name: string; willBeDestroyed: boolean; resultHealth: number; initialHealth: number }> = ({ name, willBeDestroyed, resultHealth, initialHealth }) => {
         if (willBeDestroyed) {
             return <p className="text-red-400">{name} will be destroyed ({initialHealth} → {resultHealth <= 0 ? 0 : resultHealth})</p>;

@@ -87,12 +87,21 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
 
 
     return (
-    <div className={`w-40 md:w-64 bg-arcane-surface/80 backdrop-blur-sm p-2 md:p-3 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-vivid-cyan shadow-vivid-cyan animate-pulse-glow' : 'border-arcane-border'}`}>
+    <div className={`w-full h-[32rem] bg-arcane-surface/80 backdrop-blur-sm p-3 rounded-lg text-white flex flex-col justify-between border-2 ${isCurrent ? 'border-vivid-cyan shadow-vivid-cyan animate-pulse-glow' : 'border-arcane-border'}`}>
         <div>
-            <h2 className={`text-lg md:text-xl font-bold truncate ${isCurrent ? 'text-vivid-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
-            <p className={`text-3xl md:text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-vivid-pink ${moraleAnim}`}>{player.morale} <span className="text-sm md:text-base opacity-75">MOR</span></p>
+            <h2 className={`text-xl font-bold truncate ${isCurrent ? 'text-vivid-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
+            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-vivid-pink ${moraleAnim}`}>{player.morale} <span className="text-base opacity-75">MORALE</span></p>
         </div>
-        <div className="grid grid-cols-2 gap-1 md:gap-2 text-center text-xs font-semibold">
+
+        {/* Status Effects */}
+        <div className="my-2 space-y-1 text-xs text-center font-bold uppercase tracking-wider">
+            {/* FIX: Cast style object to React.CSSProperties to allow for CSS custom properties. */}
+            {player.isMoraleFortified && <div className="bg-blue-800/50 text-blue-300 p-1 rounded animate-pulse-glow" style={{'--tw-shadow-color': '#3b82f6'} as React.CSSProperties}>Fortified</div>}
+            {player.skipNextDrawPhase && <div className="bg-yellow-800/50 text-yellow-300 p-1 rounded">Draw Skipped</div>}
+            {player.diceModifier < 0 && <div className="bg-red-800/50 text-red-300 p-1 rounded">{player.diceModifier} Dice Next Turn</div>}
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold mt-auto">
             <StatDisplay value={player.deck.length} animClass={deckAnim}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-75" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm2 0v12h6V4H7z" />

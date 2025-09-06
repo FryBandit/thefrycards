@@ -1,22 +1,15 @@
 
-
-
-
-import React, { useMemo, useState } from 'react';
-import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
+import React, { useMemo, useState, useRef } from 'react';
+import { type GameState, type CardInGame, type Player, TurnPhase, CardType, Die } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
 import { isCardTargetable, checkDiceCost } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
 import Card from './Card';
 import CardPreview from './CardPreview';
-// FIX: Changed to a named import as CombatPreviewTooltip does not have a default export. This resolves the module resolution error.
+import PlayerInfoPanel from './PlayerInfoPanel';
 import { CombatPreviewTooltip } from './CombatPreviewTooltip';
 
-// Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
-// MOVED TO game/utils.ts
-
-
-// New sub-component for cards on the field
+// New sub-component for cards on the field (structured grid)
 const FieldArea: React.FC<{ 
     player: Player;
     players: [Player, Player];
@@ -46,12 +39,11 @@ const FieldArea: React.FC<{
         const isStrikePhase = phase === TurnPhase.STRIKE || phase === TurnPhase.BLOCK;
         const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isStrikePhase });
         
-        // Combat states
         const isAttacking = (phase === TurnPhase.BLOCK || phase === TurnPhase.STRIKE) && combatants?.some(c => c.attackerId === card.instanceId) || false;
         const isBlocker = phase === TurnPhase.BLOCK && blockAssignments?.has(card.instanceId) || false;
         const isSelectedAsBlocker = phase === TurnPhase.BLOCK && selectedBlockerId === card.instanceId;
         
-        const isPlayerDefender = phase === TurnPhase.BLOCK && currentPlayerId === 1; // AI is attacking, Player is defending
+        const isPlayerDefender = phase === TurnPhase.BLOCK && currentPlayerId === 1;
         const isPotentialBlocker = isPlayerDefender && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched && !isBlocker;
 
         const isPlayerAttackerInStrikePhase = phase === TurnPhase.STRIKE && currentPlayerId === 0;
@@ -92,19 +84,15 @@ const FieldArea: React.FC<{
     };
     
     return (
-        <div className="flex-grow w-full flex flex-col items-center justify-center p-2 min-h-[14rem] md:min-h-[18rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
+        <div className="flex-grow w-full flex flex-col items-center justify-center p-2 min-h-[18rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
             {allCards.length > 0 ? (
                  <div className="w-full h-full flex flex-col justify-center items-center gap-y-2">
                     {/* Back Row (Locations & Artifacts) */}
-                    <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full min-h-[8rem]">
                         {backRowCards.map(renderCard)}
                     </div>
-                    {/* Separator */}
-                    {frontRowCards.length > 0 && backRowCards.length > 0 && (
-                        <div className="w-3/4 h-px bg-gradient-to-r from-arcane-bg via-vivid-cyan to-arcane-bg my-1"></div>
-                    )}
                     {/* Front Row (Units) */}
-                    <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className={`flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full min-h-[8rem] ${backRowCards.length > 0 ? 'border-t-2 border-vivid-cyan/20 pt-2' : ''}`}>
                         {frontRowCards.map(renderCard)}
                     </div>
                 </div>
@@ -115,8 +103,7 @@ const FieldArea: React.FC<{
     );
 };
 
-
-// New sub-component for cards in hand
+// New sub-component for cards in hand (scrolling dock)
 const HandArea: React.FC<{
     player: Player,
     isOpponent: boolean,
@@ -124,7 +111,6 @@ const HandArea: React.FC<{
     onGraveyardCardClick: (card: CardInGame) => void;
     isCardPlayable: (card: CardInGame) => boolean;
     isCardReclaimable: (card: CardInGame) => boolean;
-// FIX: Changed `isCardChannelable` to `isCardEvokeable` and its return type from `void` to `boolean` to match the expected prop type and game logic.
     isCardEvokeable: (card: CardInGame) => boolean;
     onEvokeClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
@@ -137,31 +123,46 @@ const HandArea: React.FC<{
     isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, isCurrentPlayer, onExamineCard,
     setHoveredCardInHand
 }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [showScroll, setShowScroll] = useState({ left: false, right: false });
+
+    const handleScroll = (direction: 'left' | 'right') => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = direction === 'left' ? -300 : 300;
+            scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
+
+    const checkScroll = () => {
+        if (scrollContainerRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+            setShowScroll({
+                left: scrollLeft > 0,
+                right: scrollLeft < scrollWidth - clientWidth - 1,
+            });
+        }
+    };
+
+    React.useEffect(() => {
+        const container = scrollContainerRef.current;
+        checkScroll();
+        container?.addEventListener('scroll', checkScroll);
+        return () => container?.removeEventListener('scroll', checkScroll);
+    }, [player.hand, player.graveyard]);
+
+
     if (isOpponent) {
-        const numCards = player.hand.length;
         return (
-             <div className="h-24 md:h-32 flex-shrink-0 w-full flex justify-center items-start pt-4 relative">
-                {numCards > 0 && 
-                    <div className="flex justify-center items-start -space-x-24 md:-space-x-32">
-                         {player.hand.map((card, i) => {
-                            const rotation = (i - (numCards - 1) / 2) * 5;
-                            
-                            return (
-                                <div 
-                                    key={card.instanceId} 
-                                    className="transition-all duration-300 ease-in-out origin-top" 
-                                    style={{ transform: `rotate(${rotation}deg)`}}
-                                >
-                                    <div className="w-32 h-44 md:w-48 md:h-64 bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center">
-                                        <span className="text-xl md:text-2xl font-black text-vivid-pink/50">CARD</span>
-                                    </div>
-                                </div>
-                            )
-                         })}
-                    </div>
-                }
-                {player.hand.length > 0 && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-arcane-bg/80 text-vivid-yellow font-black text-2xl md:text-3xl rounded-full w-16 h-16 md:w-20 md:h-20 flex items-center justify-center border-4 border-vivid-yellow pointer-events-none shadow-lg shadow-vivid-yellow/50">
+             <div className="h-28 flex-shrink-0 w-full flex justify-center items-center pt-4 relative bg-black/10">
+                <div className="flex justify-center items-center -space-x-16">
+                     {player.hand.map((card, i) => (
+                        <div key={card.instanceId} className="w-28 h-36 bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center">
+                            <span className="text-xl font-black text-vivid-pink/50">CARD</span>
+                        </div>
+                     ))}
+                </div>
+                 {player.hand.length > 0 && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-arcane-bg/80 text-vivid-yellow font-black text-3xl rounded-full w-16 h-16 flex items-center justify-center border-4 border-vivid-yellow pointer-events-none shadow-lg shadow-vivid-yellow/50">
                         {player.hand.length}
                     </div>
                 )}
@@ -169,32 +170,22 @@ const HandArea: React.FC<{
         );
     }
     
-    // Player's Fanned Hand
-    const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
     const reclaimableCards = player.graveyard.filter(isCardReclaimable).map(c => ({ ...c, source: 'graveyard' as const }));
-    const allPlayableCards = [...reclaimableCards, ...handCards];
-    
-    const numCards = allPlayableCards.length;
-    let overlapClass = '-space-x-24 md:-space-x-36';
-    if (numCards === 6) overlapClass = '-space-x-28 md:-space-x-40';
-    if (numCards === 7) overlapClass = '-space-x-32 md:-space-x-44';
-    if (numCards >= 8) overlapClass = '-space-x-36 md:-space-x-48';
-
+    const allPlayableCards = [...reclaimableCards, ...player.hand.map(c => ({ ...c, source: 'hand' as const }))];
 
     return (
-        <div className="h-60 md:h-80 flex-shrink-0 flex justify-center items-end pb-4 md:pb-12">
-            <div className={`flex justify-center items-end h-full transition-all duration-300 ${overlapClass}`}>
-                 {allPlayableCards.map((card, i) => {
-                    const rotation = (i - (numCards - 1) / 2) * 5;
-                    
+        <div className="h-56 flex-shrink-0 w-full relative flex items-center justify-center bg-black/20">
+            {showScroll.left && <button onClick={() => handleScroll('left')} className="absolute left-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 bg-arcane-primary/80 rounded-full hover:bg-arcane-secondary transition-colors text-2xl">‹</button>}
+            
+            <div ref={scrollContainerRef} className="flex items-end h-full space-x-[-4rem] overflow-x-auto px-16 py-4 scrollbar-hide">
+                 {allPlayableCards.map((card) => {
                     const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardReclaimable(card);
                     const clickHandler = card.source === 'hand' ? onCardClick : onGraveyardCardClick;
 
                     return (
                         <div 
                             key={card.instanceId} 
-                            className="transition-all duration-300 ease-in-out hover:-translate-y-16 md:hover:-translate-y-24 hover:scale-110 hover:z-40 origin-bottom hover:!rotate-0" 
-                            style={{ transform: `rotate(${rotation}deg)`}}
+                            className="transition-all duration-300 ease-in-out hover:-translate-y-8 hover:z-40 flex-shrink-0" 
                             onMouseEnter={() => card.source === 'hand' && setHoveredCardInHand(card)}
                             onMouseLeave={() => setHoveredCardInHand(null)}
                         >
@@ -214,6 +205,8 @@ const HandArea: React.FC<{
                     )
                  })}
             </div>
+            
+            {showScroll.right && <button onClick={() => handleScroll('right')} className="absolute right-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 bg-arcane-primary/80 rounded-full hover:bg-arcane-secondary transition-colors text-2xl">›</button>}
         </div>
     );
 };
@@ -246,6 +239,7 @@ interface GameBoardProps {
   selectedBlockerId: string | null;
   blockAssignments: Map<string, string>;
   isOpponentDrawing: boolean;
+  onZoneClick: (player: Player, zone: 'graveyard' | 'oblivion') => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
@@ -255,18 +249,17 @@ const GameBoard: React.FC<GameBoardProps> = ({
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
     lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
     onMulligan, showConfirmation, onConfirmBlocks, selectedBlockerId, blockAssignments,
-    isOpponentDrawing,
+    isOpponentDrawing, onZoneClick
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const player = players[0];
   const opponent = players[1];
 
   const isPlayerTurn = currentPlayerId === 0;
-
   const [hoveredAttackerId, setHoveredAttackerId] = useState<string | null>(null);
 
   const isHoveredCardPlayable = useMemo(() => {
-    if (!hoveredCardInHand || !isPlayerTurn) return true; // Default to true to not show red when no card is hovered
+    if (!hoveredCardInHand || !isPlayerTurn) return true;
     return isCardPlayable(hoveredCardInHand);
   }, [hoveredCardInHand, isPlayerTurn, isCardPlayable]);
 
@@ -287,11 +280,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
     return null;
   }, [phase, selectedBlockerId, hoveredAttackerId, player.units, opponent.units]);
 
-
   const getPhaseAction = () => {
     if (targetingCard) return { text: "CANCEL", action: () => onBoardCardClick(targetingCard), disabled: false };
     
-    // Player is defender
     if (phase === TurnPhase.BLOCK && currentPlayerId === 1) {
         return { text: "CONFIRM BLOCKS", action: onConfirmBlocks, disabled: false, style: 'bg-blue-600 hover:bg-blue-500' };
     }
@@ -300,8 +291,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
     
     switch(phase) {
         case TurnPhase.MULLIGAN: return null;
-        case TurnPhase.AI_MULLIGAN: return null;
-        case TurnPhase.START: return null;
         case TurnPhase.ROLL_SPEND: {
             const hasUnspentDice = dice.some(d => !d.isSpent);
             const action = () => {
@@ -313,8 +302,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
             };
             return { text: "END PHASE", action, disabled: rollCount === 0 };
         }
-        case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
-        case TurnPhase.STRIKE: return null; // Handled by separate JSX below
         case TurnPhase.END: return { text: "END TURN", action: () => showConfirmation('End Turn?', 'Are you sure you want to end your turn?', () => onAdvancePhase()), disabled: false };
         default: return null;
     }
@@ -322,202 +309,140 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const phaseAction = getPhaseAction();
 
   return (
-    <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
+    <div className="relative w-full h-screen grid grid-cols-[224px_1fr_224px] gap-4 p-4 bg-transparent text-white font-bold uppercase overflow-hidden">
       
-      <CardPreview card={hoveredCardInHand} />
-      {combatPreviewData && (
-        <CombatPreviewTooltip 
-            attacker={combatPreviewData.attacker}
-            blocker={combatPreviewData.blocker}
-            attackerPlayer={opponent}
-            blockerPlayer={player}
-        />
-      )}
+      {/* Left Player Panel */}
+      <div className="h-full flex items-center">
+         <PlayerInfoPanel player={player} isCurrent={isPlayerTurn} onZoneClick={(zone) => onZoneClick(player, zone)} />
+      </div>
 
-      {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
-      {phase === TurnPhase.BLOCK && <div className="absolute inset-0 bg-black/30 z-20 pointer-events-none" />}
+      {/* Center Game Area */}
+      <div className="h-full flex flex-col gap-1 relative">
+          <CardPreview card={hoveredCardInHand} />
+          {combatPreviewData && (
+            <CombatPreviewTooltip 
+                attacker={combatPreviewData.attacker}
+                blocker={combatPreviewData.blocker}
+                attackerPlayer={opponent}
+                blockerPlayer={player}
+            />
+          )}
 
-      {/* Mulligan UI */}
+          {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
+          {phase === TurnPhase.BLOCK && <div className="absolute inset-0 bg-black/30 z-20 pointer-events-none" />}
+
+          {isOpponentDrawing && (
+            <div className="absolute top-4 right-40 w-32 h-44 z-[60] pointer-events-none">
+                <div className="w-full h-full bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center animate-opponent-draw">
+                    <span className="text-xl font-black text-vivid-pink/50">CARD</span>
+                </div>
+            </div>
+          )}
+
+          {/* Opponent's Side */}
+          <div className="flex-1 flex flex-col-reverse">
+            <FieldArea 
+                player={opponent} players={players} gameState={gameState} onCardClick={onBoardCardClick} 
+                isOpponent={true} targetingCard={targetingCard} isCardActivatable={isCardActivatable}
+                onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId}
+                onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId}
+                blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId}
+            />
+            <HandArea 
+                player={opponent} isOpponent={true} onCardClick={() => {}} onGraveyardCardClick={() => {}}
+                isCardPlayable={() => false} isCardReclaimable={() => false} isCardEvokeable={() => false}
+                onEvokeClick={() => {}} isCardAmplifiable={() => false} onAmplifyClick={() => {}}
+                isCurrentPlayer={currentPlayerId === opponent.id} onExamineCard={onExamineCard}
+                setHoveredCardInHand={setHoveredCardInHand}
+            />
+          </div>
+
+          {/* Center Bar */}
+          <div className="flex-shrink-0 border-y-2 border-vivid-cyan/20 bg-black/20 backdrop-blur-sm flex items-center justify-between gap-4 px-4 py-2 h-40 z-30">
+            <div className="w-1/3 flex justify-start items-center">
+                {phase === TurnPhase.ROLL_SPEND && isPlayerTurn ? (
+                    <DiceTray
+                        dice={dice} rollCount={rollCount} maxRolls={maxRolls} onDieClick={onDieClick}
+                        onRoll={onRoll} canRoll={rollCount < maxRolls} valuableDiceForHover={valuableDiceForHover}
+                        isHoveredCardPlayable={isHoveredCardPlayable} lastActionDetails={gameState.lastActionDetails}
+                    />
+                ) : (
+                    <div className="text-center text-arcane-primary/60 italic text-sm w-full">
+                        {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here"}
+                    </div>
+                )}
+            </div>
+            
+            <div className="w-1/3 text-center">
+                <div className="text-base font-bold text-vivid-cyan tracking-[0.2em]">TURN {turn}</div>
+                <div className="text-4xl font-black text-white leading-none">{`${phase}`}</div>
+                <div className="text-base font-semibold text-vivid-yellow tracking-wider mt-1">{players[currentPlayerId].name}</div>
+            </div>
+
+            <div className="w-1/3 flex justify-end items-center">
+                {phase === TurnPhase.STRIKE && isPlayerTurn ? (
+                    <div className="flex gap-2">
+                        <button onClick={() => onAdvancePhase(true)} disabled={player.units.filter(u => !u.abilities?.entrenched).length === 0}
+                            className="bg-vivid-pink text-arcane-bg px-6 py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase">Strike</button>
+                        <button onClick={() => onAdvancePhase(false)}
+                            className="bg-arcane-primary text-white px-6 py-2 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors font-bold uppercase">Skip</button>
+                    </div>
+                ) : phaseAction ? (
+                    <button onClick={phaseAction.action} disabled={phaseAction.disabled}
+                        className={`${phaseAction.style || 'bg-arcane-primary hover:bg-arcane-secondary'} text-white px-8 py-3 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 border-2 border-arcane-border`}>
+                        {phaseAction.text}
+                    </button>
+                ) : phase === TurnPhase.BLOCK ? (
+                    <div className="text-center text-yellow-300 italic text-lg animate-pulse">
+                        {currentPlayerId === 0 ? "Opponent is Blocking" : "Declare Blockers"}
+                    </div>
+                ) : null}
+            </div>
+          </div>
+
+
+          {/* Player's Side */}
+           <div className="flex-1 flex flex-col">
+            <FieldArea 
+                player={player} players={players} gameState={gameState} onCardClick={onBoardCardClick} 
+                isOpponent={false} targetingCard={targetingCard} isCardActivatable={isCardActivatable}
+                onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId}
+                onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId}
+                blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId}
+            />
+            <HandArea 
+                player={player} isOpponent={false} onCardClick={onHandCardClick} onGraveyardCardClick={onGraveyardCardClick}
+                isCardPlayable={isCardPlayable} isCardReclaimable={isCardReclaimable} isCardEvokeable={isCardEvokeable}
+                onEvokeClick={onEvokeClick} isCardAmplifiable={isCardAmplifiable} onAmplifyClick={onAmplifyClick}
+                isCurrentPlayer={currentPlayerId === player.id} onExamineCard={onExamineCard}
+                setHoveredCardInHand={setHoveredCardInHand}
+            />
+          </div>
+      </div>
+
+       {/* Right Player Panel */}
+       <div className="h-full flex items-center">
+         <PlayerInfoPanel player={opponent} isCurrent={!isPlayerTurn} isOpponent={true} onZoneClick={(zone) => onZoneClick(opponent, zone)} />
+      </div>
+
+      {/* Mulligan UI - Full screen overlay */}
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
         <div className="absolute inset-0 bg-arcane-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
             <h2 className="text-4xl font-black text-vivid-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
             <p className="text-vivid-yellow/70 mb-8">You may redraw your starting hand once.</p>
-            <div className="flex justify-center items-end h-96 mb-8">
-                <div className="flex justify-center items-end -space-x-40 h-full">
-                    {players[0].hand.map((card, i) => {
-                        const numCards = players[0].hand.length;
-                        const rotation = (i - (numCards - 1) / 2) * 5;
-                        return (
-                            <div
-                                key={card.instanceId}
-                                className="transition-all duration-300 ease-in-out origin-bottom hover:-translate-y-12 hover:scale-105 hover:!rotate-0 hover:z-50"
-                                style={{ transform: `rotate(${rotation}deg)` }}
-                            >
-                                <Card card={card} inHand={true} onExamine={onExamineCard} />
-                            </div>
-                        );
-                    })}
-                </div>
+            <div className="flex justify-center items-end -space-x-32 h-80 mb-8">
+                {players[0].hand.map((card, i) => (
+                    <div key={card.instanceId} className="transition-all duration-300 ease-in-out origin-bottom hover:-translate-y-12 hover:scale-105 hover:z-50">
+                        <Card card={card} inHand={true} onExamine={onExamineCard} />
+                    </div>
+                ))}
             </div>
             <div className="flex space-x-6">
-                <button
-                    onClick={() => onMulligan(false)}
-                    className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase tracking-wider"
-                >
-                    Keep Hand
-                </button>
-                <button
-                    onClick={() => onMulligan(true)}
-                    className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase tracking-wider"
-                >
-                    Mulligan
-                </button>
+                <button onClick={() => onMulligan(false)} className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase tracking-wider">Keep Hand</button>
+                <button onClick={() => onMulligan(true)} className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase tracking-wider">Mulligan</button>
             </div>
         </div>
       )}
-      
-      {isOpponentDrawing && (
-        <div className="absolute top-4 right-40 w-32 h-44 md:w-48 md:h-64 z-[60] pointer-events-none">
-            <div className="w-full h-full bg-gradient-to-b from-arcane-border to-arcane-bg rounded-lg border-2 border-arcane-border shadow-xl flex items-center justify-center animate-opponent-draw">
-                <span className="text-xl md:text-2xl font-black text-vivid-pink/50">CARD</span>
-            </div>
-        </div>
-      )}
-
-      {/* Opponent's Side (reversed column) */}
-      <div className="flex-1 flex flex-col-reverse">
-        <FieldArea 
-            player={opponent}
-            players={players}
-            gameState={gameState}
-            onCardClick={onBoardCardClick} 
-            isOpponent={true} 
-            targetingCard={targetingCard}
-            isCardActivatable={isCardActivatable}
-            onActivateCard={onActivateCard}
-            lastActivatedCardId={lastActivatedCardId}
-            onExamineCard={onExamineCard}
-            selectedBlockerId={selectedBlockerId}
-            blockAssignments={blockAssignments}
-            setHoveredAttackerId={setHoveredAttackerId}
-        />
-        <HandArea 
-            player={opponent}
-            isOpponent={true} 
-            onCardClick={() => {}}
-            onGraveyardCardClick={() => {}}
-            isCardPlayable={() => false}
-            isCardReclaimable={() => false}
-            isCardEvokeable={() => false}
-            onEvokeClick={() => {}}
-            isCardAmplifiable={() => false}
-            onAmplifyClick={() => {}}
-            isCurrentPlayer={currentPlayerId === opponent.id}
-            onExamineCard={onExamineCard}
-            setHoveredCardInHand={setHoveredCardInHand}
-        />
-      </div>
-
-      {/* Center Bar */}
-      <div className="flex-shrink-0 border-y-2 border-vivid-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40 z-30">
-        <div className={`text-center w-full md:w-64 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-center bg-arcane-surface/80 p-2 rounded-lg border-2 shadow-lg transition-all duration-300 ${isPlayerTurn ? 'border-vivid-cyan shadow-vivid-cyan animate-pulse-glow' : 'border-arcane-border'}`}>
-            <div className='flex-1 text-left md:text-center'>
-                <div className="text-xs md:text-base font-bold text-vivid-cyan tracking-[0.2em] leading-tight">TURN {turn}</div>
-                <div className="text-sm md:text-base font-semibold text-vivid-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
-            </div>
-            <div className='flex-1 text-right md:text-center'>
-                 <div className="text-2xl md:text-5xl font-black text-white leading-none">{`${phase}`}</div>
-                 <div className="text-xs opacity-80 text-white tracking-widest leading-tight">Phase</div>
-            </div>
-        </div>
-
-        <div className="flex-grow flex items-center justify-center min-w-0 w-full">
-            {phase === TurnPhase.ROLL_SPEND && isPlayerTurn ? (
-                <DiceTray
-                    dice={dice}
-                    rollCount={rollCount}
-                    maxRolls={maxRolls}
-                    onDieClick={onDieClick}
-                    onRoll={onRoll}
-                    canRoll={rollCount < maxRolls}
-                    valuableDiceForHover={valuableDiceForHover}
-                    isHoveredCardPlayable={isHoveredCardPlayable}
-                    lastActionDetails={gameState.lastActionDetails}
-                />
-            ) : phase === TurnPhase.BLOCK ? (
-                <div className="text-center text-yellow-300 italic p-2 md:p-4 text-sm md:text-lg animate-pulse">
-                    {currentPlayerId === 0 ? "Opponent is Declaring Blockers..." : "Declare Your Blockers!"}
-                </div>
-            ) : (
-                <div className="text-center text-arcane-primary/60 italic p-2 md:p-4 text-sm md:text-lg">
-                    {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
-                </div>
-            )}
-        </div>
-        
-        <div className="w-full md:w-64 flex items-center justify-center p-2 md:p-0">
-             {phase === TurnPhase.STRIKE && isPlayerTurn ? (
-                <div className="flex gap-2 pointer-events-auto">
-                    <button
-                        onClick={() => onAdvancePhase(true)}
-                        disabled={player.units.filter(u => !u.abilities?.entrenched).length === 0}
-                        className="bg-vivid-pink text-arcane-bg px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
-                    >
-                        Strike
-                    </button>
-                    <button
-                        onClick={() => onAdvancePhase(false)}
-                        className="bg-arcane-primary text-white px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors font-bold uppercase"
-                    >
-                        Skip
-                    </button>
-                </div>
-            ) : phaseAction && (
-                <button 
-                    onClick={phaseAction.action}
-                    disabled={phaseAction.disabled}
-                    className={`${phaseAction.style || 'bg-arcane-primary hover:bg-arcane-secondary'} text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-arcane-border`}
-                >
-                    {phaseAction.text}
-                </button>
-            )}
-        </div>
-      </div>
-
-
-      {/* Player's Side */}
-       <div className="flex-1 flex flex-col">
-        <FieldArea 
-            player={player} 
-            players={players}
-            gameState={gameState}
-            onCardClick={onBoardCardClick} 
-            isOpponent={false} 
-            targetingCard={targetingCard}
-            isCardActivatable={isCardActivatable}
-            onActivateCard={onActivateCard}
-            lastActivatedCardId={lastActivatedCardId}
-            onExamineCard={onExamineCard}
-            selectedBlockerId={selectedBlockerId}
-            blockAssignments={blockAssignments}
-            setHoveredAttackerId={setHoveredAttackerId}
-        />
-        <HandArea 
-            player={player}
-            isOpponent={false} 
-            onCardClick={onHandCardClick}
-            onGraveyardCardClick={onGraveyardCardClick}
-            isCardPlayable={isCardPlayable}
-            isCardReclaimable={isCardReclaimable}
-            isCardEvokeable={isCardEvokeable}
-            onEvokeClick={onEvokeClick}
-            isCardAmplifiable={isCardAmplifiable}
-            onAmplifyClick={onAmplifyClick}
-            isCurrentPlayer={currentPlayerId === player.id}
-            onExamineCard={onExamineCard}
-            setHoveredCardInHand={setHoveredCardInHand}
-        />
-      </div>
     </div>
   );
 };

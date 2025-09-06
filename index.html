@@ -43,6 +43,7 @@
               'zoom-announce': 'zoom-in-out-fade 2.5s ease-in-out forwards',
               'modal-show': 'fade-in-scale-up 0.3s ease-out forwards',
               'fade-in-left': 'fade-in-left 0.2s ease-out forwards',
+              'fade-in-right': 'fade-in-right 0.2s ease-out forwards',
               'flash-damage': 'flash-damage 0.5s ease-in-out',
               'opponent-draw': 'opponent-draw 1.2s ease-out forwards',
             },
@@ -115,6 +116,10 @@
               },
               'fade-in-left': {
                 '0%': { opacity: '0', transform: 'translateX(-20px) scale(0.98)' },
+                '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
+              },
+              'fade-in-right': {
+                '0%': { opacity: '0', transform: 'translateX(20px) scale(0.98)' },
                 '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
               },
               'opponent-draw': {

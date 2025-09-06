@@ -1,15 +1,9 @@
 
-
-
-
-
-
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
-import PlayerInfoPanel from './components/PlayerInfoPanel';
 import CardViewerModal from './components/CardViewerModal';
 import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
@@ -32,11 +26,9 @@ const App: React.FC = () => {
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
   
-  // State for block assignments
   const [blockAssignments, setBlockAssignments] = useState<Map<string, string>>(new Map()); // blockerId -> attackerId
   const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(null);
 
-  // State for animations
   const [isOpponentDrawing, setIsOpponentDrawing] = useState(false);
 
   useEffect(() => {
@@ -47,7 +39,6 @@ const App: React.FC = () => {
             throw new Error("No card definitions loaded. The network may be down.");
         }
 
-        // Check if a valid deck can be constructed from the loaded cards.
         const cardCountsByType = cards.reduce((acc, card) => {
             acc[card.type] = (acc[card.type] || 0) + 1;
             return acc;
@@ -73,13 +64,12 @@ const App: React.FC = () => {
         } else {
             setLoadingError("An unknown error occurred while loading cards.");
         }
-        setAllCards([]); // Indicate loading is done, but failed
+        setAllCards([]);
       }
     };
     loadCards();
   }, []);
 
-  // Clear transient state on phase/turn changes
   useEffect(() => {
     setTargetingInfo(null);
     setSelectedBlockerId(null);
@@ -120,7 +110,6 @@ const App: React.FC = () => {
     if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
     
     let dice_cost: DiceCost[] | undefined = card.dice_cost;
-    // Augment has a different cost and is handled like a targeted ability
     if (card.abilities?.augment) {
         dice_cost = card.abilities.augment.cost;
     }
@@ -143,7 +132,7 @@ const App: React.FC = () => {
   const handleHandCardClick = (card: CardInGame) => {
     if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
     
-    if (targetingInfo) { // Cancel targeting
+    if (targetingInfo) {
         setTargetingInfo(null);
         return;
     }
@@ -155,7 +144,6 @@ const App: React.FC = () => {
         return;
     }
     
-    // Play card without target
     dispatch({ type: 'PLAY_CARD', payload: { card } });
   };
   
@@ -169,47 +157,39 @@ const App: React.FC = () => {
   const handleGraveyardCardClick = (card: CardInGame) => {
       if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
       if (isCardReclaimable(card)) {
-// FIX: Corrected `isReclaimed` option name, which now matches the updated action type in `useGameState`.
           dispatch({ type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } });
       }
   }
 
   const handleBoardCardClick = (card: CardInGame) => {
-    // --- BLOCKING LOGIC ---
     const isPlayerDefender = state.phase === TurnPhase.BLOCK && state.currentPlayerId === 1;
     if (isPlayerDefender) {
         const isOwnUnit = state.players[0].units.some(u => u.instanceId === card.instanceId);
         const isAttacker = state.combatants?.some(c => c.attackerId === card.instanceId) ?? false;
         
-        if (isOwnUnit && !card.abilities?.entrenched) { // Clicked on one of my units
+        if (isOwnUnit && !card.abilities?.entrenched) {
             if (selectedBlockerId === card.instanceId) {
-                // Clicked the selected blocker again -> deselect it
                 setSelectedBlockerId(null);
             } else {
-                // Select this unit as the blocker. If it was already blocking someone else,
-                // that assignment is broken and it's now ready to be reassigned.
                 const newAssignments = new Map(blockAssignments);
-                newAssignments.delete(card.instanceId); // Remove previous assignment if it exists
+                newAssignments.delete(card.instanceId);
                 setBlockAssignments(newAssignments);
                 setSelectedBlockerId(card.instanceId);
             }
-        } else if (isAttacker && selectedBlockerId) { // Clicked on an attacker with a blocker selected
+        } else if (isAttacker && selectedBlockerId) {
             const newAssignments = new Map(blockAssignments);
-            // An attacker can only be blocked by one unit. So if another unit was blocking this attacker, un-assign it.
             newAssignments.forEach((attackerId, blockerId) => {
                 if (attackerId === card.instanceId) {
                     newAssignments.delete(blockerId);
                 }
             });
-            // Assign the currently selected unit to block this attacker
             newAssignments.set(selectedBlockerId, card.instanceId);
             setBlockAssignments(newAssignments);
-            setSelectedBlockerId(null); // Clear selection after assignment
+            setSelectedBlockerId(null);
         }
         return;
     }
 
-    // --- TARGETING LOGIC ---
     if (state.currentPlayerId !== 0 || !targetingInfo) return;
     
     const { card: sourceCard, isAmplify } = targetingInfo;
@@ -263,14 +243,13 @@ const App: React.FC = () => {
   }
    useEffect(() => {
         if (lastActivatedCardId) {
-            const timer = setTimeout(() => setLastActivatedCardId(null), 1000); // Animation duration
+            const timer = setTimeout(() => setLastActivatedCardId(null), 1000);
             return () => clearTimeout(timer);
         }
     }, [lastActivatedCardId]);
 
   const handleEvokeClick = (card: CardInGame) => {
     if(isCardEvokeable(card)) {
-// FIX: Corrected `isEvoked` option name, which now matches the updated action type in `useGameState`.
         dispatch({ type: 'PLAY_CARD', payload: { card, options: { isEvoked: true } } });
     }
   }
@@ -286,8 +265,7 @@ const App: React.FC = () => {
 
   const handleAdvancePhase = (strike: boolean = false) => {
       if(state.currentPlayerId === 0) {
-        setTargetingInfo(null); // Cancel targeting on phase advance
-// FIX: Corrected payload key from `strike` to `strike` to match the updated action type in `useGameState`.
+        setTargetingInfo(null);
         dispatch({ type: 'ADVANCE_PHASE', payload: { strike } });
       }
   };
@@ -298,6 +276,11 @@ const App: React.FC = () => {
 
   const showConfirmation = (title: string, message: string, onConfirm: () => void) => {
       setConfirmation({ title, message, onConfirm });
+  };
+  
+  const handleZoneClick = (player: Player, zone: 'graveyard' | 'oblivion') => {
+    const title = `${player.name}'s ${zone.charAt(0).toUpperCase() + zone.slice(1)}`;
+    setViewingZone({ player, zone, title });
   };
 
   const handleConfirm = () => {
@@ -311,20 +294,17 @@ const App: React.FC = () => {
       setConfirmation(null);
   };
 
-  // Main game loop and AI logic
   useEffect(() => {
     if (state.winner || !state.isProcessing || state.turn === 0) return;
 
     let timeoutId: number | undefined;
     
     const isPlayerCurrent = state.currentPlayerId === 0;
-    // AI needs to act if it's its turn OR if it's the BLOCK phase and the player is attacking
     const isAiTurnToAct = !isPlayerCurrent || (state.phase === TurnPhase.BLOCK && isPlayerCurrent) || state.phase === TurnPhase.AI_MULLIGAN;
 
-    // Trigger opponent draw animation
     if (state.isProcessing && state.phase === TurnPhase.DRAW && state.currentPlayerId === 1) {
         setIsOpponentDrawing(true);
-        setTimeout(() => setIsOpponentDrawing(false), 1200); // Animation duration
+        setTimeout(() => setIsOpponentDrawing(false), 1200);
     }
 
     if (isAiTurnToAct) {
@@ -335,20 +315,14 @@ const App: React.FC = () => {
                 dispatch(aiAction);
             }, randomDelay);
         } else {
-            // Failsafe: If AI computes no action, advance the phase to prevent a soft lock.
             console.error("AI returned no action. Advancing phase to prevent stall.");
             timeoutId = window.setTimeout(() => {
                 dispatch({ type: 'ADVANCE_PHASE' });
             }, 1000);
         }
-    } else if (state.phase === TurnPhase.START) {
-        // Auto-advance start phase for any player
-        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1500);
-    } else if (isPlayerCurrent && state.phase === TurnPhase.DRAW) {
-        // Auto-advance draw phase for the player
+    } else if (state.phase === TurnPhase.START || (isPlayerCurrent && state.phase === TurnPhase.DRAW)) {
         timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1500);
     } else if (state.isProcessing) {
-        // Unlock UI for player if it's not the AI's turn to act but state is processing
         dispatch({ type: 'AI_ACTION' });
     }
 
@@ -367,8 +341,6 @@ const App: React.FC = () => {
   if (view === 'howToPlay') {
     return <HowToPlay onPlay={handleStartGame} />;
   }
-
-  const isPlayerCurrent = state.currentPlayerId === 0;
 
   return (
     <main className="relative w-screen h-screen font-sans bg-arcane-bg">
@@ -399,31 +371,14 @@ const App: React.FC = () => {
         selectedBlockerId={selectedBlockerId}
         blockAssignments={blockAssignments}
         isOpponentDrawing={isOpponentDrawing}
+        onZoneClick={handleZoneClick}
       />
 
-      {/* HUD Elements */}
       <ActionHistory history={state.actionHistory} players={state.players} />
-
-      <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 h-36 md:h-40 z-10">
-        <PlayerInfoPanel 
-            player={state.players[0]} 
-            isCurrent={isPlayerCurrent}
-            onZoneClick={(zone) => setViewingZone({ player: state.players[0], zone, title: `Your ${zone}`})}
-        />
-      </div>
-
-      <div className="absolute top-2 right-2 md:top-4 md:right-4 h-36 md:h-40 z-10">
-        <PlayerInfoPanel 
-            player={state.players[1]} 
-            isCurrent={!isPlayerCurrent} 
-            isOpponent={true}
-            onZoneClick={(zone) => setViewingZone({ player: state.players[1], zone, title: `Opponent's ${zone}`})}
-        />
-      </div>
       
       <button 
         onClick={() => setView('howToPlay')} 
-        className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-xl md:text-2xl font-black hover:bg-arcane-secondary transition-colors z-20 border-2 border-arcane-border"
+        className="absolute bottom-4 right-4 w-12 h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-arcane-secondary transition-colors z-20 border-2 border-arcane-border"
         aria-label="How to Play"
       >
         ?
