@@ -36,7 +36,7 @@ const App: React.FC = () => {
       try {
         const cards = await fetchCardDefinitions();
         if (cards.length === 0) {
-            throw new Error("No card definitions loaded. The network may be down.");
+            throw new Error("No card definitions were found in the local library.");
         }
 
         const cardCountsByType = cards.reduce((acc, card) => {

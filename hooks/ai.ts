@@ -8,12 +8,10 @@ import { findValuableDiceForCost } from '../game/utils';
 type AIAction = 
     | { type: 'ROLL_DICE' }
     | { type: 'TOGGLE_DIE_KEPT', payload: { id: number, keep: boolean } }
-// FIX: Updated options to use `isEvoked` and `isReclaimed` to match game logic.
     | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isEvoked?: boolean; isReclaimed?: boolean; isAmplified?: boolean; isAugmented?: boolean; } } }
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
     | { type: 'AI_MULLIGAN', payload: { mulligan: boolean } }
     | { type: 'DECLARE_BLOCKS'; payload: { assignments: { [blockerId: string]: string } } }
-// FIX: Renamed `assault` to `strike` in the payload.
     | { type: 'ADVANCE_PHASE', payload?: { strike: boolean } }
     | { type: 'AI_ACTION' };
 
@@ -46,7 +44,7 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
     if (unit.abilities?.immutable) threat += 15; // Extremely hard to remove
     if (unit.abilities?.venomous) threat += 8; // Can kill anything it touches
     if (unit.abilities?.executioner) threat += 6;
-    if (unit.abilities?.haunt) threat += unit.abilities.haunt; // Direct command loss on death
+    if (unit.abilities?.haunt) threat += unit.abilities.haunt; // Direct morale loss on death
     if (unit.abilities?.stealth || unit.abilities?.breach) threat += 4; // Harder to interact with
     if (unit.abilities?.shield) threat += 3; // One-time protection is good
     if (unit.abilities?.entrenched) threat += durability * 1.5; // Defensive threat, values durability more.
@@ -76,7 +74,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     let score = 0;
 
     // --- SITUATIONAL AWARENESS ---
-// FIX: Renamed `aiPlayer.command` to `aiPlayer.morale`.
     const isLowHealth = aiPlayer.morale < 10;
     const opponentBoardThreat = humanPlayer.units.reduce((sum, u) => sum + getUnitThreat(u, humanPlayer, aiPlayer), 0);
     const opponentHasStrongBoard = opponentBoardThreat > 10 || humanPlayer.units.length > 2;
@@ -100,8 +97,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         if (card.abilities?.voidTarget) {
             score += targetThreat * 2.5; // Voiding is premium removal
         }
-        if (card.abilities?.corrupt) {
-            score += Math.min(getEffectiveStats(target, humanPlayer).strength, card.abilities.corrupt) * 2.5;
+        if (card.abilities?.corrupt || card.abilities?.weaken) {
+            const reduction = card.abilities.corrupt || card.abilities.weaken || 0;
+            score += Math.min(getEffectiveStats(target, humanPlayer).strength, reduction) * 2.5;
         }
         if (card.abilities?.recall && target.damage > 0) {
             // Higher score for saving a valuable/damaged unit. Target here is friendly.
@@ -115,7 +113,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     
     if (card.abilities?.barrage && humanPlayer.units.length > 0) {
         const potentialDamage = humanPlayer.units.reduce((acc, unit) => {
-// FIX: Renamed `hasAssaulted` to `hasStruck`.
             if (unit.abilities?.immutable || (unit.abilities?.breach && !unit.hasStruck)) return acc;
             return acc + (card.abilities?.barrage || 0);
         }, 0);
@@ -127,7 +124,7 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     if (card.abilities?.stagnate) score += 25;
     if (card.abilities?.discard) score += card.abilities.discard * Math.min(humanPlayer.hand.length, 4) * 1.5;
     if (card.abilities?.purge && humanPlayer.graveyard.length > 1) score += Math.min(card.abilities.purge, humanPlayer.graveyard.length) * 2.5;
-    if (card.abilities?.sabotage) score += 12;
+    if (card.abilities?.disrupt) score += 12;
 
 
     // --- IMMEDIATE ADVANTAGE ---
@@ -152,6 +149,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         }
         score += drawScore;
     }
+    if (card.abilities?.gain_morale) {
+        score += card.abilities.gain_morale * 1.2;
+    }
    
     // --- DEFENSIVE / UTILITY ---
     if (card.abilities?.fortify || (card.type === CardType.UNIT && (card.abilities?.shield || card.abilities?.entrenched))) {
@@ -167,7 +167,7 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     if (card.abilities?.executioner) score += 5;
     if (card.abilities?.venomous && card.abilities?.snipe) score += 10;
     if (card.abilities?.immutable) score += 8;
-    if (card.abilities?.fateweave) score += 5;
+    if (card.abilities?.prophecy || card.abilities?.fateweave) score += 5;
     if (card.abilities?.resonance) score += 5;
     if (card.abilities?.martyrdom) score += 4;
     if (card.abilities?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.abilities.overload.per || 2)) * card.abilities.overload.amount * 1.2;
@@ -198,7 +198,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     }
 
     // Base value
-// FIX: Renamed `commandNumber` to `moraleValue`.
     score += card.moraleValue ?? 0;
     
     // Drawbacks
@@ -373,7 +372,6 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 if (Object.keys(assignments).includes(blocker.instanceId)) continue;
 
                 let score = 0;
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase` in getEffectiveStats context.
                 const { strength: attackerStrength } = getEffectiveStats(attacker, humanPlayer, { isStrikePhase: true });
                 const { strength: blockerStrength, durability: blockerDurability } = getEffectiveStats(blocker, aiPlayer);
 
@@ -408,16 +406,13 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const assignedAttackers = new Set(Object.values(assignments));
         for (const attacker of attackers) {
             if (!assignedAttackers.has(attacker.instanceId)) {
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase`.
                 unblockedDamage += getEffectiveStats(attacker, humanPlayer, { isStrikePhase: true }).strength;
             }
         }
 
-// FIX: Renamed `aiPlayer.command` to `aiPlayer.morale`.
         if (unblockedDamage >= aiPlayer.morale) {
             const remainingBlockers = availableBlockers.filter(b => !Object.keys(assignments).includes(b.instanceId));
             const remainingAttackers = attackers.filter(a => !assignedAttackers.has(a.instanceId));
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase`.
             remainingAttackers.sort((a,b) => getEffectiveStats(b, humanPlayer, {isStrikePhase: true}).strength - getEffectiveStats(a, humanPlayer, {isStrikePhase: true}).strength);
             
             // Assign remaining blockers to the strongest remaining attackers.
@@ -462,7 +457,6 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 const effect = card.abilities.activate.effect.type;
                 let score = 0;
                 if (effect === 'reconstruct' && card.type === CardType.UNIT && card.damage > 0) score = 15 + getUnitThreat(card, aiPlayer, humanPlayer);
-// FIX: Renamed `aiPlayer.command` to `aiPlayer.morale`.
                 if (effect === 'fortify_command' && aiPlayer.morale < 12) score = 18;
                 if (effect === 'spike' && availableDice.some(d => d.value < 6)) score = 8;
 
@@ -533,7 +527,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                         amplifiedCard.abilities.damage = card.abilities.amplify.effect.amount;
                         amplifiedCard.abilities.snipe = card.abilities.amplify.effect.amount;
                     }
-                    const needsTarget = card.abilities.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE' || card.abilities.amplify.effect?.type === 'CORRUPT';
+                    const needsTarget = card.abilities.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE' || card.abilities.amplify.effect?.type === 'CORRUPT' || card.abilities.amplify.effect?.type === 'WEAKEN';
 
                     if (needsTarget) {
                         for (const target of allPossibleTargets) {
@@ -639,7 +633,6 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return { type: 'ADVANCE_PHASE' };
     }
     
-// FIX: Renamed `TurnPhase.ASSAULT` to `TurnPhase.STRIKE`.
     if (phase === TurnPhase.STRIKE) {
         const unitsThatCanStrike = aiPlayer.units.filter(u => !u.abilities?.entrenched);
         if (unitsThatCanStrike.length === 0) {
@@ -647,12 +640,10 @@ export const getAiAction = (state: GameState): AIAction | null => {
         }
     
         const totalAIStrikeThreat = unitsThatCanStrike.reduce((sum, unit) => {
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase`.
             return sum + getEffectiveStats(unit, aiPlayer, { isStrikePhase: true }).strength;
         }, 0);
     
         // If attack is lethal, always take it.
-// FIX: Renamed `humanPlayer.command` to `humanPlayer.morale`.
         if (totalAIStrikeThreat >= humanPlayer.morale) {
             return { type: 'ADVANCE_PHASE', payload: { strike: true } };
         }

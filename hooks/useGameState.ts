@@ -1,6 +1,5 @@
 
 
-
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -13,12 +12,10 @@ type Action =
   | { type: 'START_GAME'; payload: { allCards: CardDefinition[] } }
   | { type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan: boolean } }
   | { type: 'AI_MULLIGAN'; payload: { mulligan: boolean } }
-// FIX: Renamed `assault` to `strike` to match the updated TurnPhase enum.
   | { type: 'ADVANCE_PHASE'; payload?: { strike: boolean } }
   | { type: 'DECLARE_BLOCKS'; payload: { assignments: { [blockerId: string]: string } } }
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
-// FIX: Renamed `isChanneled` to `isEvoked` and `isScavenged` to `isReclaimed` to align with game terminology.
   | { type: 'PLAY_CARD'; payload: { card: CardInGame, targetInstanceId?: string, options?: { isEvoked?: boolean; isReclaimed?: boolean; isAmplified?: boolean; isAugmented?: boolean; } } }
   | { type: 'ACTIVATE_ABILITY'; payload: { cardInstanceId: string } }
   | { type: 'AI_ACTION' };
@@ -31,7 +28,6 @@ const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): 
   return {
     id,
     name,
-// FIX: Replaced `command` with `morale` to match the updated Player type definition.
     morale: 20,
     deck: shuffledDeck,
     hand: [],
@@ -39,13 +35,10 @@ const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): 
     locations: [],
     artifacts: [],
     graveyard: [],
-// FIX: Replaced `void` with `oblivion` to match the updated Player type.
     oblivion: [],
-// FIX: Replaced `riftwalkZone` with `vanishZone` as per the new Player type.
     vanishZone: [],
     diceModifier: 0,
     shieldUsedThisTurn: false,
-// FIX: Replaced `isCommandFortified` with `isMoraleFortified` according to the Player type.
     isMoraleFortified: false,
     skipNextDrawPhase: false,
     fatigueCounter: 0,
@@ -73,7 +66,6 @@ const drawCards = (player: Player, count: number): { player: Player, drawnToHand
               damage: 0,
               strengthModifier: 0,
               durabilityModifier: 0,
-// FIX: Replaced `hasAssaulted` with `hasStruck` to match the CardInGame type definition.
               hasStruck: false,
               attachments: [],
             };
@@ -412,14 +404,13 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
     const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
     if (isOpponentTarget && targetingCard.type === CardType.EVENT) {
         if (targetCard.abilities?.stealth) return false;
-// FIX: Changed `hasAssaulted` to `hasStruck` to match the updated CardInGame type.
         if (targetCard.abilities?.breach && !targetCard.hasStruck) return false;
     }
 
     // --- Ability-based Targeting Rules ---
     const abilities = targetingCard.abilities;
     // Stricter rules: these effects almost always target opponents.
-    const mustTargetOpponent = abilities?.corrupt || abilities?.voidTarget;
+    const mustTargetOpponent = abilities?.corrupt || abilities?.voidTarget || abilities?.weaken;
     // Stricter rules: these effects almost always target friendlies.
     const mustTargetFriendly = abilities?.recall || abilities?.augment;
 
@@ -476,7 +467,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     };
     
     const damagePlayer = (player: Player, amount: number, source: string, type: 'damage' | 'loss' = 'damage') => {
-// FIX: Renamed `isCommandFortified` to `isMoraleFortified` to match the Player type.
         if (player.isMoraleFortified && type === 'damage') {
             log(`${player.name}'s Morale is fortified and takes no damage from ${source}!`);
             return;
@@ -488,7 +478,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 .filter(l => l.abilities?.fortify)
                 .reduce((max, l) => Math.max(max, l.abilities!.fortify!.value), 0);
 
-// FIX: Renamed `player.command` to `player.morale` in multiple places.
             if (fortifyValue > 0 && player.morale - amount < fortifyValue) {
                 const prevented = player.morale - fortifyValue;
                 player.morale = fortifyValue;
@@ -562,7 +551,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
                         player.units = player.units.filter(u => u.instanceId !== destroyedUnit.instanceId);
 
-// FIX: Replaced `isScavenged` with `isReclaimed` and `void` with `oblivion`.
                         if (destroyedUnit.isReclaimed || destroyedUnit.isToken) {
                             player.oblivion.push(destroyedUnit);
                             log(`${destroyedUnit.name} was destroyed and sent to Oblivion (${destroyedUnit.isToken ? 'Token' : 'Reclaimed'}).`);
@@ -578,7 +566,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         let standardPenaltyApplies = true;
 
                         if (destroyedUnit.abilities?.bounty && player.id !== sourcePlayerId) {
-// FIX: Replaced `opponent.command` with `opponent.morale`.
                             opponent.morale += destroyedUnit.abilities.bounty.amount;
                             log(`${opponent.name} gains ${destroyedUnit.abilities.bounty.amount} Morale from ${destroyedUnit.name}'s Bounty.`);
                         }
@@ -614,14 +601,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         } 
                         
                         if (standardPenaltyApplies && player.id !== sourcePlayerId) {
-// FIX: Replaced `commandNumber` with `moraleValue`.
                             damagePlayer(player, destroyedUnit.moraleValue ?? 0, `${destroyedUnit.name}'s destruction`, 'loss');
                         }
                     }
                 } while(destroyedInPass);
             }
             
-// FIX: Replaced `command` with `morale` for win condition check.
             if (newState.players[0].morale <= 0) newState.winner = newState.players[1];
             if (newState.players[1].morale <= 0) newState.winner = newState.players[0];
             if (newState.winner) loopAgain = false;
@@ -638,17 +623,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         opponent.units = opponent.units.filter(u => u.abilities?.immutable);
         player.units = player.units.filter(u => u.instanceId === sourceCard.instanceId || u.abilities?.immutable);
         
-// FIX: Replaced `player.void` with `player.oblivion`.
         playerUnitsToVoid.forEach(u => {
           player.oblivion.push(u);
           log(`${u.name} is voided.`);
         });
 
         opponentUnitsToVoid.forEach(u => {
-// FIX: Replaced `opponent.void` with `opponent.oblivion`.
           opponent.oblivion.push(u);
           log(`${u.name} is voided.`);
-// FIX: Replaced `u.commandNumber` with `u.moraleValue`.
           damagePlayer(opponent, u.moraleValue ?? 0, `${u.name}'s voiding`, 'loss');
         });
     };
@@ -671,7 +653,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if (player.deck.length > 0) {
                 const topCardDef = player.deck[player.deck.length - 1]; // Peek at the top card
                 log(`${card.name}'s Resonance reveals ${topCardDef.name}.`);
-// FIX: Replaced `commandNumber` with `moraleValue`.
                 if ((topCardDef.moraleValue ?? 0) >= card.abilities.resonance.value) {
                     log(`Resonance successful!`);
                     const effect = card.abilities.resonance.effect;
@@ -697,9 +678,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             opponent.skipNextDrawPhase = true;
             log(`${opponent.name} will skip their next Draw Phase due to Stagnate!`);
         }
-         if(card.abilities?.fateweave && newState.rollCount < newState.maxRolls) {
-            newState.maxRolls += card.abilities.fateweave;
-            log(`${player.name} gains an extra roll from Fateweave!`);
+        if((card.abilities?.fateweave || card.abilities?.prophecy) && newState.rollCount < newState.maxRolls) {
+            const amount = card.abilities.fateweave || card.abilities.prophecy || 0;
+            newState.maxRolls += amount;
+            log(`${player.name} gains an extra roll from ${card.abilities.fateweave ? 'Fateweave' : 'Prophecy'}!`);
         }
         if(card.abilities?.foresight && player.deck.length > 0) {
             const foresightValue = card.abilities.foresight.value || 1;
@@ -725,7 +707,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         if (card.abilities?.barrage) {
             log(`${card.name}'s Barrage deals ${card.abilities.barrage} damage to all enemy units!`);
             opponent.units.forEach(unit => {
-// FIX: Replaced `hasAssaulted` with `hasStruck`.
                 if (unit.abilities?.breach && !unit.hasStruck) {
                     log(`${unit.name} is protected from ${card.name}'s Barrage by Breach.`);
                     return; 
@@ -739,15 +720,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 if (opponent.graveyard.length > 0) {
                     const randomIndex = Math.floor(Math.random() * opponent.graveyard.length);
                     const purgedCard = opponent.graveyard.splice(randomIndex, 1)[0];
-// FIX: Replaced `opponent.void` with `opponent.oblivion`.
                     opponent.oblivion.push(purgedCard);
                     log(`Voided ${purgedCard.name}.`);
                 }
             }
         }
-        if (card.abilities?.sabotage) {
-            opponent.diceModifier -= card.abilities.sabotage;
-            log(`${opponent.name} will roll ${card.abilities.sabotage} fewer dice next turn!`);
+        if (card.abilities?.disrupt) {
+            opponent.diceModifier -= card.abilities.disrupt;
+            log(`${opponent.name} will roll ${card.abilities.disrupt} fewer dice next turn!`);
         }
         if (card.abilities?.warp) {
             newState.extraTurns += 1;
@@ -810,8 +790,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               log(`You chose to mulligan.`);
               logAction('Mulliganed their hand.');
               const handToReturn = player.hand;
-              const deckWithReturnedCards = shuffle([...player.deck, ...handToReturn]);
-              player.deck = deckWithReturnedCards;
+              player.deck.push(...handToReturn);
+              player.deck = shuffle(player.deck);
               player.hand = [];
               const { player: p1 } = drawCards(player, 3);
               player = p1;
@@ -837,8 +817,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               log(`CPU chose to mulligan.`);
               logAction('Mulliganed their hand.');
               const handToReturn = ai.hand;
-              const deckWithReturnedCards = shuffle([...ai.deck, ...handToReturn]);
-              ai.deck = deckWithReturnedCards;
+              ai.deck.push(...handToReturn);
+              ai.deck = shuffle(ai.deck);
               ai.hand = [];
               const { player: p2 } = drawCards(ai, 3);
               ai = p2;
@@ -885,12 +865,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         let actionType: LastActionType = LastActionType.PLAY;
         let costConfig = { dice_cost: cardToPlay.dice_cost, abilities: cardToPlay.abilities };
         
-// FIX: Replaced `isChanneled` and `LastActionType.CHANNEL` with `isEvoked` and `LastActionType.EVOKE`.
         if (options?.isEvoked) {
             actionType = LastActionType.EVOKE;
             costConfig = { dice_cost: cardToPlay.abilities.evoke.cost, abilities: cardToPlay.abilities };
         }
-// FIX: Replaced `isScavenged` and `LastActionType.SCAVENGE` with `isReclaimed` and `LastActionType.RECLAIM`.
         if (options?.isReclaimed) {
             actionType = LastActionType.RECLAIM;
             costConfig = { dice_cost: cardToPlay.abilities.reclaim.cost, abilities: cardToPlay.abilities };
@@ -940,16 +918,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         const diceCostString = costCheck.diceToSpend.map(d => d.value).sort().join(', ');
         
         // Handle immediate morale gain
-        if (cardToPlay.abilities?.gain_command) {
-// FIX: `gain_command` ability should affect `morale`.
-            currentPlayer.morale += cardToPlay.abilities.gain_command;
-            log(`${currentPlayer.name} gains ${cardToPlay.abilities.gain_command} morale from ${cardToPlay.name}.`);
+        if (cardToPlay.abilities?.gain_morale) {
+            currentPlayer.morale += cardToPlay.abilities.gain_morale;
+            log(`${currentPlayer.name} gains ${cardToPlay.abilities.gain_morale} morale from ${cardToPlay.name}.`);
         }
         
         // Remove card from its source location
         if(options?.isReclaimed) {
           currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToPlay.instanceId);
-// FIX: Changed `isScavenged` to `isReclaimed`.
           cardToPlay.isReclaimed = true;
           log(`${currentPlayer.name} Reclaimed ${cardToPlay.name} (cost: ${diceCostString}).`);
         } else {
@@ -1001,7 +977,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             } else {
                 currentPlayer.graveyard.push(cardToPlay); // Fizzle if target is gone
             }
-// FIX: Renamed `riftwalk` ability to `vanish` and `riftwalkZone` to `vanishZone`.
         } else if (cardToPlay.abilities?.vanish) {
             log(`${cardToPlay.name} Vanishes and will return in ${cardToPlay.abilities.vanish.turns} turn(s).`);
             currentPlayer.vanishZone.push({ card: cardToPlay, turnsRemaining: cardToPlay.abilities.vanish.turns });
@@ -1064,17 +1039,16 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 log(`Chain Reaction triggers ${nextCardInChain.name}!`);
                                 currentPlayer.graveyard.push(nextCardInChain);
                                 
-                                if (nextCardInChain.abilities?.gain_command) {
-// FIX: Replaced `command` with `morale`.
-                                    currentPlayer.morale += nextCardInChain.abilities.gain_command;
-                                    log(`${currentPlayer.name} gains ${nextCardInChain.abilities.gain_command} morale from chained ${nextCardInChain.name}.`);
+                                if (nextCardInChain.abilities?.gain_morale) {
+                                    currentPlayer.morale += nextCardInChain.abilities.gain_morale;
+                                    log(`${currentPlayer.name} gains ${nextCardInChain.abilities.gain_morale} morale from chained ${nextCardInChain.name}.`);
                                 }
                                 
                                 const arrivalResultChained = resolveArrivalAbilities(nextCardInChain, currentPlayer, opponentPlayer, false);
                                 currentPlayer = arrivalResultChained.player;
                                 opponentPlayer = arrivalResultChained.opponent;
 
-                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe || nextCardInChain.abilities.corrupt)) {
+                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe || nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken)) {
                                     const validTargets = opponentPlayer.units.filter(u => !u.abilities?.immutable && isCardTargetable(nextCardInChain, u, currentPlayer, opponentPlayer));
                                     if (validTargets.length > 0) {
                                         const randomTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
@@ -1082,13 +1056,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                         if (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe) {
                                             dealDamageToUnit(randomTarget, nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe, nextCardInChain, opponentPlayer);
                                         }
-                                        if (nextCardInChain.abilities.corrupt) {
-                                            if (randomTarget.abilities?.immutable) {
-                                                log(`${randomTarget.name} is Immutable and cannot be corrupted.`);
-                                            } else {
-                                                randomTarget.strengthModifier -= nextCardInChain.abilities.corrupt;
-                                                log(`${randomTarget.name} gets -${nextCardInChain.abilities.corrupt} Strength.`);
-                                            }
+                                        if (nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken) {
+                                             const amount = nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken;
+                                             randomTarget.strengthModifier -= amount;
+                                             log(`${randomTarget.name} gets -${amount} Strength.`);
                                         }
                                     }
                                 }
@@ -1098,9 +1069,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 }
                             } else {
                                 log(`Chain reaction fizzles: ${nextCardInChain.name} is not an event and is returned to the deck.`);
-// FIX: Replaced `commandNumber` with `moraleValue`.
                                 const { id, name, type, dice_cost, strength, durability, moraleValue, text, abilities, imageUrl, rarity, flavor_text, card_set, author } = nextCardInChain;
-// FIX: Replaced `commandNumber` with `moraleValue` in the created CardDefinition object.
                                 const originalCardDef: CardDefinition = { id, name, type, dice_cost, strength, durability, moraleValue, text, abilities, imageUrl, rarity, flavor_text, card_set, author };
                                 currentPlayer.deck.push(originalCardDef);
                             }
@@ -1139,19 +1108,23 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
         
-        if (target && targetOwner) {
+        // Fizzle check
+        if(cardToPlay.abilities?.requiresTarget && !target) {
+            log(`${cardToPlay.name}'s target is gone. The effect fizzles.`);
+            if(cardToPlay.type !== CardType.EVENT) {
+                 currentPlayer.graveyard.push(cardToPlay); // Non-events go to grave if their target is gone
+            }
+        } else if (target && targetOwner) {
             if (cardToPlay.abilities?.recall) {
                 if (targetOwner.id === currentPlayer.id) {
                     const targetIndex = currentPlayer.units.findIndex(u => u.instanceId === target.instanceId);
                     if (targetIndex > -1) {
                         const recalledUnit = currentPlayer.units.splice(targetIndex, 1)[0];
                         if (recalledUnit.isToken) {
-// FIX: Replaced `void` with `oblivion`.
                             currentPlayer.oblivion.push(recalledUnit);
                             log(`${recalledUnit.name} was a Token and is sent to Oblivion when Recalled.`);
                         } else {
                             log(`${recalledUnit.name} is Recalled to ${currentPlayer.name}'s hand.`);
-// FIX: Replaced `isScavenged` with `isReclaimed`.
                              if (recalledUnit.isReclaimed) {
                                 log('It retains its Reclaimed property.');
                             }
@@ -1170,7 +1143,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                   log(`${target.name} is Immutable and cannot be voided.`);
               } else {
                   targetOwner.units = targetOwner.units.filter(u => u.instanceId !== targetInstanceId);
-// FIX: Replaced `void` with `oblivion`.
                   targetOwner.oblivion.push(target);
                   log(`${target.name} was voided by ${cardToPlay.name}.`);
               }
@@ -1184,19 +1156,22 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 }
                 dealDamageToUnit(target, damage, cardToPlay, targetOwner);
             }
-            if (cardToPlay.abilities?.corrupt) {
+             if (cardToPlay.abilities?.corrupt || cardToPlay.abilities?.weaken) {
                 if (target.abilities?.immutable) {
-                  log(`${target.name} is Immutable and cannot be corrupted.`);
+                  log(`${target.name} is Immutable and cannot be affected.`);
                 } else {
-                  target.strengthModifier -= cardToPlay.abilities.corrupt;
-                  log(`${target.name} gets -${cardToPlay.abilities.corrupt} Strength.`);
+                  const amount = cardToPlay.abilities.corrupt || cardToPlay.abilities.weaken;
+                  target.strengthModifier -= amount;
+                  log(`${target.name} gets -${amount} Strength.`);
                 }
             }
-            if (options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'CORRUPT') {
+            const amplifiedCorruptEffect = options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'CORRUPT';
+            const amplifiedWeakenEffect = options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'WEAKEN';
+            if (amplifiedCorruptEffect || amplifiedWeakenEffect) {
                 log(`${cardToPlay.name} is Amplified!`);
                 const corruptAmount = cardToPlay.abilities.amplify.effect.amount;
                 if (target.abilities?.immutable) {
-                  log(`${target.name} is Immutable and cannot be corrupted.`);
+                  log(`${target.name} is Immutable and cannot be affected.`);
                 } else {
                   target.strengthModifier -= corruptAmount;
                   log(`${target.name} gets -${corruptAmount} Strength.`);
@@ -1205,7 +1180,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         }
         
         checkForDestroyedUnits(currentPlayer.id, cardToPlay);
-// FIX: Replaced `command` with `morale` for win condition check.
         if (opponentPlayer.morale <= 0) newState.winner = currentPlayer;
 
         newState.players[newState.currentPlayerId] = currentPlayer;
@@ -1242,7 +1216,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         switch(card.abilities.activate.effect.type) {
             case 'fortify_command':
-// FIX: Renamed `isCommandFortified` to `isMoraleFortified`.
                 currentPlayer.isMoraleFortified = true;
                 log(`${currentPlayer.name}'s Morale is fortified until their next turn!`);
                 break;
@@ -1290,9 +1263,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             const attacker = attackerPlayer.units.find(u => u.instanceId === combatant.attackerId);
             if (!attacker) return;
 
-// FIX: Renamed `hasAssaulted` to `hasStruck`.
             attacker.hasStruck = true;
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase` in getEffectiveStats context.
             const { strength: attackerStrength } = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
             
             const blockerId = Object.keys(assignments).find(key => assignments[key] === combatant.attackerId);
@@ -1311,7 +1282,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 // Unblocked
                 unblockedDamage += attackerStrength;
                 if (attacker.abilities?.siphon) {
-// FIX: Replaced `attackerPlayer.command` with `attackerPlayer.morale`.
                     attackerPlayer.morale += attacker.abilities.siphon;
                     log(`${attackerPlayer.name} gains ${attacker.abilities.siphon} Morale from ${attacker.name}'s Siphon.`);
                 }
@@ -1327,7 +1297,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     
         checkForDestroyedUnits(attackerPlayer.id);
     
-// FIX: Replaced `command` with `morale` for win condition check.
         if (defenderPlayer.morale <= 0) newState.winner = attackerPlayer;
     
         newState.combatants = null;
@@ -1343,15 +1312,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         switch(newState.phase) {
           case TurnPhase.START:
-// FIX: Renamed `isCommandFortified` to `isMoraleFortified`.
             currentPlayer.isMoraleFortified = false;
             currentPlayer.units.forEach(u => {
-// FIX: Renamed `hasAssaulted` to `hasStruck`.
                 u.hasStruck = false; // Reset for Breach keyword
                 u.shieldUsedThisTurn = false; // Reset Shield
             });
             // Vanish returns
-// FIX: Renamed `riftwalkZone` to `vanishZone`.
             const returningFromVanish = currentPlayer.vanishZone.filter(rw => {
                 rw.turnsRemaining--;
                 return rw.turnsRemaining <= 0;
@@ -1375,18 +1341,16 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     currentPlayer = arrivalResult.player;
                     opponentPlayer = arrivalResult.opponent;
                 }
-// FIX: Renamed `riftwalkZone` to `vanishZone`.
                 currentPlayer.vanishZone = currentPlayer.vanishZone.filter(rw => rw.turnsRemaining > 0);
             }
 
-            // Generator effects
-            const cardsWithGenerator = [...currentPlayer.locations, ...currentPlayer.artifacts];
-            cardsWithGenerator.forEach(cardWithGen => {
-                if (cardWithGen.abilities?.generator) {
-                    const effect = cardWithGen.abilities.generator;
-                    log(`${cardWithGen.name}'s Generator ability triggers.`);
-                    if(effect.type === 'GAIN_COMMAND') {
-// FIX: Replaced `command` with `morale`.
+            // Blessing effects
+            const cardsWithBlessing = [...currentPlayer.locations, ...currentPlayer.artifacts];
+            cardsWithBlessing.forEach(cardWithBlessing => {
+                if (cardWithBlessing.abilities?.blessing) {
+                    const effect = cardWithBlessing.abilities.blessing.effect;
+                    log(`${cardWithBlessing.name}'s Blessing ability triggers.`);
+                    if(effect.type === 'GAIN_MORALE') {
                         currentPlayer.morale += effect.value;
                     }
                     if(effect.type === 'DRAW_CARD') {
@@ -1408,7 +1372,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                             const topCards = currentPlayer.deck.slice(-foresightValue).reverse();
                             if (topCards.length > 0) {
                                 const cardNames = topCards.map(c => c.name).join(', ');
-                                log(`Foresight from ${cardWithGen.name} reveals top ${topCards.length} card(s): ${cardNames}`);
+                                log(`Foresight from ${cardWithBlessing.name} reveals top ${topCards.length} card(s): ${cardNames}`);
                             }
                         }
                     }
@@ -1418,17 +1382,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         if (targetableUnits.length > 0) {
                             const target = targetableUnits[Math.floor(Math.random() * targetableUnits.length)];
                             target.damage++;
-                            log(`${cardWithGen.name} applies Decay to ${target.name}.`);
+                            log(`${cardWithBlessing.name} applies Decay to ${target.name}.`);
                         }
                     }
-                    if(effect.type === 'SABOTAGE') {
+                    if(effect.type === 'DISRUPT') {
                         const opponent = newState.players[1 - newState.currentPlayerId];
                         opponent.diceModifier -= effect.value;
-                        log(`${cardWithGen.name} sabotages ${opponent.name}, who will roll ${effect.value} fewer dice next turn.`);
+                        log(`${cardWithBlessing.name} disrupts ${opponent.name}, who will roll ${effect.value} fewer dice next turn.`);
                     }
-                    if(effect.type === 'FATEWEAVE') {
+                    if(effect.type === 'PROPHECY' || effect.type === 'FATEWEAVE') {
                          newState.maxRolls += effect.value;
-                         log(`${cardWithGen.name}'s Generator grants an extra roll from Fateweave!`);
+                         log(`${cardWithBlessing.name}'s Blessing grants an extra roll!`);
                     }
                     if(effect.type === 'RECYCLE_UNIT') {
                         const unitsInGrave = currentPlayer.graveyard.filter(c => c.type === CardType.UNIT);
@@ -1439,7 +1403,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                             // Reset card state before returning to hand
                             const freshCard = { ...cardToReturn, damage: 0, strengthModifier: 0, durabilityModifier: 0, hasStruck: false, isReclaimed: false, isToken: false, attachments: [] };
                             currentPlayer.hand.push(freshCard);
-                            log(`${cardWithGen.name} returns ${cardToReturn.name} from the graveyard to hand.`);
+                            log(`${cardWithBlessing.name} returns ${cardToReturn.name} from the graveyard to hand.`);
                         }
                     }
                 }
@@ -1477,22 +1441,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                    log(`${p.name} drew a card.`);
               }
             }
-// FIX: Replaced `TurnPhase.ASSAULT` with `TurnPhase.STRIKE`.
             newState.phase = TurnPhase.STRIKE;
             break;
-// FIX: Replaced `TurnPhase.ASSAULT` with `TurnPhase.STRIKE` and `action.payload.assault` with `action.payload.strike`.
           case TurnPhase.STRIKE:
             if (action.payload?.strike) {
                 const attackers = currentPlayer.units.filter(u => !u.abilities?.entrenched);
                 
                 const phasingAttackers = attackers.filter(u => u.abilities?.phasing);
                 if (phasingAttackers.length > 0) {
-// FIX: Renamed `isAssaultPhase` to `isStrikePhase` in getEffectiveStats context.
                     const phasingDamage = phasingAttackers.reduce((sum, u) => sum + getEffectiveStats(u, currentPlayer, { isStrikePhase: true }).strength, 0);
-// FIX: Replaced `opponentPlayer.command` with `opponentPlayer.morale`.
                     opponentPlayer.morale -= phasingDamage;
                     log(`${currentPlayer.name}'s Phasing units deal ${phasingDamage} unpreventable Morale damage!`);
-// FIX: Replaced `hasAssaulted` with `hasStruck`.
                     phasingAttackers.forEach(u => u.hasStruck = true);
                 }
                 
@@ -1507,7 +1466,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     newState.phase = TurnPhase.END;
                 }
 
-// FIX: Replaced `command` with `morale` for win condition check.
                 if (opponentPlayer.morale <= 0) newState.winner = currentPlayer;
             } else {
               log(`${currentPlayer.name} skips the strike.`);

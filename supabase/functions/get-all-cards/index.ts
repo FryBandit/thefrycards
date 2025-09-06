@@ -1,3 +1,4 @@
+
 /*
  * DEPRECATED: This Supabase function is no longer in use.
  *

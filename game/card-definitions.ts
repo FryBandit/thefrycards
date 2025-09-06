@@ -883,4 +883,4 @@ export const cardDefinitions: CardDefinition[] = [
     card_set: "Rainbow Riot Squad",
     author: "AI",
     imageUrl: "https://cdn.midjourney.com/d547ebb7-c7f2-41c6-94e3-0b4603eeb6d6/0_0.png"
-  }
+  }]

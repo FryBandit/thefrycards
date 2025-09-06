@@ -173,24 +173,10 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     // Rally
     let rallyBonus = 0;
     if (card.abilities?.rally) {
-        // A unit with Rally gets +1 strength for each OTHER friendly unit with Rally.
-        const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
-        strength += rallySources;
-        rallyBonus = rallySources;
-    }
-    
-    // Self Rally Buff: Add +1 strength for each other friendly unit with Rally
-    const otherRallyUnits = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId);
-    if (otherRallyUnits.length > 0 && card.abilities?.rally) {
-        strength += otherRallyUnits.length;
-        rallyBonus += otherRallyUnits.length;
-    }
-
-    // Grant Rally Buff: This unit grants buffs to other units
-    if (card.abilities?.rally) {
-        // This logic is implicitly handled by each unit calculating its own bonus.
-        // We calculate rallyBonus for UI display purposes here.
-        rallyBonus = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+        // A unit with Rally gets +1 Strength for each OTHER friendly unit with Rally.
+        const otherRallyUnitsCount = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+        strength += otherRallyUnitsCount;
+        rallyBonus = otherRallyUnitsCount;
     }
 
 
