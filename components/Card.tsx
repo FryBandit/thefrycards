@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState } from 'react';
 import { CardInGame, CardType, DiceCost, DiceCostType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -153,6 +150,7 @@ const Card: React.FC<CardProps> = ({
   const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
 
   const isVideo = card.imageUrl?.endsWith('.mp4');
+  const cardSizeClasses = inHand && origin !== 'graveyard' ? 'w-56 h-80' : 'w-48 h-64';
 
   const CardFace = () => (
       <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
@@ -237,7 +235,7 @@ const Card: React.FC<CardProps> = ({
   );
 
   return (
-    <div className="relative w-48 h-64">
+    <div className={`relative ${cardSizeClasses}`}>
       <div 
         className={`absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
         onMouseEnter={() => setIsHovered(true)}

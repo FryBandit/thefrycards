@@ -1022,10 +1022,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
             // Generator effects
             currentPlayer.locations.forEach(loc => {
-                if (loc.id === 11) { // Data Haven (legacy)
-                    currentPlayer.command++;
-                    log(`${currentPlayer.name} gained 1 command from Data Haven.`);
-                }
                 if (loc.abilities?.generator) {
                     const effect = loc.abilities.generator;
                     log(`${loc.name}'s Generator ability triggers.`);
@@ -1036,6 +1032,29 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         const { player: p, failedDraws } = drawCards(currentPlayer, effect.value);
                         currentPlayer = p;
                         if (failedDraws > 0) damagePlayer(currentPlayer, currentPlayer.fatigueCounter, 'Fatigue', 'damage');
+                    }
+                    if(effect.type === 'FORESIGHT') {
+                        if (currentPlayer.deck.length > 0) {
+                            log(`Foresight from ${loc.name} reveals top card: ${currentPlayer.deck[currentPlayer.deck.length - 1].name}`);
+                        }
+                    }
+                    if(effect.type === 'DECAY' && effect.requiresTarget) {
+                        const opponent = newState.players[1 - newState.currentPlayerId];
+                        const targetableUnits = opponent.units.filter(u => !u.abilities?.immutable);
+                        if (targetableUnits.length > 0) {
+                            const target = targetableUnits[Math.floor(Math.random() * targetableUnits.length)];
+                            target.damage++;
+                            log(`${loc.name} applies Decay to ${target.name}.`);
+                        }
+                    }
+                    if(effect.type === 'SABOTAGE') {
+                        const opponent = newState.players[1 - newState.currentPlayerId];
+                        opponent.diceModifier -= effect.value;
+                        log(`${loc.name} sabotages ${opponent.name}, who will roll ${effect.value} fewer dice next turn.`);
+                    }
+                    if(effect.type === 'FATEWEAVE') {
+                         newState.maxRolls += effect.value;
+                         log(`${loc.name}'s Generator grants an extra roll from Fateweave!`);
                     }
                 }
             });

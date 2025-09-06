@@ -134,7 +134,7 @@ const App: React.FC = () => {
   }
 
   const isCardPlayable = (card: CardInGame): boolean => {
-    if (state.phase !== TurnPhase.ROLL_SPEND) return false;
+    if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
     
     let dice_cost = card.dice_cost;
     // Augment has a different cost and is handled like a targeted ability
@@ -158,7 +158,7 @@ const App: React.FC = () => {
   };
   
   const isCardActivatable = (card: CardInGame): boolean => {
-    if (!card.abilities?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.activate || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
     if (card.abilities.consume && (card.counters ?? 0) <= 0) {
@@ -168,14 +168,14 @@ const App: React.FC = () => {
   };
 
   const isCardChannelable = (card: CardInGame): boolean => {
-    if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
     return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost }, state.dice).canPay;
   }
 
   const isCardAmplifiable = (card: CardInGame): boolean => {
-    if (!card.abilities?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+    if (!card.abilities?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
     const combinedCost = { ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) };
@@ -183,7 +183,7 @@ const App: React.FC = () => {
   };
 
   const isCardScavengeable = (card: CardInGame): boolean => {
-      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) {
+      if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
           return false;
       }
       return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost }, state.dice).canPay;

@@ -1,3 +1,5 @@
+
+
 import React, { useMemo } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -59,15 +61,15 @@ const FieldArea: React.FC<{
             {allCards.length > 0 ? (
                  <div className="w-full h-full flex flex-col justify-center items-center gap-y-2">
                     {/* Back Row (Locations & Artifacts) */}
-                    <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {backRowCards.map(renderCard)}
                     </div>
                     {/* Separator */}
                     {frontRowCards.length > 0 && (
-                        <div className="w-3/4 h-px bg-neon-cyan/20"></div>
+                        <div className="w-3/4 h-px bg-gradient-to-r from-cyber-bg via-neon-cyan to-cyber-bg"></div>
                     )}
                     {/* Front Row (Units) */}
-                    <div className="flex gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {frontRowCards.map(renderCard)}
                     </div>
                 </div>
@@ -138,8 +140,8 @@ const HandArea: React.FC<{
 
 
     return (
-        <div className="h-72 flex-shrink-0 flex justify-center items-end pb-12">
-            <div className="flex justify-center items-end -space-x-24 h-full">
+        <div className="h-80 flex-shrink-0 flex justify-center items-end pb-12">
+            <div className="flex justify-center items-end -space-x-40 h-full">
                  {allPlayableCards.map((card, i) => {
                     const numCards = allPlayableCards.length;
                     const rotation = (i - (numCards - 1) / 2) * 5;
@@ -245,7 +247,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     onAdvancePhase();
                 }
             };
-            return { text: "END PHASE", action, disabled: false };
+            return { text: "END PHASE", action, disabled: rollCount === 0 };
         }
         case TurnPhase.DRAW: return { text: "DRAW CARD", action: () => onAdvancePhase(), disabled: false };
         case TurnPhase.ASSAULT: return null; // Handled by separate JSX below
@@ -349,7 +351,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 />
             ) : (
                 <div className="text-center text-cyber-primary/60 italic p-4 text-lg">
-                    {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
+                    {!isPlayerTurn ? "Opponent's Turn" : (rollCount === 0 ? "Roll dice to begin" : "Dice appear here during Roll & Spend Phase")}
                 </div>
             )}
         </div>

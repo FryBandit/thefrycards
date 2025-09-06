@@ -73,7 +73,7 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
     return (
     <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-4 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
         <div>
-            <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''}`}>{player.name}</h2>
+            <h2 className={`text-2xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
             <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink ${commandAnim}`}>{player.command} <span className="text-lg opacity-75">Command</span></p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-center text-sm font-semibold">

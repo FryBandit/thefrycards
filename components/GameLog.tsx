@@ -10,10 +10,6 @@ const ActionHistory: React.FC<ActionHistoryProps> = ({ history, players }) => {
     const [isOpen, setIsOpen] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Filter out empty turns before reversing
-    const validHistory = history.filter(turnLog => turnLog.actions.length > 0);
-    const reversedHistory = [...validHistory].reverse();
-
     useEffect(() => {
         // Scroll to bottom when new actions are added and panel is open
         if (isOpen && panelRef.current) {
