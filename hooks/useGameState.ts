@@ -489,7 +489,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         log(`${player.name} loses ${amount} Command from ${source}!`);
     }
 
-    const dealDamageToUnit = (target: CardInGame, amount: number, sourceCard: CardInGame | null, targetOwner: Player) => {
+    const dealDamageToUnit = (target: CardInGame, amount: number, sourceCard: CardInGame | null, targetOwner: Player, isCombatDamage: boolean = false) => {
         if (target.abilities?.immutable) {
             log(`${target.name} is Immutable and ignores damage from ${sourceCard?.name || 'Effect'}.`);
             return;
@@ -503,7 +503,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
         let finalAmount = amount;
 
-        if (target.abilities?.fragile && sourceCard?.type === CardType.EVENT) {
+        // Fragile triggers on non-combat damage from a card source
+        if (target.abilities?.fragile && sourceCard && !isCombatDamage) {
             finalAmount *= 2;
             log(`${target.name} is Fragile and takes double damage!`);
         }
@@ -524,51 +525,56 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         const MAX_CHAIN_REACTIONS = 20; // Prevent infinite loops
 
         while (loopAgain) {
-             if (loopCount++ > MAX_CHAIN_REACTIONS) {
+            if (loopCount++ > MAX_CHAIN_REACTIONS) {
                 log('!! System Warning: Exceeded maximum chain reaction limit. Halting destruction sequence.');
                 console.error('Potential infinite loop detected in checkForDestroyedUnits. Breaking.');
                 break;
             }
             loopAgain = false;
+
             for (let i = 0; i < 2; i++) {
-                const player = newState.players[i];
-                const opponent = newState.players[1 - i];
-                const unitsToCheck = [...player.units];
-                
-                for (const unit of unitsToCheck) {
-                    if (!player.units.some(u => u.instanceId === unit.instanceId)) continue;
+                let destroyedInPass;
+                do {
+                    destroyedInPass = false;
+                    const player = newState.players[i];
+                    const opponent = newState.players[1 - i];
                     
-                    const { durability } = getEffectiveStats(unit, player);
-                    if (unit.damage >= durability) {
+                    const destroyedUnit = player.units.find(unit => {
+                        const { durability } = getEffectiveStats(unit, player);
+                        return unit.damage >= durability;
+                    });
+
+                    if (destroyedUnit) {
                         loopAgain = true;
                         anyChangeInLoop = true;
-                        
-                        player.units = player.units.filter(u => u.instanceId !== unit.instanceId);
-                        
-                        if (unit.isScavenged || unit.isToken) {
-                            player.void.push(unit);
-                            log(`${unit.name} was destroyed and Voided (${unit.isToken ? 'Token' : 'Scavenged'}).`);
+                        destroyedInPass = true;
+
+                        player.units = player.units.filter(u => u.instanceId !== destroyedUnit.instanceId);
+
+                        if (destroyedUnit.isScavenged || destroyedUnit.isToken) {
+                            player.void.push(destroyedUnit);
+                            log(`${destroyedUnit.name} was destroyed and Voided (${destroyedUnit.isToken ? 'Token' : 'Scavenged'}).`);
                         } else {
-                            player.graveyard.push(unit);
-                            log(`${unit.name} was destroyed.`);
+                            player.graveyard.push(destroyedUnit);
+                            log(`${destroyedUnit.name} was destroyed.`);
                         }
-                        
+
                         if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) {
                             damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
                         }
-                        
+
                         let standardPenaltyApplies = true;
-                        
-                        if (unit.abilities?.bounty && player.id !== sourcePlayerId) {
-                            opponent.command += unit.abilities.bounty.amount;
-                            log(`${opponent.name} gains ${unit.abilities.bounty.amount} Command from ${unit.name}'s Bounty.`);
+
+                        if (destroyedUnit.abilities?.bounty && player.id !== sourcePlayerId) {
+                            opponent.command += destroyedUnit.abilities.bounty.amount;
+                            log(`${opponent.name} gains ${destroyedUnit.abilities.bounty.amount} Command from ${destroyedUnit.name}'s Bounty.`);
                         }
-                        if (unit.abilities?.malice) {
-                            damagePlayer(player, unit.abilities.malice, `${unit.name}'s Malice`, 'loss');
+                        if (destroyedUnit.abilities?.malice) {
+                            damagePlayer(player, destroyedUnit.abilities.malice, `${destroyedUnit.name}'s Malice`, 'loss');
                         }
-                        if (unit.abilities?.martyrdom) {
-                            const effect = unit.abilities.martyrdom;
-                            log(`${unit.name}'s Martyrdom triggers!`);
+                        if (destroyedUnit.abilities?.martyrdom) {
+                            const effect = destroyedUnit.abilities.martyrdom;
+                            log(`${destroyedUnit.name}'s Martyrdom triggers!`);
                             switch(effect.type) {
                                 case 'DRAW_CARD': {
                                     const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(newState.players[player.id], effect.value);
@@ -585,20 +591,20 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                     break;
                                 }
                                 case 'DEAL_DAMAGE_TO_OPPONENT':
-                                    damagePlayer(opponent, effect.value, `${unit.name}'s Martyrdom`, 'damage');
+                                    damagePlayer(opponent, effect.value, `${destroyedUnit.name}'s Martyrdom`, 'damage');
                                     break;
                             }
                         }
-                        if (unit.abilities?.haunt) {
-                            damagePlayer(opponent, unit.abilities.haunt, `${unit.name}'s Haunt`, 'loss');
+                        if (destroyedUnit.abilities?.haunt) {
+                            damagePlayer(opponent, destroyedUnit.abilities.haunt, `${destroyedUnit.name}'s Haunt`, 'loss');
                             standardPenaltyApplies = false;
                         } 
                         
                         if (standardPenaltyApplies && player.id !== sourcePlayerId) {
-                            damagePlayer(player, unit.commandNumber ?? 0, `${unit.name}'s destruction`, 'loss');
+                            damagePlayer(player, destroyedUnit.commandNumber ?? 0, `${destroyedUnit.name}'s destruction`, 'loss');
                         }
                     }
-                }
+                } while(destroyedInPass);
             }
             
             if (newState.players[0].command <= 0) newState.winner = newState.players[1];
@@ -910,10 +916,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         
         const diceCostString = costCheck.diceToSpend.map(d => d.value).sort().join(', ');
         
-        // Siphon on event logic
-        if (cardToPlay.type === CardType.EVENT && cardToPlay.abilities?.siphon) {
-            currentPlayer.command += cardToPlay.abilities.siphon;
-            log(`${currentPlayer.name} gains ${cardToPlay.abilities.siphon} command from ${cardToPlay.name}.`);
+        // Handle immediate command gain
+        if (cardToPlay.abilities?.gain_command) {
+            currentPlayer.command += cardToPlay.abilities.gain_command;
+            log(`${currentPlayer.name} gains ${cardToPlay.abilities.gain_command} command from ${cardToPlay.name}.`);
         }
         
         // Remove card from its source location
@@ -1031,15 +1037,32 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                             if (nextCardInChain.type === CardType.EVENT) {
                                 log(`Chain Reaction triggers ${nextCardInChain.name}!`);
                                 currentPlayer.graveyard.push(nextCardInChain);
+                                
+                                if (nextCardInChain.abilities?.gain_command) {
+                                    currentPlayer.command += nextCardInChain.abilities.gain_command;
+                                    log(`${currentPlayer.name} gains ${nextCardInChain.abilities.gain_command} command from chained ${nextCardInChain.name}.`);
+                                }
+                                
                                 const arrivalResultChained = resolveArrivalAbilities(nextCardInChain, currentPlayer, opponentPlayer, false);
                                 currentPlayer = arrivalResultChained.player;
                                 opponentPlayer = arrivalResultChained.opponent;
-                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe)) {
+
+                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe || nextCardInChain.abilities.corrupt)) {
                                     const validTargets = opponentPlayer.units.filter(u => !u.abilities?.immutable && isCardTargetable(nextCardInChain, u, currentPlayer, opponentPlayer));
                                     if (validTargets.length > 0) {
                                         const randomTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
                                         log(`${nextCardInChain.name} randomly targets ${randomTarget.name}.`);
-                                        dealDamageToUnit(randomTarget, nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe, nextCardInChain, opponentPlayer);
+                                        if (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe) {
+                                            dealDamageToUnit(randomTarget, nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe, nextCardInChain, opponentPlayer);
+                                        }
+                                        if (nextCardInChain.abilities.corrupt) {
+                                            if (randomTarget.abilities?.immutable) {
+                                                log(`${randomTarget.name} is Immutable and cannot be corrupted.`);
+                                            } else {
+                                                randomTarget.strengthModifier -= nextCardInChain.abilities.corrupt;
+                                                log(`${randomTarget.name} gets -${nextCardInChain.abilities.corrupt} Strength.`);
+                                            }
+                                        }
                                     }
                                 }
                                 
@@ -1245,8 +1268,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     blockLog.push(`${blocker.name} blocks ${attacker.name}`);
                     const { strength: blockerStrength } = getEffectiveStats(blocker, defenderPlayer);
                     log(`${attacker.name} (${attackerStrength}) clashes with ${blocker.name} (${blockerStrength}).`);
-                    dealDamageToUnit(blocker, attackerStrength, attacker, defenderPlayer);
-                    dealDamageToUnit(attacker, blockerStrength, blocker, attackerPlayer);
+                    dealDamageToUnit(blocker, attackerStrength, attacker, defenderPlayer, true);
+                    dealDamageToUnit(attacker, blockerStrength, blocker, attackerPlayer, true);
                 }
             } else {
                 // Unblocked
@@ -1296,16 +1319,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 for (const item of returningFromRift) {
                     log(`${item.card.name} returns from the rift!`);
                     
-                    // Reset card state before adding it back to the field, but preserve instanceId
+                    // Reset card state before adding it back to the field, but preserve instanceId and modifiers
                     const resetCard: CardInGame = {
                       ...item.card,
                       damage: 0,
-                      strengthModifier: 0,
-                      durabilityModifier: 0,
                       hasAssaulted: false,
                       shieldUsedThisTurn: false,
                       counters: item.card.abilities?.consume ? item.card.abilities.consume.initial : undefined,
-                      attachments: [],
+                      attachments: [], // Attachments fall off in the rift
                     };
 
                     currentPlayer.units.push(resetCard);
@@ -1450,11 +1471,13 @@ const gameReducer = (state: GameState, action: Action): GameState => {
               currentPlayer.shieldUsedThisTurn = false;
               if (newState.extraTurns > 0) {
                   newState.extraTurns--;
-                  currentPlayer.units.forEach(u => u.hasAssaulted = false);
-                  newState.phase = TurnPhase.ASSAULT;
-                  newState.dice = Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
-                  newState.rollCount = 3; // No rolls allowed in extra turn
-                  log(`${currentPlayer.name} begins an extra turn, skipping to the Assault Phase.`);
+                  log(`${currentPlayer.name} begins an extra turn.`);
+                  newState.phase = TurnPhase.START;
+                  const diceCount = 5 + currentPlayer.diceModifier;
+                  currentPlayer.diceModifier = 0;
+                  newState.dice = Array.from({ length: Math.max(0, diceCount) }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
+                  newState.rollCount = 0;
+                  newState.maxRolls = 3;
               } else {
                   newState.currentPlayerId = 1 - newState.currentPlayerId;
                   newState.turn += (newState.currentPlayerId === 0 ? 1 : 0);

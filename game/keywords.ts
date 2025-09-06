@@ -1,6 +1,5 @@
 
 
-
 export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // High-Rarity & Mythic
   'Annihilate': 'When a unit with Annihilate enters the battlefield, it voids all other units. The opponent loses command equal to the command number of each of their voided units. Immutable units are immune. Annihilate bypasses on-destruction effects like Haunt or Martyrdom.',
@@ -21,7 +20,7 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
 
   // Unit-specific keywords
   'Reconstruct': 'A unit with this keyword has an activated ability that allows the player to pay a dice cost to remove all damage from it.',
-  'Synergy': 'A card with this keyword gains a bonus for each other card you control from the specified faction.',
+  'Synergy': 'A card with this keyword gains a bonus to its stats for each other card you control from the specified faction. This is a self-buff.',
   'Wild': 'The cost for a card with this keyword can be paid with a die of any value, making it much easier to play.',
 
   // Action Keywords

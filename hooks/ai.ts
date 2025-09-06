@@ -83,8 +83,8 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         if (card.abilities?.damage || card.abilities?.snipe) {
             let damage = card.abilities.damage || card.abilities.snipe || 0;
             // Account for fragile
-            if (card.type === CardType.EVENT && target.abilities?.fragile) {
-                damage *= 2;
+            if (target.abilities?.fragile) { // Fragile is now handled in dealDamageToUnit, but we can score it higher here.
+                damage *= 1.5; // Not doubling, but valuing it more.
             }
             const { durability } = getEffectiveStats(target, humanPlayer);
             score += targetThreat * 1.2;
@@ -137,7 +137,15 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     if (card.abilities?.riftwalk) score += 8; // Good, but delayed
     if (card.abilities?.warp) score += 30; // Extra turn is huge
     if (card.abilities?.echo) score += 18; // Very high priority
-    if (card.abilities?.draw) score += (6 - Math.min(aiPlayer.hand.length, 5)) * card.abilities.draw * 2;
+    if (card.abilities?.draw) {
+        // Base score for drawing cards is high.
+        let drawScore = card.abilities.draw * 5;
+        // Even if hand is full, drawing thins the deck and fuels the graveyard.
+        if (aiPlayer.hand.length >= 7) {
+            drawScore *= 0.5; // It's less good, but not worthless.
+        }
+        score += drawScore;
+    }
    
     // --- DEFENSIVE / UTILITY ---
     if (card.abilities?.fortify || (card.type === CardType.UNIT && (card.abilities?.shield || card.abilities?.entrenched))) {
@@ -295,7 +303,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const typeDiversity = new Set(hand.map(c => c.type)).size;
 
         const hasLowCurve = curve.some(c => c <= 2);
-        const isBrickHand = curve.every(c => c >= 3); // All cards need 3+ dice
+        const isBrickHand = curve.every(c => c >= 4);
 
         let score = 0;
         if (unitCount > 0) score += 4;
@@ -304,10 +312,38 @@ export const getAiAction = (state: GameState): AIAction | null => {
         if (unitCount > 1) score += 1;
         if (isBrickHand) score -= 5;
         if (unitCount === 0) score -= 5;
+        
+        // Add synergy scoring
+        const factionsInHand = new Map<string, number>();
+        let rallyCount = 0;
+        hand.forEach(card => {
+            if (card.faction) {
+                factionsInHand.set(card.faction, (factionsInHand.get(card.faction) || 0) + 1);
+            }
+            if (card.abilities?.rally) {
+                rallyCount++;
+            }
+        });
 
-        const shouldMulligan = score < 5; // Threshold for keeping
+        factionsInHand.forEach(count => {
+            if (count > 1) {
+                score += count * 2; // Reward for having multiple cards of the same faction
+            }
+        });
 
-        console.log(`AI Mulligan Analysis: Score: ${score} (Units: ${unitCount}, Low Curve: ${hasLowCurve}, Diversity: ${typeDiversity}). Decision: ${shouldMulligan ? 'Mulligan' : 'Keep'}`);
+        if (rallyCount > 1) {
+            score += rallyCount * 2.5; // Rally is a strong synergy
+        }
+
+        // Also check for powerful early game cards.
+        const hasHighValueEarlyCard = hand.some(c => getCardScore(c, aiPlayer, humanPlayer, 1) > 20 && countDiceForCost(c.dice_cost) <= 2);
+        if (hasHighValueEarlyCard) {
+            score += 4;
+        }
+
+        const shouldMulligan = score < 7;
+
+        console.log(`AI Mulligan Analysis: Score: ${score}. Decision: ${shouldMulligan ? 'Mulligan' : 'Keep'}`);
         return { type: 'AI_MULLIGAN', payload: { mulligan: shouldMulligan } };
     }
     
@@ -446,7 +482,11 @@ export const getAiAction = (state: GameState): AIAction | null => {
         });
         
         // 3. Evaluate Plays from Hand
-        const allPossibleTargets = [...aiPlayer.units, ...humanPlayer.units];
+        const allPossibleTargets: CardInGame[] = [
+            ...aiPlayer.units, ...aiPlayer.locations, ...aiPlayer.artifacts,
+            ...humanPlayer.units, ...humanPlayer.locations, ...humanPlayer.artifacts
+        ];
+
         for (const card of aiPlayer.hand) {
             // A. Standard Play
             if (checkDiceCost(card, availableDice).canPay) {
@@ -481,7 +521,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                         amplifiedCard.abilities.damage = card.abilities.amplify.effect.amount;
                         amplifiedCard.abilities.snipe = card.abilities.amplify.effect.amount;
                     }
-                    const needsTarget = card.abilities.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE';
+                    const needsTarget = card.abilities.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE' || card.abilities.amplify.effect?.type === 'CORRUPT';
 
                     if (needsTarget) {
                         for (const target of allPossibleTargets) {
@@ -515,7 +555,12 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 const cost = card.abilities.channel.cost;
                 if(checkDiceCost({ ...card, dice_cost: cost }, availableDice).canPay) {
                     let score = 0;
-                    if (card.abilities.channel.effect.type === 'DRAW') score = (6 - Math.min(aiPlayer.hand.length, 5)) * 2.5;
+                    if (card.abilities.channel.effect.type === 'DRAW') {
+                         score = 4; // Base value for cycling a card
+                        if (aiPlayer.hand.length < 5) {
+                            score += 4; // More valuable if hand is not full
+                        }
+                    }
                     if (score > 1) {
                          const diceCount = countDiceForCost(cost);
                          const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;

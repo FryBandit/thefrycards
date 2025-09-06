@@ -140,12 +140,32 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     // Buffs from player's other cards (Locations/Artifacts with passive buffs)
     owner.locations.forEach(loc => {
         if (loc.abilities?.passive_buff?.type === 'STRENGTH') {
-            strength += loc.abilities.passive_buff.value;
+            const buff = loc.abilities.passive_buff;
+            // Faction-specific buff
+            if (buff.faction) {
+                if (card.faction === buff.faction) {
+                    strength += buff.value;
+                }
+            } 
+            // Global buff
+            else {
+                strength += buff.value;
+            }
         }
     });
     owner.artifacts.forEach(art => {
         if (art.abilities?.passive_buff?.type === 'STRENGTH') {
-            strength += art.abilities.passive_buff.value;
+            const buff = art.abilities.passive_buff;
+            // Faction-specific buff
+            if (buff.faction) {
+                if (card.faction === buff.faction) {
+                    strength += buff.value;
+                }
+            } 
+            // Global buff
+            else {
+                strength += buff.value;
+            }
         }
     });
 

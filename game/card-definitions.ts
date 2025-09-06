@@ -190,9 +190,9 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
-    text: "Target a unit. Gain 3 Command. Amplify: Also apply Corrupt 3 to the target.",
+    text: "Gain 3 Command. Amplify: Also apply Corrupt 3 to target unit.",
     abilities: {
-      "siphon": 3,
+      "gain_command": 3,
       "requiresTarget": true,
       "amplify": {
         "cost": [{ "type": "EXACT_VALUE", "count": 1, "value": 6 }],
@@ -525,8 +525,8 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 6 }],
     strength: undefined,
     durability: undefined,
-    text: "Synergy.",
-    abilities: { "synergy": { "faction": "Rainbow Riot Squad", "effect": { "type": "BUFF_STRENGTH", "amount": 1 } } },
+    text: "Your 'Rainbow Riot Squad' units have +1 Strength.",
+    abilities: { "passive_buff": { "type": "STRENGTH", "value": 1, "faction": "Rainbow Riot Squad" } },
     faction: "Rainbow Riot Squad",
     rarity: "Rare",
     flavor_text: "The subway was their first mistake. Never give artists a canvas that connects the whole city.",
@@ -922,5 +922,22 @@ export const cardDefinitions: CardDefinition[] = [
     card_set: "Volume #2",
     author: "Fry",
     imageUrl: "https://cdn.midjourney.com/video/0a7f029f-4455-44bf-94f7-789ff22f2770/1.mp4"
+  },
+  {
+    id: 300,
+    name: "Synergy Soldier",
+    type: CardType.UNIT,
+    dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 4 }],
+    strength: 2,
+    durability: 3,
+    commandNumber: 4,
+    text: "Synergy: Gains +1 Strength for each other 'Rainbow Riot Squad' card you control.",
+    abilities: { "synergy": { "faction": "Rainbow Riot Squad", "effect": { "type": "BUFF_STRENGTH", "amount": 1 } } },
+    faction: "Rainbow Riot Squad",
+    rarity: "Uncommon",
+    flavor_text: "We're stronger together.",
+    card_set: "Rainbow Riot Squad",
+    author: "AI",
+    imageUrl: "https://cdn.midjourney.com/d547ebb7-c7f2-41c6-94e3-0b4603eeb6d6/0_0.png"
   }
 ]
