@@ -1,3 +1,4 @@
+
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
 import { checkDiceCost, isCardTargetable } from './useGameState';
@@ -296,14 +297,19 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
             // B. Amplify Play
             if (card.abilities?.amplify && checkDiceCost({ ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) }, availableDice).canPay) {
-                const amplifiedCard = { ...card, abilities: { ...card.abilities, damage: card.abilities.amplify.effect?.amount, snipe: card.abilities.amplify.effect?.amount }};
+                const amplifiedCard = JSON.parse(JSON.stringify(card));
+                if (card.abilities.amplify.effect?.type === 'DEAL_DAMAGE') {
+                    amplifiedCard.abilities.damage = card.abilities.amplify.effect.amount;
+                    amplifiedCard.abilities.snipe = card.abilities.amplify.effect.amount;
+                }
                 const needsTarget = card.abilities.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE';
 
                 if (needsTarget) {
                     for (const target of allPossibleTargets) {
                          const targetOwner = players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === target.instanceId))!;
                          if (isCardTargetable(amplifiedCard, target, aiPlayer, targetOwner)) {
-                             let score = getCardScore(card, aiPlayer, humanPlayer, turn, target) + 10;
+                             let score = getCardScore(amplifiedCard, aiPlayer, humanPlayer, turn, target);
+                             score += 2; // Small bonus for using a more powerful, flexible mode
                              possiblePlays.push({
                                  action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAmplified: true } } },
                                  score,
@@ -312,7 +318,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
                          }
                     }
                 } else {
-                     let score = getCardScore(card, aiPlayer, humanPlayer, turn) + 10;
+                     let score = getCardScore(amplifiedCard, aiPlayer, humanPlayer, turn);
+                     score += 2; // Small bonus for using a more powerful, flexible mode
                      possiblePlays.push({
                          action: { type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } },
                          score,

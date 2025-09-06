@@ -1,3 +1,4 @@
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -541,8 +542,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         // Keyword-based Effects
         if (card.abilities?.resonance) {
             if (player.deck.length > 0) {
-                const topCardDef = player.deck.pop()!; // Card is removed from deck
-                log(`${card.name}'s Resonance reveals and discards ${topCardDef.name}.`);
+                const topCardDef = player.deck[player.deck.length - 1]; // Peek at the top card
+                log(`${card.name}'s Resonance reveals ${topCardDef.name}.`);
                 if ((topCardDef.commandNumber ?? 0) >= card.abilities.resonance.value) {
                     const effect = card.abilities.resonance.effect;
                     if (effect.type === 'BUFF_STRENGTH') {
@@ -553,19 +554,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 } else {
                     log(`Resonance failed. Top card's Command Number was too low.`);
                 }
-                const discardedCard: CardInGame = {
-                    ...topCardDef,
-                    instanceId: `${topCardDef.id}-discarded-${Date.now()}-${Math.random()}`,
-                    damage: 0,
-                    strengthModifier: 0,
-                    durabilityModifier: 0,
-                    hasAssaulted: false,
-                    attachments: [],
-                    isScavenged: false,
-                    isToken: false,
-                    shieldUsedThisTurn: false,
-                };
-                player.graveyard.push(discardedCard); // Card goes to graveyard
+                // The card is only revealed and remains on top of the deck.
             }
         }
         if (card.abilities?.stagnate) {
@@ -668,11 +657,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (mulligan) {
               log(`You chose to mulligan.`);
               logAction('Mulliganed their hand.');
-              const handToShuffle = [...player.hand];
-              player.deck.push(...handToShuffle);
-              player.deck = shuffle(player.deck);
+              const handToReturn = [...player.hand];
               player.hand = [];
               const { player: p1 } = drawCards(player, 3);
+              p1.deck.push(...handToReturn);
+              p1.deck = shuffle(p1.deck);
               newState.players[0] = p1;
           } else {
               log(`You kept your starting hand.`);
@@ -693,11 +682,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (mulligan) {
               log(`CPU chose to mulligan.`);
               logAction('Mulliganed their hand.');
-              const handToShuffle = [...ai.hand];
-              ai.deck.push(...handToShuffle);
-              ai.deck = shuffle(ai.deck);
+              const handToReturn = [...ai.hand];
               ai.hand = [];
               const { player: p2 } = drawCards(ai, 3);
+              p2.deck.push(...handToReturn);
+              p2.deck = shuffle(p2.deck);
               newState.players[1] = p2;
           } else {
               log(`CPU kept its starting hand.`);
@@ -773,7 +762,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if (targetCard) {
                 logMessage += ` targeting ${targetCard.name}.`;
             } else {
-                logMessage += '.';
+                logMessage += `.`;
             }
         } else {
             logMessage += '.';

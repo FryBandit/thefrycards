@@ -1,3 +1,4 @@
+
 import { CardDefinition, CardType, DiceCostType, DiceCost } from './types';
 
 export const cardDefinitions: CardDefinition[] = [
@@ -103,7 +104,7 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 1 }],
     strength: undefined,
     durability: undefined,
-    text: "Corrupt 1 (Add 1 Void card to the opponent's deck).",
+    text: "Corrupt 1 (Target unit gets -1 Strength).",
     abilities: { "corrupt": 1, "requiresTarget": true },
     faction: "Space Horror",
     rarity: "Common",
