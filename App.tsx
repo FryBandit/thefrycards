@@ -9,7 +9,7 @@ import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import ConfirmModal from './components/ConfirmModal';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
-import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
+import { CardInGame, TurnPhase, Player, CardDefinition, CardType, DiceCost } from './game/types';
 import { fetchCardDefinitions, requiredComposition } from './game/cards';
 
 
@@ -136,13 +136,13 @@ const App: React.FC = () => {
   const isCardPlayable = (card: CardInGame): boolean => {
     if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
     
-    let dice_cost = card.dice_cost;
+    let dice_cost: DiceCost[] | undefined = card.dice_cost;
     // Augment has a different cost and is handled like a targeted ability
     if (card.abilities?.augment) {
         dice_cost = card.abilities.augment.cost;
     }
 
-    const canPayCost = checkDiceCost({ ...card, dice_cost }, state.dice).canPay;
+    const canPayCost = checkDiceCost({ ...card, dice_cost: dice_cost || [] }, state.dice).canPay;
     if (!canPayCost) return false;
 
     if (card.abilities?.requiresTarget || card.abilities?.augment) {
@@ -164,21 +164,21 @@ const App: React.FC = () => {
     if (card.abilities.consume && (card.counters ?? 0) <= 0) {
         return false;
     }
-    return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost || [] }, state.dice).canPay;
   };
 
   const isCardChannelable = (card: CardInGame): boolean => {
     if (!card.abilities?.channel || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
-    return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost }, state.dice).canPay;
+    return checkDiceCost({ ...card, dice_cost: card.abilities.channel.cost || [] }, state.dice).canPay;
   }
 
   const isCardAmplifiable = (card: CardInGame): boolean => {
     if (!card.abilities?.amplify || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
-    const combinedCost = { ...card, dice_cost: card.dice_cost.concat(card.abilities.amplify.cost) };
+    const combinedCost = { ...card, dice_cost: (card.dice_cost || []).concat(card.abilities.amplify.cost || []) };
     return checkDiceCost(combinedCost, state.dice).canPay;
   };
 
@@ -186,7 +186,7 @@ const App: React.FC = () => {
       if (!card.abilities?.scavenge || state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
           return false;
       }
-      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost }, state.dice).canPay;
+      return checkDiceCost({ ...card, dice_cost: card.abilities.scavenge.cost || [] }, state.dice).canPay;
   }
 
   const handleActivateCard = (card: CardInGame) => {

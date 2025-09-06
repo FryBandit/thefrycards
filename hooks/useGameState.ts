@@ -1,4 +1,5 @@
 
+
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -617,7 +618,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             }
         }
          // Card-specific (unique) effects / High-rarity keywords
-        if (card.type === CardType.UNIT && card.abilities?.annihilate) {
+        if (card.abilities?.annihilate) {
             resolveAnnihilate(card, player, opponent);
         }
         return { player, opponent };
@@ -826,16 +827,19 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         } else {
             switch(cardToPlay.type) {
                 case CardType.UNIT: currentPlayer.units.push(cardToPlay); break;
-                case CardType.LOCATION: 
+                case CardType.LOCATION:
+                    currentPlayer.locations.push(cardToPlay);
                     if (cardToPlay.abilities?.landmark) {
-                        const existingLandmarkIndex = currentPlayer.locations.findIndex(l => l.abilities?.landmark);
-                        if (existingLandmarkIndex > -1) {
-                            const removed = currentPlayer.locations.splice(existingLandmarkIndex, 1)[0];
-                            currentPlayer.graveyard.push(removed);
-                            log(`${removed.name} was replaced by the new Landmark.`);
+                        const otherLandmarks = currentPlayer.locations.filter(l => l.abilities?.landmark && l.instanceId !== cardToPlay.instanceId);
+                        if (otherLandmarks.length > 0) {
+                            const otherLandmarkIds = new Set(otherLandmarks.map(l => l.instanceId));
+                            currentPlayer.locations = currentPlayer.locations.filter(l => !otherLandmarkIds.has(l.instanceId));
+                            for (const removed of otherLandmarks) {
+                                currentPlayer.graveyard.push(removed);
+                                log(`${removed.name} was replaced by the new Landmark.`);
+                            }
                         }
                     }
-                    currentPlayer.locations.push(cardToPlay); 
                     break;
                 case CardType.ARTIFACT: 
                     if(cardToPlay.abilities?.consume) cardToPlay.counters = cardToPlay.abilities.consume.initial;
