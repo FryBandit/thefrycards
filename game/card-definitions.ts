@@ -6,9 +6,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 1,
     name: "Lost Signal",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 3 }],
     strength: undefined,
     durability: undefined,
@@ -24,9 +22,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 2,
     name: "Echoes in the Void",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 2 }],
     strength: undefined,
     durability: undefined,
@@ -42,9 +38,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 3,
     name: "The Drifter",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 4 }],
     strength: 1,
     durability: 2,
@@ -61,9 +55,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 4,
     name: "Solar Flare",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 4 }],
     strength: undefined,
     durability: undefined,
@@ -79,9 +71,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 5,
     name: "Evelyn, The Observer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 5 }],
     strength: 2,
     durability: 1,
@@ -98,9 +88,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 6,
     name: "Unseen Entities",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 1 }],
     strength: undefined,
     durability: undefined,
@@ -116,9 +104,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 7,
     name: "The Cold Doesn't Care",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 6 }],
     strength: undefined,
     durability: undefined,
@@ -134,9 +120,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 8,
     name: "Message from the Stars",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
@@ -152,9 +136,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 9,
     name: "Joshua, The Dreamer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: 2,
     durability: 3,
@@ -171,9 +153,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 10,
     name: "Cracked Reality",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -189,9 +169,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 11,
     name: "Void Wanderer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 6, "count": 2 }],
     strength: 3,
     durability: 2,
@@ -208,9 +186,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 12,
     name: "The Hunger",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
     strength: undefined,
     durability: undefined,
@@ -226,9 +202,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 13,
     name: "Hollow Starlight",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
@@ -244,9 +218,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 14,
     name: "The Watcher Awakens",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 5 }],
     strength: 4,
     durability: 5,
@@ -263,9 +235,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 15,
     name: "The Ship's Last Breath",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 10, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -281,9 +251,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 16,
     name: "The Devourer of Moons",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
     strength: 5,
     durability: 4,
@@ -300,9 +268,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 17,
     name: "Stardust Memories",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 9, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -318,14 +284,11 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 18,
     name: "Nova Rebirth",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 3 }],
     strength: undefined,
     durability: undefined,
     text: "Scavenge.",
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     abilities: { "scavenge": { "cost": [{ type: DiceCostType.SUM_OF_X_DICE, "value": 12, "count": 2 }] } },
     faction: "Space Horror",
     rarity: "Rare",
@@ -337,9 +300,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 19,
     name: "Ember, Last Pilot",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.STRAIGHT, "count": 3 }],
     strength: 6,
     durability: 5,
@@ -356,9 +317,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 20,
     name: "Nightmare Nebula",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 6 }],
     strength: undefined,
     durability: undefined,
@@ -374,9 +333,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 21,
     name: "Wylex, The Forgotten",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
     strength: 5,
     durability: 7,
@@ -393,7 +350,6 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 22,
     name: "Chrono Rift",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
     dice_cost: [],
     strength: undefined,
@@ -410,9 +366,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 23,
     name: "The Last Transmission",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.STRAIGHT, "count": 4 }],
     strength: undefined,
     durability: undefined,
@@ -428,9 +382,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 24,
     name: "Shadow of the Dreadnought",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 20, "count": 3 }],
     strength: undefined,
     durability: undefined,
@@ -446,9 +398,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 25,
     name: "The Void Mother",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.FOUR_OF_A_KIND }],
     strength: 7,
     durability: 10,
@@ -465,9 +415,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 26,
     name: "Singularity of Fear",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 4 }],
     strength: undefined,
     durability: undefined,
@@ -483,9 +431,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 27,
     name: "Omen of the Starborn",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.FOUR_OF_A_KIND }],
     strength: undefined,
     durability: undefined,
@@ -501,9 +447,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 28,
     name: "The Cosmic Harbinger",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 11, "count": 2 }],
     strength: 3,
     durability: 6,
@@ -520,9 +464,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 29,
     name: "Eternal Eclipse",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
@@ -538,9 +480,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 30,
     name: "The Young Explorer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 3 }],
     strength: 1,
     durability: 1,
@@ -557,9 +497,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 69,
     name: "Jenna, The Chromatic Upriser",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 22, "count": 3 }],
     strength: 6,
     durability: 8,
@@ -576,9 +514,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 74,
     name: "Underground Rainbow",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 6 }],
     strength: undefined,
     durability: undefined,
@@ -594,9 +530,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 77,
     name: "Street Spirit",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 4 }],
     strength: 5,
     durability: 9,
@@ -613,9 +547,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 82,
     name: "Urban Legends",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 6 }],
     strength: undefined,
     durability: undefined,
@@ -631,9 +563,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 83,
     name: "Monochrome Officer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.FOUR_OF_A_KIND }],
     strength: 8,
     durability: 8,
@@ -650,9 +580,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 85,
     name: "ChromaVoid",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 24, "count": 3 }],
     strength: undefined,
     durability: undefined,
@@ -668,9 +596,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 88,
     name: "Wall Whisperer",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 8, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -686,9 +612,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 102,
     name: "Necromancy 101",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -704,9 +628,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 120,
     name: "Literary Blood Bath",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 3 }],
     strength: undefined,
     durability: undefined,
@@ -722,9 +644,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 152,
     name: "Moonless Malice",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 20, "count": 3 }],
     strength: 8,
     durability: 6,
@@ -741,9 +661,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 174,
     name: "Crenellation Creeper",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 23, "count": 3 }],
     strength: 5,
     durability: 10,
@@ -760,9 +678,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 240,
     name: "The Shepherd Paradox",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 21, "count": 3 }],
     strength: 6,
     durability: 8,
@@ -779,9 +695,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 250,
     name: "Lord of the Bramble",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 23, "count": 3 }],
     strength: 8,
     durability: 7,
@@ -798,9 +712,7 @@ export const cardDefinitions: CardDefinition[] = [
 {
     id: 251,
     name: "Waking Dream",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 6, "count": 2 }],
     strength: undefined,
     durability: undefined,
@@ -816,9 +728,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 252,
     name: "The Ascending Path",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 5 }],
     strength: undefined,
     durability: undefined,
@@ -834,9 +744,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 253,
     name: "Primordial Forest",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.LOCATION,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
@@ -852,9 +760,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 254,
     name: "Trophy Collector",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 8, "count": 2 }],
     strength: 3,
     durability: 3,
@@ -871,9 +777,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 255,
     name: "Kindling Fiend",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 2 }],
     strength: 5,
     durability: 2,
@@ -890,9 +794,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 256,
     name: "Conduit of Ire",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.ARTIFACT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.THREE_OF_A_KIND }],
     strength: undefined,
     durability: undefined,
@@ -908,9 +810,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 257,
     name: "Global Headache",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 2 }],
     strength: 2,
     durability: 3,
@@ -927,9 +827,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 258,
     name: "Abyssal Snapclaw",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.MIN_VALUE, count: 1, value: 6 }],
     strength: 3,
     durability: 1,
@@ -946,9 +844,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 259,
     name: "Zone Custodian",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 4 }],
     strength: 1,
     durability: 2,
@@ -965,9 +861,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 260,
     name: "Furnace Automaton",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced "sum" with "value" to match DiceCost interface.
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 7, "count": 2 }],
     strength: 2,
     durability: 4,
@@ -984,9 +878,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 261,
     name: "Mind Expansion",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.EVENT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.STRAIGHT, "count": 3 }],
     strength: undefined,
     durability: undefined,
@@ -1002,9 +894,7 @@ export const cardDefinitions: CardDefinition[] = [
   {
     id: 262,
     name: "Ocnog, The Wonder",
-    // FIX: Replaced string literal with CardType enum member.
     type: CardType.UNIT,
-    // FIX: Replaced string literal with DiceCostType enum member.
     dice_cost: [{ type: DiceCostType.FOUR_OF_A_KIND }],
     strength: 10,
     durability: 10,

@@ -39,6 +39,8 @@
               'flash-red': 'flash-red 0.8s ease-in-out',
               'flash-green': 'flash-green 0.8s ease-in-out',
               'pulse-yellow': 'pulse-yellow 0.7s ease-in-out',
+              'pulse-playable': 'pulse-glow-playable 2.5s ease-in-out infinite',
+              'zoom-announce': 'zoom-in-out-fade 2s ease-in-out forwards',
             },
             keyframes: {
               'pulse-bright': {
@@ -82,6 +84,22 @@
               'pulse-yellow': {
                 '0%, 100%': { transform: 'scale(1)' },
                 '50%': { transform: 'scale(1.25)' },
+              },
+              'pulse-glow-playable': {
+                '0%, 100%': {
+                  boxShadow: '0 0 6px #00f5d4, 0 0 12px #00f5d4',
+                  transform: 'scale(1)',
+                },
+                '50%': {
+                  boxShadow: '0 0 12px #00f5d4, 0 0 24px #00f5d4, 0 0 32px #00f5d4',
+                  transform: 'scale(1.03)',
+                },
+              },
+              'zoom-in-out-fade': {
+                '0%': { opacity: '0', transform: 'scale(0.8)' },
+                '15%': { opacity: '1', transform: 'scale(1.05)' },
+                '85%': { opacity: '1', transform: 'scale(1)' },
+                '100%': { opacity: '0', transform: 'scale(0.9)' },
               },
             }
           },

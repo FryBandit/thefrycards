@@ -264,34 +264,41 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* Mulligan UI */}
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
-        <div className="absolute inset-0 bg-cyber-bg/80 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
-          <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-8">Choose Your Starting Hand</h2>
-          <div className="flex justify-center items-end -space-x-24 mb-8 h-72">
-            {players[0].hand.map((card, i) => {
-              const numCards = players[0].hand.length;
-              const rotation = (i - (numCards - 1) / 2) * 5;
-              return (
-                <div key={card.instanceId} style={{ transform: `rotate(${rotation}deg)` }}>
-                  <Card card={card} inHand={true} onExamine={onExamineCard} />
+        <div className="absolute inset-0 bg-cyber-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
+            <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
+            <p className="text-neon-yellow/70 mb-8">You may redraw your starting hand once.</p>
+            <div className="flex justify-center items-center h-96 [perspective:1000px] mb-8">
+                <div className="flex justify-center items-end -space-x-32 [transform-style:preserve-3d]">
+                    {players[0].hand.map((card, i) => {
+                        const numCards = players[0].hand.length;
+                        const rotation = (i - (numCards - 1) / 2) * 8;
+                        const translationY = Math.abs(i - (numCards - 1) / 2) * 10;
+                        return (
+                            <div
+                                key={card.instanceId}
+                                className="transition-all duration-500 ease-out hover:!transform-none hover:z-50"
+                                style={{ transform: `rotateY(${rotation}deg) translateY(${translationY}px) translateZ(-${translationY}px)` }}
+                            >
+                                <Card card={card} inHand={true} onExamine={onExamineCard} />
+                            </div>
+                        );
+                    })}
                 </div>
-              );
-            })}
-          </div>
-          <div className="flex space-x-4">
-            <button
-              onClick={() => onMulligan(false)}
-              className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
-            >
-              Keep Hand
-            </button>
-            <button
-              onClick={() => onMulligan(true)}
-              className="bg-cyber-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-primary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
-            >
-              Mulligan
-            </button>
-          </div>
-          <p className="mt-4 text-neon-yellow/70">You can redraw your starting hand once.</p>
+            </div>
+            <div className="flex space-x-6">
+                <button
+                    onClick={() => onMulligan(false)}
+                    className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-neon-cyan uppercase tracking-wider"
+                >
+                    Keep Hand
+                </button>
+                <button
+                    onClick={() => onMulligan(true)}
+                    className="bg-cyber-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-primary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase tracking-wider"
+                >
+                    Mulligan
+                </button>
+            </div>
         </div>
       )}
 
