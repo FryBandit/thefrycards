@@ -56,29 +56,20 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
 
     for(let i=0; i<count; i++) {
         if (newPlayer.deck.length > 0) {
-            const cardDef = newPlayer.deck.pop();
-            if (cardDef) {
-                const newCard: CardInGame = {
-                  ...cardDef,
-                  instanceId: `${cardDef.id}-${Date.now()}-${Math.random()}`,
-                  damage: 0,
-                  strengthModifier: 0,
-                  durabilityModifier: 0,
-                  hasAssaulted: false,
-                  attachments: [],
-                };
-                drawnCards.push(newCard);
-            } else {
-                failedDraws++;
-                 if (newPlayer.hasMulliganed) {
-                    newPlayer.fatigueCounter++;
-                }
-            }
+            const cardDef = newPlayer.deck.pop()!;
+            const newCard: CardInGame = {
+              ...cardDef,
+              instanceId: `${cardDef.id}-${Date.now()}-${Math.random()}`,
+              damage: 0,
+              strengthModifier: 0,
+              durabilityModifier: 0,
+              hasAssaulted: false,
+              attachments: [],
+            };
+            drawnCards.push(newCard);
         } else {
             failedDraws++;
-            if (newPlayer.hasMulliganed) {
-                newPlayer.fatigueCounter++;
-            }
+            newPlayer.fatigueCounter++; // FIX: Fatigue now applies regardless of mulligan status.
         }
     }
     newPlayer.hand = [...newPlayer.hand, ...drawnCards];
