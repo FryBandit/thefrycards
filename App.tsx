@@ -8,6 +8,7 @@ import CardViewerModal from './components/CardViewerModal';
 import CardDetailsModal from './components/CardDetailsModal';
 import PhaseAnnouncer from './components/PhaseAnnouncer';
 import ConfirmModal from './components/ConfirmModal';
+import LoadingScreen from './components/LoadingScreen';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
 import { CardInGame, TurnPhase, Player, CardDefinition, CardType, DiceCost } from './game/types';
 import { fetchCardDefinitions, requiredComposition } from './game/cards';
@@ -67,7 +68,7 @@ const App: React.FC = () => {
 
 
   const handleStartGame = () => {
-    if (!allCards) return;
+    if (!allCards || allCards.length === 0) return;
     dispatch({ type: 'START_GAME', payload: { allCards } });
     setView('game');
     setTargetingInfo(null);
@@ -273,20 +274,12 @@ const App: React.FC = () => {
     };
   }, [state.isProcessing, state.winner, state.phase, state.currentPlayerId, state.turn, aiAction, dispatch]);
 
-  if (view === 'howToPlay') {
-    return <HowToPlay 
-        onPlay={handleStartGame} 
-        cardsLoaded={!!allCards && allCards.length > 0}
-        loadingError={loadingError}
-     />;
+  if (allCards === null || allCards.length === 0) {
+    return <LoadingScreen loadingError={loadingError} />;
   }
   
-  if (!allCards || state.turn === 0) {
-    return (
-        <div className="w-screen h-screen bg-cyber-bg flex items-center justify-center text-neon-cyan text-2xl font-bold uppercase tracking-widest">
-            Loading Assets...
-        </div>
-    );
+  if (view === 'howToPlay') {
+    return <HowToPlay onPlay={handleStartGame} />;
   }
 
   const isPlayerCurrent = state.currentPlayerId === 0;
@@ -321,7 +314,7 @@ const App: React.FC = () => {
       {/* HUD Elements */}
       <ActionHistory history={state.actionHistory} players={state.players} />
 
-      <div className="absolute bottom-4 left-4 h-40 z-10">
+      <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 h-36 md:h-40 z-10">
         <PlayerInfoPanel 
             player={state.players[0]} 
             isCurrent={isPlayerCurrent}
@@ -329,7 +322,7 @@ const App: React.FC = () => {
         />
       </div>
 
-      <div className="absolute top-4 right-4 h-40 z-10">
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 h-36 md:h-40 z-10">
         <PlayerInfoPanel 
             player={state.players[1]} 
             isCurrent={!isPlayerCurrent} 
@@ -340,7 +333,7 @@ const App: React.FC = () => {
       
       <button 
         onClick={() => setView('howToPlay')} 
-        className="absolute bottom-4 right-4 w-12 h-12 bg-cyber-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-cyber-secondary transition-colors z-20 border-2 border-cyber-border"
+        className="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-10 h-10 md:w-12 md:h-12 bg-cyber-primary/80 rounded-full flex items-center justify-center text-xl md:text-2xl font-black hover:bg-cyber-secondary transition-colors z-20 border-2 border-cyber-border"
         aria-label="How to Play"
       >
         ?

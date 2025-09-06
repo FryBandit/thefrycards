@@ -1,5 +1,6 @@
 
 
+
 import React, { useMemo } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -57,19 +58,19 @@ const FieldArea: React.FC<{
     };
     
     return (
-        <div className="flex-grow w-full flex flex-col items-center justify-center p-2 min-h-[18rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
+        <div className="flex-grow w-full flex flex-col items-center justify-center p-2 min-h-[14rem] md:min-h-[18rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_60%)]">
             {allCards.length > 0 ? (
                  <div className="w-full h-full flex flex-col justify-center items-center gap-y-2">
                     {/* Back Row (Locations & Artifacts) */}
-                    <div className="flex flex-wrap gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {backRowCards.map(renderCard)}
                     </div>
                     {/* Separator */}
-                    {frontRowCards.length > 0 && (
-                        <div className="w-3/4 h-px bg-gradient-to-r from-cyber-bg via-neon-cyan to-cyber-bg"></div>
+                    {frontRowCards.length > 0 && backRowCards.length > 0 && (
+                        <div className="w-3/4 h-px bg-gradient-to-r from-cyber-bg via-neon-cyan to-cyber-bg my-1"></div>
                     )}
                     {/* Front Row (Units) */}
-                    <div className="flex flex-wrap gap-4 items-center justify-center w-full flex-1 min-h-0">
+                    <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full flex-1 min-h-0">
                         {frontRowCards.map(renderCard)}
                     </div>
                 </div>
@@ -89,6 +90,7 @@ const HandArea: React.FC<{
     onGraveyardCardClick: (card: CardInGame) => void;
     isCardPlayable: (card: CardInGame) => boolean;
     isCardScavengeable: (card: CardInGame) => boolean;
+    // FIX: The `isCardChannelable` function should return a boolean to indicate if the action is possible, not void.
     isCardChannelable: (card: CardInGame) => boolean;
     onChannelClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
@@ -104,9 +106,9 @@ const HandArea: React.FC<{
     if (isOpponent) {
         const numCards = player.hand.length;
         return (
-             <div className="h-32 flex-shrink-0 w-full flex justify-center items-start pt-4 relative">
+             <div className="h-24 md:h-32 flex-shrink-0 w-full flex justify-center items-start pt-4 relative">
                 {numCards > 0 && 
-                    <div className="flex justify-center items-start -space-x-24">
+                    <div className="flex justify-center items-start -space-x-24 md:-space-x-32">
                          {player.hand.map((card, i) => {
                             const rotation = (i - (numCards - 1) / 2) * 5;
                             
@@ -116,8 +118,8 @@ const HandArea: React.FC<{
                                     className="transition-all duration-300 ease-in-out origin-top" 
                                     style={{ transform: `rotate(${rotation}deg)`}}
                                 >
-                                    <div className="w-48 h-64 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
-                                        <span className="text-2xl font-black text-neon-pink/50">CARD</span>
+                                    <div className="w-32 h-44 md:w-48 md:h-64 bg-gradient-to-b from-cyber-border to-cyber-bg rounded-lg border-2 border-cyber-border shadow-xl flex items-center justify-center">
+                                        <span className="text-xl md:text-2xl font-black text-neon-pink/50">CARD</span>
                                     </div>
                                 </div>
                             )
@@ -125,7 +127,7 @@ const HandArea: React.FC<{
                     </div>
                 }
                 {player.hand.length > 0 && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-cyber-bg/80 text-neon-yellow font-black text-3xl rounded-full w-20 h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none shadow-lg shadow-neon-yellow/50">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-cyber-bg/80 text-neon-yellow font-black text-2xl md:text-3xl rounded-full w-16 h-16 md:w-20 md:h-20 flex items-center justify-center border-4 border-neon-yellow pointer-events-none shadow-lg shadow-neon-yellow/50">
                         {player.hand.length}
                     </div>
                 )}
@@ -137,13 +139,18 @@ const HandArea: React.FC<{
     const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
     const scavengeableCards = player.graveyard.filter(isCardScavengeable).map(c => ({ ...c, source: 'graveyard' as const }));
     const allPlayableCards = [...scavengeableCards, ...handCards];
+    
+    const numCards = allPlayableCards.length;
+    let overlapClass = '-space-x-28 md:-space-x-40'; // default for <= 5 cards
+    if (numCards === 6) overlapClass = '-space-x-32 md:-space-x-44';
+    if (numCards === 7) overlapClass = '-space-x-36 md:-space-x-48';
+    if (numCards >= 8) overlapClass = '-space-x-40 md:-space-x-52';
 
 
     return (
-        <div className="h-80 flex-shrink-0 flex justify-center items-end pb-12">
-            <div className="flex justify-center items-end -space-x-40 h-full">
+        <div className="h-60 md:h-80 flex-shrink-0 flex justify-center items-end pb-4 md:pb-12">
+            <div className={`flex justify-center items-end h-full transition-all duration-300 ${overlapClass}`}>
                  {allPlayableCards.map((card, i) => {
-                    const numCards = allPlayableCards.length;
                     const rotation = (i - (numCards - 1) / 2) * 5;
                     
                     const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardScavengeable(card);
@@ -152,7 +159,7 @@ const HandArea: React.FC<{
                     return (
                         <div 
                             key={card.instanceId} 
-                            className="transition-all duration-300 ease-in-out hover:-translate-y-24 hover:scale-110 hover:z-40 origin-bottom hover:!rotate-0" 
+                            className="transition-all duration-300 ease-in-out hover:-translate-y-16 md:hover:-translate-y-24 hover:scale-110 hover:z-40 origin-bottom hover:!rotate-0" 
                             style={{ transform: `rotate(${rotation}deg)`}}
                             onMouseEnter={() => card.source === 'hand' && setHoveredCardInHand(card)}
                             onMouseLeave={() => setHoveredCardInHand(null)}
@@ -267,17 +274,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
         <div className="absolute inset-0 bg-cyber-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
             <h2 className="text-4xl font-black text-neon-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
             <p className="text-neon-yellow/70 mb-8">You may redraw your starting hand once.</p>
-            <div className="flex justify-center items-center h-96 [perspective:1000px] mb-8">
-                <div className="flex justify-center items-end -space-x-32 [transform-style:preserve-3d]">
+            <div className="flex justify-center items-end h-96 mb-8">
+                <div className="flex justify-center items-end -space-x-40 h-full">
                     {players[0].hand.map((card, i) => {
                         const numCards = players[0].hand.length;
-                        const rotation = (i - (numCards - 1) / 2) * 8;
-                        const translationY = Math.abs(i - (numCards - 1) / 2) * 10;
+                        const rotation = (i - (numCards - 1) / 2) * 5;
                         return (
                             <div
                                 key={card.instanceId}
-                                className="transition-all duration-500 ease-out hover:!transform-none hover:z-50"
-                                style={{ transform: `rotateY(${rotation}deg) translateY(${translationY}px) translateZ(-${translationY}px)` }}
+                                className="transition-all duration-300 ease-in-out origin-bottom hover:-translate-y-12 hover:scale-105 hover:!rotate-0 hover:z-50"
+                                style={{ transform: `rotate(${rotation}deg)` }}
                             >
                                 <Card card={card} inHand={true} onExamine={onExamineCard} />
                             </div>
@@ -335,15 +341,19 @@ const GameBoard: React.FC<GameBoardProps> = ({
       </div>
 
       {/* Center Bar */}
-      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex items-center justify-center gap-6 px-4 h-40">
-        <div className="text-center w-64 h-full flex flex-col items-center justify-center bg-cyber-surface/80 p-2 rounded-lg border-2 border-cyber-border shadow-lg">
-            <div className="text-base font-bold text-neon-cyan tracking-[0.2em] leading-tight">TURN</div>
-            <div className="text-5xl font-black text-white leading-none">{turn}</div>
-            <div className="text-base font-semibold text-neon-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
-            <div className="text-xs opacity-80 text-white tracking-widest leading-tight">{`${phase} Phase`}</div>
+      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40">
+        <div className={`text-center w-full md:w-64 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-center bg-cyber-surface/80 p-2 rounded-lg border-2 shadow-lg transition-all duration-300 ${isPlayerTurn ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
+            <div className='flex-1 text-left md:text-center'>
+                <div className="text-xs md:text-base font-bold text-neon-cyan tracking-[0.2em] leading-tight">TURN {turn}</div>
+                <div className="text-sm md:text-base font-semibold text-neon-yellow tracking-wider leading-tight mt-1">{players[currentPlayerId].name}</div>
+            </div>
+            <div className='flex-1 text-right md:text-center'>
+                 <div className="text-2xl md:text-5xl font-black text-white leading-none">{`${phase}`}</div>
+                 <div className="text-xs opacity-80 text-white tracking-widest leading-tight">Phase</div>
+            </div>
         </div>
 
-        <div className="flex-grow flex items-center justify-center min-w-[560px]">
+        <div className="flex-grow flex items-center justify-center min-w-0 w-full">
             {phase === TurnPhase.ROLL_SPEND && isPlayerTurn ? (
                 <DiceTray
                     dice={dice}
@@ -357,25 +367,25 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     lastActionDetails={gameState.lastActionDetails}
                 />
             ) : (
-                <div className="text-center text-cyber-primary/60 italic p-4 text-lg">
-                    {!isPlayerTurn ? "Opponent's Turn" : (rollCount === 0 ? "Roll dice to begin" : "Dice appear here during Roll & Spend Phase")}
+                <div className="text-center text-cyber-primary/60 italic p-2 md:p-4 text-sm md:text-lg">
+                    {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
                 </div>
             )}
         </div>
         
-        <div className="w-64 flex items-center justify-center">
+        <div className="w-full md:w-64 flex items-center justify-center p-2 md:p-0">
              {phase === TurnPhase.ASSAULT && isPlayerTurn ? (
                 <div className="flex gap-2 pointer-events-auto">
                     <button
                         onClick={() => onAdvancePhase(true)}
                         disabled={currentPlayer.units.filter(u => !u.abilities?.entrenched).length === 0}
-                        className="bg-neon-pink text-cyber-bg px-6 py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
+                        className="bg-neon-pink text-cyber-bg px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase"
                     >
                         Assault
                     </button>
                     <button
                         onClick={() => onAdvancePhase(false)}
-                        className="bg-cyber-primary text-white px-6 py-2 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors font-bold uppercase"
+                        className="bg-cyber-primary text-white px-4 py-2 md:px-6 md:py-2 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors font-bold uppercase"
                     >
                         Skip
                     </button>
@@ -384,7 +394,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <button 
                     onClick={phaseAction.action}
                     disabled={phaseAction.disabled}
-                    className="bg-cyber-primary text-white px-8 py-3 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border"
+                    className="bg-cyber-primary text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border"
                 >
                     {phaseAction.text}
                 </button>

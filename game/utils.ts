@@ -114,10 +114,18 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
         durability += card.attachments.length;
     }
 
-    // Buffs from player's other cards
-    if (owner.artifacts.some(a => a.id === 13)) strength += 1; // Targeting Matrix
-    if (owner.locations.some(l => l.id === 12)) durability += 1; // Hardened Subnet
-    
+    // Buffs from player's other cards (Locations/Artifacts with passive buffs)
+    owner.locations.forEach(loc => {
+        if (loc.abilities?.passive_buff?.type === 'STRENGTH') {
+            strength += loc.abilities.passive_buff.value;
+        }
+    });
+    owner.artifacts.forEach(art => {
+        if (art.abilities?.passive_buff?.type === 'STRENGTH') {
+            strength += art.abilities.passive_buff.value;
+        }
+    });
+
     // Rally
     const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
     strength += rallySources;

@@ -11,14 +11,14 @@ interface PlayerInfoPanelProps {
 const StatDisplay: React.FC<{ value: number; animClass: string; children: React.ReactNode; }> = ({ value, animClass, children }) => (
     <div className="flex flex-col items-center justify-center bg-black/20 p-1 rounded w-full h-full">
         {children}
-        <div className={`font-bold text-lg text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-base md:text-lg text-neon-yellow ${animClass}`}>{value}</div>
     </div>
 );
 
 const ClickableStatDisplay: React.FC<{ value: number; animClass: string; onClick: () => void; children: React.ReactNode; }> = ({ value, animClass, onClick, children }) => (
     <button onClick={onClick} className="flex flex-col items-center justify-center bg-black/20 p-1 rounded hover:bg-cyber-primary transition-colors border-2 border-transparent hover:border-neon-cyan w-full h-full">
         {children}
-        <div className={`font-bold text-lg text-neon-yellow ${animClass}`}>{value}</div>
+        <div className={`font-bold text-base md:text-lg text-neon-yellow ${animClass}`}>{value}</div>
     </button>
 );
 
@@ -86,12 +86,12 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
 
 
     return (
-    <div className={`w-64 bg-cyber-surface/80 backdrop-blur-sm p-3 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
+    <div className={`w-40 md:w-64 bg-cyber-surface/80 backdrop-blur-sm p-2 md:p-3 rounded-lg text-white h-full flex flex-col justify-between border-2 ${isCurrent ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
         <div>
-            <h2 className={`text-xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
-            <p className={`text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink ${commandAnim}`}>{player.command} <span className="text-base opacity-75">CMD</span></p>
+            <h2 className={`text-lg md:text-xl font-bold truncate ${isCurrent ? 'text-neon-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
+            <p className={`text-3xl md:text-4xl font-black ${isOpponent ? 'text-right' : 'text-left'} text-neon-pink ${commandAnim}`}>{player.command} <span className="text-sm md:text-base opacity-75">CMD</span></p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold">
+        <div className="grid grid-cols-2 gap-1 md:gap-2 text-center text-xs font-semibold">
             <StatDisplay value={player.deck.length} animClass={deckAnim}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-75" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm2 0v12h6V4H7z" />

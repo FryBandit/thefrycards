@@ -28,8 +28,8 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
   }
 
   return (
-    <div className="bg-cyber-surface/70 backdrop-blur-sm p-4 rounded-lg flex items-center justify-center space-x-4 border-2 border-cyber-border">
-      <div className="flex space-x-3">
+    <div className="bg-cyber-surface/70 backdrop-blur-sm p-2 sm:p-4 rounded-lg flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 border-2 border-cyber-border">
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
         {sortedDice.map((die) => (
           <Die 
             key={die.id} 
@@ -43,15 +43,15 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
           />
         ))}
       </div>
-      <div className="flex flex-col items-center space-y-2">
+      <div className="flex flex-col items-center space-y-1 sm:space-y-2">
         <button
           onClick={handleRoll}
           disabled={!canRoll || isRolling}
-          className="w-24 h-16 bg-cyber-primary text-white font-bold rounded-lg shadow-md hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed border-2 border-cyber-border"
+          className="w-24 h-12 sm:h-16 bg-cyber-primary text-white font-bold rounded-lg shadow-md hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed border-2 border-cyber-border"
         >
           {isRolling ? '...' : 'ROLL'}
         </button>
-        <div className="text-neon-yellow text-sm font-semibold">Rolls left: {maxRolls - rollCount}</div>
+        <div className="text-neon-yellow text-xs sm:text-sm font-semibold">Rolls: {maxRolls - rollCount}</div>
       </div>
     </div>
   );

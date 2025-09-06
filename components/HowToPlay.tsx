@@ -3,8 +3,6 @@ import { KEYWORD_DEFINITIONS } from '../game/keywords';
 
 interface HowToPlayProps {
   onPlay: () => void;
-  cardsLoaded: boolean;
-  loadingError: string | null;
 }
 
 const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
@@ -19,7 +17,7 @@ const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
     );
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
   // We can group keywords for better organization on the page.
   const keywordGroups = {
     "High-Rarity & Mythic": ['Annihilate', 'Riftwalk'],
@@ -40,27 +38,25 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError
   };
 
   return (
-    <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
+    <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-4 md:p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-black text-neon-cyan mb-2 tracking-widest">DICE COMMAND</h1>
-          <p className="text-lg text-neon-pink/80 uppercase">A Cyber-Noir Strategy Card Game</p>
+          <h1 className="text-4xl md:text-5xl font-black text-neon-cyan mb-2 tracking-widest">DICE COMMAND</h1>
+          <p className="text-base md:text-lg text-neon-pink/80 uppercase">A Cyber-Noir Strategy Card Game</p>
         </div>
         
         <div className="text-center my-8">
             <div className="mb-8">
                 <button
                     onClick={onPlay}
-                    disabled={!cardsLoaded || !!loadingError}
-                    className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    className="bg-cyber-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors text-xl transform hover:scale-105 border-2 border-cyber-border uppercase"
                 >
-                    {loadingError ? 'Error Loading' : (cardsLoaded ? 'Play Game' : 'Loading...')}
+                    Play Game
                 </button>
-                {loadingError && <p className="text-red-500 mt-4 font-semibold">{loadingError}</p>}
             </div>
         </div>
 
-        <div className="space-y-6 bg-cyber-surface/70 backdrop-blur-sm p-6 rounded-lg border-2 border-cyber-border">
+        <div className="space-y-6 bg-cyber-surface/70 backdrop-blur-sm p-4 md:p-6 rounded-lg border-2 border-cyber-border">
           <Section title="Objective">
             <p>Reduce the opponent's Command from 20 to 0. You lose Command when hit by enemy Units during an Assault, or when an opponent destroys one of your Units (you lose Command equal to that Unit's Command Number).</p>
           </Section>

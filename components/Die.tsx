@@ -61,7 +61,7 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
     [LastActionType.ACTIVATE]: 'shadow-unit',
   };
 
-  const baseClasses = "w-16 h-16 rounded-lg flex items-center justify-center text-5xl font-bold transition-all duration-200 border-2";
+  const baseClasses = "w-12 h-12 sm:w-16 sm:h-16 rounded-lg flex items-center justify-center text-4xl sm:text-5xl font-bold transition-all duration-200 border-2";
   
   let stateClasses = "";
   if (die.isSpent) {

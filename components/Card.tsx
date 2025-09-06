@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { CardInGame, CardType, DiceCost, DiceCostType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -151,11 +152,11 @@ const Card: React.FC<CardProps> = ({
   const playableClasses = isPlayable && !isTargetable && inHand ? 'animate-pulse-playable' : '';
 
   const isVideo = card.imageUrl?.endsWith('.mp4');
-  const cardSizeClasses = inHand && origin !== 'graveyard' ? 'w-56 h-80' : 'w-48 h-64';
+  const cardSizeClasses = inHand && origin !== 'graveyard' ? 'w-40 h-56 md:w-56 md:h-80' : 'w-36 h-48 md:w-48 md:h-64';
 
   const CardFace = () => (
-      <div className={`relative z-10 h-full flex flex-col justify-between p-2`}>
-        <div className="flex justify-between items-start text-sm font-bold">
+      <div className={`relative z-10 h-full flex flex-col justify-between p-2 text-xs md:text-sm`}>
+        <div className="flex justify-between items-start font-bold">
              <div className="flex-1 min-w-0">
                 <span className="truncate pr-2 block">{card.name}</span>
                 <div className="flex flex-wrap gap-1 items-center mt-0.5">
@@ -163,16 +164,16 @@ const Card: React.FC<CardProps> = ({
                 </div>
             </div>
             {card.commandNumber !== undefined && (
-              <span className={`flex-shrink-0 w-8 h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-lg ${typeColor} text-white`}>
+              <span className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 bg-cyber-bg/80 rounded-full flex items-center justify-center font-black text-base md:text-lg ${typeColor} text-white`}>
                 {card.commandNumber}
               </span>
             )}
         </div>
-        <div className="text-xs text-neon-yellow/70 my-2 flex-grow overflow-y-auto p-1 bg-black/30 rounded font-mono">
+        <div className="text-[10px] md:text-xs text-neon-yellow/70 my-1 md:my-2 flex-grow p-1 bg-black/30 rounded font-mono">
             <KeywordText text={card.text} />
         </div>
         <div>
-            <div className="flex justify-between items-end text-sm font-semibold">
+            <div className="flex justify-between items-end font-semibold">
                 <div className="flex items-center gap-1.5" title={card.type}>
                     <CardTypeIcon type={card.type} className={`w-4 h-4 ${typeIconColor[card.type]}`} />
                     <span className="capitalize text-white">{card.type}</span>
@@ -180,7 +181,7 @@ const Card: React.FC<CardProps> = ({
                 {card.type === CardType.UNIT && (
                 <div className="flex items-center space-x-2 font-bold">
                     {/* Strength Display */}
-                    <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                    <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
                         {(() => {
                             const base = card.strength ?? 0;
                             const effective = effectiveStrength ?? base;
@@ -190,7 +191,7 @@ const Card: React.FC<CardProps> = ({
                                 <>
                                     <span>{base}</span>
                                     {modifier !== 0 && (
-                                        <span className={`font-normal text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                        <span className={`font-normal text-[10px] md:text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
                                             ({modifier > 0 ? '+' : ''}{modifier})
                                         </span>
                                     )}
@@ -199,7 +200,7 @@ const Card: React.FC<CardProps> = ({
                         })()}
                     </div>
                     {/* Durability/Health Display */}
-                    <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-sm space-x-1`}>
+                    <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
                          {(() => {
                             const base = card.durability ?? 1;
                             const effective = effectiveDurability ?? base;
