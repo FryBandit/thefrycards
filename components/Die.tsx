@@ -7,11 +7,12 @@ interface DieProps {
   onClick: () => void;
   isRolling?: boolean;
   isHighlighted?: boolean;
+  isHoveredCardPlayable?: boolean;
   isTrayRolling?: boolean;
   lastActionDetails: GameState['lastActionDetails'];
 }
 
-const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false, isTrayRolling = false, lastActionDetails }) => {
+const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighted = false, isHoveredCardPlayable = true, isTrayRolling = false, lastActionDetails }) => {
   const [displayValue, setDisplayValue] = useState(die.value);
 
   useEffect(() => {
@@ -68,7 +69,11 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   } else if (die.isKept) {
       stateClasses = "bg-neon-cyan text-cyber-bg scale-105 border-neon-cyan shadow-neon-cyan";
   } else if (isHighlighted) {
-      stateClasses = "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan";
+      if (isHoveredCardPlayable) {
+        stateClasses = "bg-cyber-primary/90 border-neon-cyan ring-4 ring-offset-2 ring-offset-cyber-surface ring-neon-cyan text-white shadow-neon-cyan";
+      } else {
+        stateClasses = "bg-red-900/80 border-red-500 ring-4 ring-offset-2 ring-offset-cyber-surface ring-red-500 text-white shadow-lg shadow-red-500/50";
+      }
   } else {
       stateClasses = "bg-cyber-surface/80 border-cyber-border text-neon-pink hover:bg-cyber-primary hover:border-neon-pink cursor-pointer";
   }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { KEYWORD_DEFINITIONS } from '../game/keywords';
 
 interface HowToPlayProps {
   onPlay: () => void;
@@ -6,7 +7,38 @@ interface HowToPlayProps {
   loadingError: string | null;
 }
 
+const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
+    const definition = KEYWORD_DEFINITIONS[name];
+    if (!definition) {
+        console.warn(`Keyword definition for "${name}" not found.`);
+        return <p><strong className="text-neon-pink">{name}:</strong> Definition missing.</p>;
+    }
+
+    return (
+        <p><strong className="text-neon-cyan">{name}:</strong> {definition}</p>
+    );
+}
+
 const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError }) => {
+  // We can group keywords for better organization on the page.
+  const keywordGroups = {
+    "High-Rarity & Mythic": ['Annihilate', 'Riftwalk'],
+    "Location & Artifact": ['Augment', 'Consume', 'Fortify', 'Generator', 'Landmark'],
+    "Advanced Action": ['Amplify', 'Channel', 'Recall', 'Scavenge', 'Stagnate'],
+    "Unit-Specific": ['Reconstruct', 'Synergy', 'Wild'],
+    "Negative": ['Bounty', 'Instability', 'Malice', 'Decay'],
+    "Core Gameplay": [
+      'Assault', 'Barrage', 'Breach', 'Echo', 'Entrenched', 'Executioner', 
+      'Fateweave', 'Fragile', 'Haunt', 'Immutable', 'Martyrdom', 'Overload', 
+      'Phasing', 'Rally', 'Resonance', 'Siphon', 'Stealth', 'Venomous', 'Shield'
+    ],
+    "Event-Specific": [
+        'Chain Reaction', 'Corrupt', 'Discard', 'Draw', 'Foresight', 
+        'Purge', 'Sabotage', 'VoidTarget', 'Warp'
+    ],
+     "Ability-Specific": ['Spike'],
+  };
+
   return (
     <div className="w-screen h-screen bg-black/50 backdrop-blur-sm text-neon-yellow/80 p-8 overflow-y-auto font-sans">
       <div className="max-w-4xl mx-auto">
@@ -16,7 +48,6 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError
         </div>
         
         <div className="text-center my-8">
-            {/* --- Primary Action: Play Game --- */}
             <div className="mb-8">
                 <button
                     onClick={onPlay}
@@ -71,71 +102,15 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, cardsLoaded, loadingError
             </div>
           </Section>
 
-          <Section title="High-Rarity & Mythic Keywords">
-             <div className="space-y-2">
-                <p><strong>Annihilate:</strong> When a unit with Annihilate enters the battlefield, it voids all other units. The opponent loses command equal to the command number of each of their voided units. Immutable units are immune. Annihilate bypasses on-destruction effects like Haunt or Martyrdom.</p>
-                <p><strong>Riftwalk (X):</strong> When a unit with this keyword enters the battlefield, it is voided. It then returns to the battlefield under your control at the start of your Xth next turn, triggering any Arrival abilities again.</p>
-             </div>
-          </Section>
-
-           <Section title="Location & Artifact Keywords">
-             <div className="space-y-2">
-                <p><strong>Augment [Cost]:</strong> An artifact with this keyword can be attached to a unit you control by paying a specified dice cost, granting it a bonus.</p>
-                <p><strong>Consume (X):</strong> An artifact with this keyword enters play with X "charge counters." Its activated ability requires removing a counter as a cost, and it is sacrificed when it has no counters left.</p>
-                <p><strong>Fortify (X):</strong> A location with this keyword prevents your command total from being reduced below X by damage. This does not prevent command loss from effects like Malice or a unit's destruction penalty.</p>
-                <p><strong>Generator (Effect):</strong> At the start of your turn, a location with this keyword provides a specified recurring effect (e.g., drawing a card, gaining command).</p>
-                <p><strong>Landmark:</strong> A player can only control one card with the Landmark keyword at a time. Playing a new Landmark will destroy the one you already control.</p>
-            </div>
-          </Section>
-          
-          <Section title="Other New Keywords">
-             <div className="space-y-2">
-                <p><strong>Bounty (X):</strong> A negative keyword. When a unit with Bounty is destroyed by an opponent, that opponent gains X command.</p>
-                <p><strong>Instability:</strong> A negative keyword. When you play a card with this keyword, you roll one fewer command die on your next turn. This effect can stack.</p>
-                <p><strong>Reconstruct [Cost]:</strong> A unit with this keyword has an activated ability that allows the player to pay a dice cost to remove all damage from it.</p>
-                <p><strong>Synergy (Faction):</strong> A card with this keyword gains a bonus for each other card you control from the specified faction.</p>
-                <p><strong>Wild:</strong> The cost for a card with this keyword can be paid with a die of any value, making it much easier to play.</p>
-            </div>
-          </Section>
-
-          <Section title="Advanced Action Keywords">
-             <div className="space-y-2">
-                <p><strong>Amplify [Cost]:</strong> Offers tactical flexibility. You may play the card for its base effect, or pay an additional Amplify cost to get a more powerful version of the effect.</p>
-                <p><strong>Channel [Cost]:</strong> Play a card for an alternate, usually cheaper, cost to get a different, smaller effect. This provides flexibility, allowing you to use a situational card for a simple effect like drawing a card if you can't use its main ability.</p>
-                <p><strong>Recall:</strong> An effect that returns one of your units from the field to your hand. This is a powerful way to save a damaged unit, remove negative effects from it, or re-use its powerful "Arrival" abilities.</p>
-                <p><strong>Scavenge [Cost]:</strong> Play a card directly from your graveyard by paying its Scavenge cost. A scavenged card is Voided (removed from the game permanently) when it leaves the field, preventing it from being used again.</p>
-                <p><strong>Stagnate:</strong> A potent disruption effect that forces your opponent to skip their next Draw Phase, denying them resources.</p>
-            </div>
-          </Section>
-
-          <Section title="Core Gameplay Keywords">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                <p><strong>Assault (X):</strong> This unit gets +X Strength during your Assault Phase.</p>
-                <p><strong>Barrage (X):</strong> Arrival: Deal X damage to each enemy unit.</p>
-                <p><strong>Breach:</strong> This unit cannot be targeted by opponent's Events until after it has participated in an Assault.</p>
-                <p><strong>Decay:</strong> At the start of your turn, this unit takes 1 damage.</p>
-                <p><strong>Echo:</strong> When this unit enters the field, create a token copy of it. Tokens are Voided when they leave the field.</p>
-                <p><strong>Entrenched:</strong> This unit does not participate in Assaults.</p>
-                <p><strong>Executioner (X):</strong> When this unit destroys a unit with one of its abilities, the opponent loses X Command.</p>
-                <p><strong>Fateweave (X):</strong> Arrival: Gain X additional dice rolls this turn.</p>
-                <p><strong>Fragile:</strong> This unit takes double damage from Events.</p>
-                <p><strong>Haunt (X):</strong> When this unit is destroyed, the opponent loses X Command.</p>
-                <p><strong>Immutable:</strong> The ultimate protection. A card with Immutable cannot be targeted, damaged, destroyed, or otherwise affected by an opponent's cards or abilities. It can only be defeated in combat.</p>
-                <p><strong>Malice (X):</strong> When this unit is destroyed, its controller loses X Command.</p>
-                <p><strong>Martyrdom:</strong> When this unit is destroyed, a bonus effect triggers (e.g., draw a card, deal damage to opponent).</p>
-                <p><strong>Overload:</strong> This unit gains bonus Strength based on the number of cards in your graveyard.</p>
-                <p><strong>Phasing:</strong> This unit's damage during an Assault cannot be prevented and is dealt directly to the opponent's Command.</p>
-                <p><strong>Resonance (X):</strong> A high-risk, high-reward ability. Upon playing the card, you reveal the top card of your deck. If its Command Number is X or higher, a bonus effect triggers.</p>
-                <p><strong>Siphon (X):</strong> When this unit deals damage to the opponent during an Assault, you gain X Command.</p>
-                <p><strong>Stealth:</strong> This unit cannot be targeted by opponent's Events.</p>
-                <p><strong>Venomous:</strong> When this unit deals damage to another unit, the damaged unit is marked for destruction.</p>
-                <p><strong>Corrupt (X):</strong> An Event effect that gives a target unit -X Strength.</p>
-                <p><strong>Discard (X):</strong> An Event effect that forces the opponent to discard X cards at random.</p>
-                <p><strong>Foresight (X):</strong> An Event effect that lets you look at the top X cards of your deck.</p>
-                <p><strong>Purge (X):</strong> An Event effect that Voids X random cards from the opponent's graveyard.</p>
-                <p><strong>Warp:</strong> An Event effect that lets you take an extra turn after this one (with some restrictions).</p>
-            </div>
-          </Section>
+          {Object.entries(keywordGroups).map(([groupTitle, keywords]) => (
+            <Section key={groupTitle} title={`${groupTitle} Keywords`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                {keywords.sort().map(keyword => (
+                  <KeywordDefinition key={keyword} name={keyword} />
+                ))}
+              </div>
+            </Section>
+          ))}
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 
 
+
 export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // High-Rarity & Mythic
   'Annihilate': 'When a unit with Annihilate enters the battlefield, it voids all other units. The opponent loses command equal to the command number of each of their voided units. Immutable units are immune. Annihilate bypasses on-destruction effects like Haunt or Martyrdom.',
@@ -44,6 +45,7 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   'Martyrdom': 'When this unit is destroyed, a bonus effect triggers (e.g., draw a card, deal damage to opponent).',
   'Overload': 'This unit gains bonus Strength based on the number of cards in your graveyard.',
   'Phasing': 'This unit\'s damage during an Assault cannot be prevented and is dealt directly to the opponent\'s Command.',
+  'Rally': 'This unit gains +1 Strength for each other friendly unit you control with the Rally keyword.',
   'Resonance': 'A high-risk, high-reward ability. Upon playing the card, you reveal the top card of your deck. If its Command Number is X or higher, a bonus effect triggers.',
   'Siphon': 'When this unit deals damage to the opponent during an Assault, you gain X Command.',
   'Stealth': 'This unit cannot be targeted by opponent\'s Events.',
@@ -51,6 +53,7 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   'Shield': 'Prevents the next instance of damage this unit would take this turn. Resets at the start of its controller\'s turn.',
   
   // Event Keywords
+  'Chain Reaction': 'This card\'s effect may trigger additional, chained effects when played.',
   'Corrupt': 'An Event effect that gives a target unit -X Strength.',
   'Discard': 'An Event effect that forces the opponent to discard X cards at random.',
   'Foresight': 'An Event effect that lets you look at the top X cards of your deck.',

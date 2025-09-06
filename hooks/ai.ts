@@ -357,16 +357,22 @@ export const getAiAction = (state: GameState): AIAction | null => {
         }
 
         if (rollCount < state.maxRolls) {
-            const diceToKeep = determineBestDiceToKeep(aiPlayer.hand, dice, aiPlayer, humanPlayer, turn);
-            const diceToKeepIds = new Set(diceToKeep.map(d => d.id));
+            // The game rules only allow keeping dice after the first roll (rollCount > 0).
+            // The AI must perform its first roll before deciding which dice to keep.
+            if (rollCount > 0) {
+                const diceToKeep = determineBestDiceToKeep(aiPlayer.hand, dice, aiPlayer, humanPlayer, turn);
+                const diceToKeepIds = new Set(diceToKeep.map(d => d.id));
 
-            for(const die of dice) {
-                if (die.isSpent) continue;
-                const shouldKeep = diceToKeepIds.has(die.id) || die.value >= 5; // General heuristic: keep high rolls
-                if (die.isKept !== shouldKeep) {
-                    return { type: 'TOGGLE_DIE_KEPT', payload: { id: die.id, keep: shouldKeep } };
+                for(const die of dice) {
+                    if (die.isSpent) continue;
+                    const shouldKeep = diceToKeepIds.has(die.id) || die.value >= 5; // General heuristic: keep high rolls
+                    if (die.isKept !== shouldKeep) {
+                        return { type: 'TOGGLE_DIE_KEPT', payload: { id: die.id, keep: shouldKeep } };
+                    }
                 }
             }
+            
+            // If it's the first roll, or all dice are set as desired, roll.
             return { type: 'ROLL_DICE' };
         }
 

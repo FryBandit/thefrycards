@@ -215,6 +215,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   const isPlayerTurn = currentPlayerId === 0;
 
+  const isHoveredCardPlayable = useMemo(() => {
+    if (!hoveredCardInHand || !isPlayerTurn) return true; // Default to true to not show red when no card is hovered
+    return isCardPlayable(hoveredCardInHand);
+  }, [hoveredCardInHand, isPlayerTurn, isCardPlayable]);
+
   const valuableDiceForHover = useMemo(() => {
     if (!hoveredCardInHand || !isPlayerTurn) return new Set<number>();
     const diceToConsider = gameState.dice.filter(d => !d.isSpent);
@@ -339,6 +344,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     onRoll={onRoll}
                     canRoll={rollCount < maxRolls}
                     valuableDiceForHover={valuableDiceForHover}
+                    isHoveredCardPlayable={isHoveredCardPlayable}
                     lastActionDetails={gameState.lastActionDetails}
                 />
             ) : (
