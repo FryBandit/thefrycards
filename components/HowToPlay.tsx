@@ -21,21 +21,15 @@ const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
 const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
   // We can group keywords for better organization on the page.
   const keywordGroups = {
-    "High-Rarity & Mythic": ['Annihilate', 'Riftwalk'],
-    "Location & Artifact": ['Augment', 'Consume', 'Fortify', 'Generator', 'Landmark'],
-    "Advanced Action": ['Amplify', 'Channel', 'Recall', 'Scavenge', 'Stagnate'],
-    "Unit-Specific": ['Reconstruct', 'Synergy', 'Wild'],
-    "Negative": ['Bounty', 'Instability', 'Malice', 'Decay'],
-    "Core Gameplay": [
-      'Assault', 'Barrage', 'Breach', 'Echo', 'Entrenched', 'Executioner', 
-      'Fateweave', 'Fragile', 'Haunt', 'Immutable', 'Martyrdom', 'Overload', 
-      'Phasing', 'Rally', 'Resonance', 'Siphon', 'Stealth', 'Venomous', 'Shield'
-    ],
-    "Event-Specific": [
-        'Chain Reaction', 'Corrupt', 'Discard', 'Draw', 'Foresight', 
-        'Purge', 'Sabotage', 'VoidTarget', 'Warp'
-    ],
-     "Ability-Specific": ['Spike'],
+      "Unique & Game-Changing": ['Annihilate', 'Riftwalk', 'Warp', 'Chain Reaction'],
+      "Advanced Actions": ['Amplify', 'Channel', 'Recall', 'Scavenge'],
+      "Combat Keywords": ['Assault', 'Breach', 'Entrenched', 'Executioner', 'Phasing', 'Rally', 'Shield', 'Venomous'],
+      "Protective & Evasive": ['Immutable', 'Stealth', 'Shield'],
+      "Value & Resource Keywords": ['Draw', 'Echo', 'Fateweave', 'Foresight', 'Martyrdom', 'Overload', 'Resonance', 'Siphon'],
+      "Disruption Keywords": ['Barrage', 'Corrupt', 'Discard', 'Purge', 'Sabotage', 'Stagnate', 'VoidTarget'],
+      "Location & Artifact Keywords": ['Augment', 'Consume', 'Fortify', 'Generator', 'Landmark', 'Spike'],
+      "Unit-Specific Keywords": ['Reconstruct', 'Synergy', 'Wild'],
+      "Negative Keywords": ['Bounty', 'Decay', 'Fragile', 'Haunt', 'Instability', 'Malice'],
   };
 
   return (
@@ -100,7 +94,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
           </Section>
 
           {Object.entries(keywordGroups).map(([groupTitle, keywords]) => (
-            <Section key={groupTitle} title={`${groupTitle} Keywords`}>
+            <Section key={groupTitle} title={`${groupTitle}`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                 {keywords.sort().map(keyword => (
                   <KeywordDefinition key={keyword} name={keyword} />

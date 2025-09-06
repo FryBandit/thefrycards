@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useMemo, useState } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -172,10 +173,10 @@ const HandArea: React.FC<{
     const allPlayableCards = [...scavengeableCards, ...handCards];
     
     const numCards = allPlayableCards.length;
-    let overlapClass = '-space-x-28 md:-space-x-40'; // default for <= 5 cards
-    if (numCards === 6) overlapClass = '-space-x-32 md:-space-x-44';
-    if (numCards === 7) overlapClass = '-space-x-36 md:-space-x-48';
-    if (numCards >= 8) overlapClass = '-space-x-40 md:-space-x-52';
+    let overlapClass = '-space-x-24 md:-space-x-36';
+    if (numCards === 6) overlapClass = '-space-x-28 md:-space-x-40';
+    if (numCards === 7) overlapClass = '-space-x-32 md:-space-x-44';
+    if (numCards >= 8) overlapClass = '-space-x-36 md:-space-x-48';
 
 
     return (

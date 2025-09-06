@@ -230,50 +230,52 @@ const Card: React.FC<CardProps> = ({
                 </div>
                 {card.type === CardType.UNIT && (
                 <div className="flex items-center space-x-2 font-bold">
-                    {/* Strength Display */}
-                    <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
-                        {(() => {
-                            const base = card.strength ?? 0;
-                            const effective = effectiveStrength ?? base;
-                            const modifier = effective - base;
-                            
-                            return (
-                                <>
-                                    <span>{base}</span>
-                                    {modifier !== 0 && (
-                                        <span className={`font-normal text-[10px] md:text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
-                                            ({modifier > 0 ? '+' : ''}{modifier})
-                                        </span>
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
-                    {/* Durability/Health Display */}
-                    <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
-                         {(() => {
-                            const base = card.durability ?? 1;
-                            const effective = effectiveDurability ?? base;
-                            const currentHealth = effective - card.damage;
-                            
-                            let healthColorClass = 'text-cyber-bg';
-                            if (card.damage > 0) {
-                                healthColorClass = 'text-red-700';
-                            } else if (effective > base) {
-                                healthColorClass = 'text-green-700';
-                            } else if (effective < base) {
-                                healthColorClass = 'text-yellow-700';
-                            }
-                            
-                            return (
-                                <>
-                                    <span className={`${healthColorClass} ${damageAnimClass}`}>{currentHealth}</span>
-                                    <span>/</span>
-                                    <span>{effective}</span>
-                                </>
-                            );
-                        })()}
-                    </div>
+                    <Tooltip content="Strength: Damage dealt in combat.">
+                        <div className={`bg-neon-pink px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
+                            {(() => {
+                                const base = card.strength ?? 0;
+                                const effective = effectiveStrength ?? base;
+                                const modifier = effective - base;
+                                
+                                return (
+                                    <>
+                                        <span>{base}</span>
+                                        {modifier !== 0 && (
+                                            <span className={`font-normal text-[10px] md:text-xs ${modifier > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                                ({modifier > 0 ? '+' : ''}{modifier})
+                                            </span>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </Tooltip>
+                    <Tooltip content="Durability: The amount of damage a unit can sustain.">
+                        <div className={`bg-neon-cyan px-2 py-1 rounded flex items-center justify-center text-cyber-bg text-xs md:text-sm space-x-1`}>
+                            {(() => {
+                                const base = card.durability ?? 1;
+                                const effective = effectiveDurability ?? base;
+                                const currentHealth = effective - card.damage;
+                                
+                                let healthColorClass = 'text-cyber-bg';
+                                if (card.damage > 0) {
+                                    healthColorClass = 'text-red-700';
+                                } else if (effective > base) {
+                                    healthColorClass = 'text-green-700';
+                                } else if (effective < base) {
+                                    healthColorClass = 'text-yellow-700';
+                                }
+                                
+                                return (
+                                    <>
+                                        <span className={`${healthColorClass} ${damageAnimClass}`}>{currentHealth}</span>
+                                        <span>/</span>
+                                        <span>{effective}</span>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </Tooltip>
                 </div>
                 )}
             </div>

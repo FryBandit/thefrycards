@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { CardInGame } from '../game/types';
 import Card from './Card';
@@ -18,7 +19,7 @@ const CardViewerModal: React.FC<CardViewerModalProps> = ({ title, cards, onClose
             <h2 className="text-2xl font-bold text-neon-cyan uppercase tracking-widest">{title}</h2>
              <button
                 onClick={onClose}
-                className="bg-cyber-primary px-4 py-2 rounded-lg font-bold text-white hover:bg-cyber-secondary transition-colors uppercase"
+                className="bg-cyber-border px-4 py-2 rounded-lg font-bold text-white hover:bg-cyber-primary transition-all uppercase border-2 border-cyber-border"
             >
                 Close
             </button>

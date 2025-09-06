@@ -247,7 +247,10 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
 
     // Find valuable dice for the top potential plays
     topCards.forEach(card => {
-        const valuableDiceForCard = card.dice_cost.flatMap(cost => findValuableDiceForCost(cost, diceToConsider));
+        const costToUse = card.abilities?.wild 
+            ? card.dice_cost.map(c => c.type === DiceCostType.EXACT_VALUE ? { ...c, type: DiceCostType.ANY_X_DICE } : c)
+            : card.dice_cost;
+        const valuableDiceForCard = costToUse.flatMap(cost => findValuableDiceForCost(cost, diceToConsider));
         valuableDiceForCard.forEach(d => allValuableDice.set(d.id, d));
     });
 
@@ -551,7 +554,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
             
             // On the last roll, be more willing to make a play.
             const isLastRoll = rollCount >= state.maxRolls;
-            const playThreshold = isLastRoll ? 1 : (aiConfig.difficulty === 'easy' ? 8 : 3);
+            const playThreshold = isLastRoll ? 0.1 : (aiConfig.difficulty === 'easy' ? 8 : 3);
             
             if (possiblePlays[0].score > playThreshold) {
                 return possiblePlays[0].action;

@@ -10,23 +10,16 @@ const ActionHistory: React.FC<ActionHistoryProps> = ({ history, players }) => {
     const [isOpen, setIsOpen] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        // Scroll to bottom when new actions are added and panel is open
-        if (isOpen && panelRef.current) {
-            panelRef.current.scrollTop = panelRef.current.scrollHeight;
-        }
-    }, [history, isOpen]);
-
     return (
         <div className={`absolute top-4 left-0 h-[calc(50%-2rem)] z-30 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%-3rem)]'}`}>
             <div className="relative w-80 h-full flex">
                 {/* Panel Content */}
                 <div className="w-full h-full bg-cyber-surface/80 backdrop-blur-sm rounded-r-lg p-2 text-white text-xs font-mono flex flex-col border-2 border-l-0 border-cyber-border shadow-lg">
                     <h3 className="text-sm font-bold border-b border-neon-cyan/50 mb-2 pb-1 text-neon-cyan uppercase tracking-widest flex-shrink-0">Action History</h3>
-                    <div ref={panelRef} className="overflow-y-auto flex-grow pr-2 flex flex-col-reverse">
-                        {/* The content is reversed via flex-direction, so we iterate normally */}
+                    <div ref={panelRef} className="overflow-y-auto flex-grow pr-2">
+                        {/* Newest actions will appear at the top */}
                         <div>
-                            {history.filter(t => t.actions.length > 0).map((turnLog, index) => {
+                            {[...history].reverse().filter(t => t.actions.length > 0).map((turnLog, index) => {
                                 const player = players[turnLog.playerId];
                                 const isPlayer = player.id === 0;
                                 return (

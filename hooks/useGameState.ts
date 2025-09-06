@@ -400,7 +400,9 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
 
     // --- Ability-based Targeting Rules ---
     const abilities = targetingCard.abilities;
-    const mustTargetOpponent = abilities?.damage || abilities?.snipe || abilities?.corrupt || abilities?.voidTarget;
+    // Stricter rules: these effects almost always target opponents.
+    const mustTargetOpponent = abilities?.corrupt || abilities?.voidTarget;
+    // Stricter rules: these effects almost always target friendlies.
     const mustTargetFriendly = abilities?.recall || abilities?.augment;
 
     if (mustTargetOpponent && !isOpponentTarget) {
@@ -412,7 +414,8 @@ export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGa
     }
 
     // --- Default Case ---
-    // If no specific rules prevent targeting, it is allowed. This is more flexible for future abilities.
+    // If no specific rules prevent targeting, it is allowed. This is more flexible for future abilities
+    // and allows for advanced plays like using a damage ability on your own unit with Martyrdom.
     return true;
 };
 
@@ -764,10 +767,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (mulligan) {
               log(`You chose to mulligan.`);
               logAction('Mulliganed their hand.');
-              const handToReturn = [...player.hand];
+              const handToReturn = player.hand;
+              const deckWithReturnedCards = shuffle([...player.deck, ...handToReturn]);
+              player.deck = deckWithReturnedCards;
               player.hand = [];
-              player.deck.push(...handToReturn);
-              player.deck = shuffle(player.deck);
               const { player: p1 } = drawCards(player, 3);
               player = p1;
           } else {
@@ -791,10 +794,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
           if (mulligan) {
               log(`CPU chose to mulligan.`);
               logAction('Mulliganed their hand.');
-              const handToReturn = [...ai.hand];
+              const handToReturn = ai.hand;
+              const deckWithReturnedCards = shuffle([...ai.deck, ...handToReturn]);
+              ai.deck = deckWithReturnedCards;
               ai.hand = [];
-              ai.deck.push(...handToReturn);
-              ai.deck = shuffle(ai.deck);
               const { player: p2 } = drawCards(ai, 3);
               ai = p2;
           } else {
@@ -1005,10 +1008,10 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                                 }
                             } else {
                                 log(`Chain reaction fizzles: ${chainedCard.name} is not an event and is returned to the deck.`);
-                                // Since drawCards removes it, we need to find its definition and put it back.
-                                const cardDef = { ...chainedCard };
-                                delete (cardDef as any).instanceId; // Make it a definition again
-                                currentPlayer.deck.push(cardDef);
+                                // Convert CardInGame back to CardDefinition before returning to deck.
+                                const { id, name, type, dice_cost, strength, durability, commandNumber, text, abilities, imageUrl, faction, rarity, flavor_text, card_set, author } = chainedCard;
+                                const originalCardDef: CardDefinition = { id, name, type, dice_cost, strength, durability, commandNumber, text, abilities, imageUrl, faction, rarity, flavor_text, card_set, author };
+                                currentPlayer.deck.push(originalCardDef);
                             }
                         }
                     }

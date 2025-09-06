@@ -37,13 +37,11 @@ const PhaseAnnouncer: React.FC<PhaseAnnouncerProps> = ({ phase, turn }) => {
   return (
     <div
       key={animationKey}
-      className="fixed inset-0 flex items-center justify-center z-40 pointer-events-none animate-zoom-announce"
-      // Using onAnimationEnd to clear the phase could be an option, but resetting the key is cleaner
-      // as it allows back-to-back announcements of the same phase (e.g. extra turn)
+      className="fixed top-4 left-1/2 -translate-x-1/2 w-auto z-40 pointer-events-none animate-zoom-announce"
     >
-      <div className={`bg-black/60 backdrop-blur-sm font-black text-4xl md:text-6xl uppercase p-4 md:p-6 rounded-lg border-2 text-center ${style}`}>
-        <div className="text-lg md:text-2xl opacity-80 tracking-widest">Turn {turn}</div>
-        <div className="tracking-[0.3em]">{currentPhase}</div>
+      <div className={`bg-black/80 backdrop-blur-sm font-black text-2xl md:text-3xl uppercase px-6 py-2 rounded-lg border-2 text-center ${style}`}>
+        <span className="opacity-80 tracking-wider">Turn {turn}: </span>
+        <span className="tracking-widest">{currentPhase}</span>
       </div>
     </div>
   );
