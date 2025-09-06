@@ -1,5 +1,6 @@
 
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -18,12 +19,20 @@ export enum DiceCostType {
   ANY_X_DICE = 'ANY_X_DICE',
   TWO_PAIR = 'TWO_PAIR',
   FULL_HOUSE = 'FULL_HOUSE',
+  ODD_DICE = 'ODD_DICE',
+  EVEN_DICE = 'EVEN_DICE',
+  NO_DUPLICATES = 'NO_DUPLICATES',
+  SUM_BETWEEN = 'SUM_BETWEEN',
+  SPREAD = 'SPREAD',
 }
 
 export interface DiceCost {
   type: DiceCostType;
-  value?: number;
+  value?: number; // For EXACT_VALUE, MIN_VALUE, SUM_OF_X_DICE (min sum), SUM_BETWEEN (min sum)
   count?: number;
+  maxValue?: number; // For SUM_BETWEEN (max sum)
+  lowValue?: number; // For SPREAD (<=)
+  highValue?: number; // For SPREAD (>=)
 }
 
 export interface CardDefinition {
@@ -84,6 +93,7 @@ export enum TurnPhase {
   ROLL_SPEND = 'Roll & Spend',
   DRAW = 'Draw',
   ASSAULT = 'Assault',
+  BLOCK = 'Block',
   END = 'End',
 }
 
@@ -121,4 +131,5 @@ export interface GameState {
   extraTurns: number;
   lastActionDetails?: { type: LastActionType; spentDiceIds: number[] } | null;
   actionHistory: ActionHistoryEntry[];
+  combatants?: { attackerId: string; blockerId: string | null }[] | null;
 }

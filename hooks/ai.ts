@@ -1,5 +1,3 @@
-
-
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
 import { checkDiceCost, isCardTargetable } from './useGameState';
@@ -8,16 +6,27 @@ import { findValuableDiceForCost } from '../game/utils';
 type AIAction = 
     | { type: 'ROLL_DICE' }
     | { type: 'TOGGLE_DIE_KEPT', payload: { id: number, keep: boolean } }
-    | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; } } }
+    | { type: 'PLAY_CARD', payload: { card: CardInGame, targetInstanceId?: string, options?: { isChanneled?: boolean; isScavenged?: boolean; isAmplified?: boolean; isAugmented?: boolean; } } }
     | { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: string } }
     | { type: 'AI_MULLIGAN', payload: { mulligan: boolean } }
-    | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } };
+    | { type: 'DECLARE_BLOCKS'; payload: { assignments: { [blockerId: string]: string } } }
+    | { type: 'ADVANCE_PHASE', payload?: { assault: boolean } }
+    | { type: 'AI_ACTION' };
 
 type AIPossiblePlay = {
     action: AIAction;
     score: number;
     description: string;
 };
+
+// --- AI CONFIGURATION ---
+// This can be exposed to a settings UI in the future to allow players to choose the difficulty.
+type AIDifficulty = 'easy' | 'hard';
+const aiConfig: { difficulty: AIDifficulty } = { 
+    difficulty: 'hard' 
+};
+// ------------------------
+
 
 // Assesses the threat level of a single unit on the board.
 const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): number => {
@@ -81,6 +90,14 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         if (card.abilities?.corrupt) {
             score += Math.min(getEffectiveStats(target, humanPlayer).strength, card.abilities.corrupt) * 2.5;
         }
+        if (card.abilities?.recall && target.damage > 0) {
+            // Higher score for saving a valuable/damaged unit. Target here is friendly.
+            score += 5 + getUnitThreat(target, aiPlayer, humanPlayer) * 0.8;
+        }
+        if (card.abilities?.augment) {
+            // Augmenting a unit is a good tempo play. Target here is friendly.
+            score += 8 + getUnitThreat(target, aiPlayer, humanPlayer) * 0.3;
+        }
     }
     
     if (card.abilities?.barrage && humanPlayer.units.length > 0) {
@@ -128,7 +145,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     if (card.abilities?.executioner) score += 5;
     if (card.abilities?.venomous && card.abilities?.snipe) score += 10;
     if (card.abilities?.immutable) score += 8;
-    if (card.abilities?.recall && aiPlayer.units.some(u => u.damage > 0)) score += 8;
     if (card.abilities?.fateweave) score += 5;
     if (card.abilities?.resonance) score += 5;
     if (card.abilities?.martyrdom) score += 4;
@@ -182,7 +198,8 @@ const countDiceForCost = (costs: DiceCost[]): number => {
         if (cost.type === DiceCostType.TWO_PAIR) return total + 4;
         if (cost.type === DiceCostType.FULL_HOUSE) return total + 5;
         if (cost.type === DiceCostType.MIN_VALUE) return total + 1;
-        // For EXACT_VALUE, SUM_OF_X, STRAIGHT, ANY_X, use count property
+        if (cost.type === DiceCostType.SPREAD) return total + 2;
+        // For EXACT_VALUE, SUM_OF_X, STRAIGHT, ANY_X, etc., use count property
         return total + (cost.count || 0);
     }, 0);
 };
@@ -192,6 +209,25 @@ const countDiceForCost = (costs: DiceCost[]): number => {
 const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Player, humanPlayer: Player, turn: number): Die[] => {
     if (hand.length === 0) return [];
     
+    // Easy AI has a simpler, less optimal dice keeping strategy
+    if (aiConfig.difficulty === 'easy') {
+        const valuableDice = new Map<number, Die>();
+        const diceToConsider = dice.filter(d => !d.isSpent);
+        const diceByValue = new Map<number, Die[]>();
+        for (const die of diceToConsider) {
+            if (!diceByValue.has(die.value)) diceByValue.set(die.value, []);
+            diceByValue.get(die.value)!.push(die);
+        }
+        // Keep high-value dice and any pairs.
+        for (const group of diceByValue.values()) {
+            if (group.length >= 2 || group[0].value >= 5) {
+                group.forEach(d => valuableDice.set(d.id, d));
+            }
+        }
+        return Array.from(valuableDice.values());
+    }
+    
+    // Hard AI (original logic)
     const sortedHand = [...hand]
         .sort((a, b) => getCardScore(b, aiPlayer, humanPlayer, turn) - getCardScore(a, aiPlayer, humanPlayer, turn));
     
@@ -231,25 +267,128 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return null;
     }
 
-    if (state.phase !== TurnPhase.AI_MULLIGAN && state.currentPlayerId !== 1) {
-        return null;
-    }
-    
-    const { phase, dice, rollCount, players, turn } = state;
+    const { phase, dice, rollCount, players, turn, combatants } = state;
     const aiPlayer = players[1];
     const humanPlayer = players[0];
     const availableDice = dice.filter(d => !d.isSpent);
 
+    // --- Special Phase Handling ---
+    // These phases require AI action even when it's not technically the AI's turn.
+    // They must be checked before the currentPlayerId check to prevent the AI from stalling.
     if (phase === TurnPhase.AI_MULLIGAN) {
-        const aiHand = aiPlayer.hand;
-        const hasLowCost = aiHand.some(c => (c.commandNumber ?? 10) <= 3);
-        const hasUnit = aiHand.some(c => c.type === CardType.UNIT);
-        const shouldAiMulligan = !hasLowCost || !hasUnit;
-        return { type: 'AI_MULLIGAN', payload: { mulligan: shouldAiMulligan } };
+        const hand = aiPlayer.hand;
+        if (hand.length === 0) return { type: 'AI_MULLIGAN', payload: { mulligan: false } }; // Should not happen
+
+        const unitCount = hand.filter(c => c.type === CardType.UNIT).length;
+        const curve = hand.map(c => countDiceForCost(c.dice_cost));
+        const typeDiversity = new Set(hand.map(c => c.type)).size;
+
+        const hasLowCurve = curve.some(c => c <= 2);
+        const isBrickHand = curve.every(c => c >= 3); // All cards need 3+ dice
+
+        let score = 0;
+        if (unitCount > 0) score += 4;
+        if (hasLowCurve) score += 3;
+        if (typeDiversity > 1) score += 2;
+        if (unitCount > 1) score += 1;
+        if (isBrickHand) score -= 5;
+        if (unitCount === 0) score -= 5;
+
+        const shouldMulligan = score < 5; // Threshold for keeping
+
+        console.log(`AI Mulligan Analysis: Score: ${score} (Units: ${unitCount}, Low Curve: ${hasLowCurve}, Diversity: ${typeDiversity}). Decision: ${shouldMulligan ? 'Mulligan' : 'Keep'}`);
+        return { type: 'AI_MULLIGAN', payload: { mulligan: shouldMulligan } };
+    }
+    
+    // When the player attacks, the AI must declare blockers.
+    if (phase === TurnPhase.BLOCK && state.currentPlayerId === 0) {
+        const attackers = combatants!.map(c => humanPlayer.units.find(u => u.instanceId === c.attackerId)!);
+        const availableBlockers = aiPlayer.units.filter(u => !u.abilities?.entrenched);
+
+        const assignments: { [blockerId: string]: string } = {};
+
+        // Prioritize blocking high-threat attackers
+        attackers.sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer));
+        
+        for (const attacker of attackers) {
+            if (!attacker) continue;
+            let bestBlocker: CardInGame | null = null;
+            let bestBlockerScore = -Infinity;
+
+            for (const blocker of availableBlockers) {
+                if (Object.keys(assignments).includes(blocker.instanceId)) continue;
+
+                let score = 0;
+                const { strength: attackerStrength } = getEffectiveStats(attacker, humanPlayer, { isAssaultPhase: true });
+                const { strength: blockerStrength, durability: blockerDurability } = getEffectiveStats(blocker, aiPlayer);
+
+                // Favorable trade
+                if (blockerStrength >= getEffectiveStats(attacker, humanPlayer).durability - attacker.damage && blockerDurability - blocker.damage > attackerStrength) {
+                    score = 100 + getUnitThreat(attacker, humanPlayer, aiPlayer);
+                }
+                // Even trade
+                else if (blockerStrength >= getEffectiveStats(attacker, humanPlayer).durability - attacker.damage) {
+                    score = 50 + getUnitThreat(attacker, humanPlayer, aiPlayer) - getUnitThreat(blocker, aiPlayer, humanPlayer);
+                }
+                // Chump block
+                else {
+                    score = 10 + attackerStrength - getUnitThreat(blocker, aiPlayer, humanPlayer);
+                }
+                
+                if (score > bestBlockerScore) {
+                    bestBlocker = blocker;
+                    bestBlockerScore = score;
+                }
+            }
+            
+            // Easy AI is more hesitant to block unless it's a great trade.
+            const blockThreshold = aiConfig.difficulty === 'easy' ? 25 : 15;
+            if (bestBlocker && bestBlockerScore > blockThreshold) {
+                assignments[bestBlocker.instanceId] = attacker.instanceId;
+            }
+        }
+        
+        // Check if a block is required to prevent lethal damage.
+        let unblockedDamage = 0;
+        const assignedAttackers = new Set(Object.values(assignments));
+        for (const attacker of attackers) {
+            if (!assignedAttackers.has(attacker.instanceId)) {
+                unblockedDamage += getEffectiveStats(attacker, humanPlayer, { isAssaultPhase: true }).strength;
+            }
+        }
+
+        if (unblockedDamage >= aiPlayer.command) {
+            const remainingBlockers = availableBlockers.filter(b => !Object.keys(assignments).includes(b.instanceId));
+            const remainingAttackers = attackers.filter(a => !assignedAttackers.has(a.instanceId));
+            remainingAttackers.sort((a,b) => getEffectiveStats(b, humanPlayer, {isAssaultPhase: true}).strength - getEffectiveStats(a, humanPlayer, {isAssaultPhase: true}).strength);
+            
+            // Assign remaining blockers to the strongest remaining attackers.
+            for (const attacker of remainingAttackers) {
+                if (remainingBlockers.length > 0) {
+                    const blocker = remainingBlockers.pop()!;
+                    assignments[blocker.instanceId] = attacker.instanceId;
+                } else break;
+            }
+        }
+
+        return { type: 'DECLARE_BLOCKS', payload: { assignments } };
+    }
+
+    // If it's not the AI's turn and not a special action phase, do nothing.
+    if (state.currentPlayerId !== 1) {
+        return null;
+    }
+    
+    // --- AI's Turn Logic ---
+    // From this point, currentPlayerId is guaranteed to be 1.
+
+    // If AI is attacking and it's now the BLOCK phase, it must wait for the player.
+    // Returning 'AI_ACTION' unlocks the UI for the player to declare blockers.
+    if (phase === TurnPhase.BLOCK) {
+        return { type: 'AI_ACTION' };
     }
 
     if (phase === TurnPhase.ROLL_SPEND) {
-        // If no rolls have happened, the only valid action is to roll.
         if (rollCount === 0) {
             return { type: 'ROLL_DICE' };
         }
@@ -273,7 +412,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                     const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                     possiblePlays.push({
                         action: { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId } },
-                        score: finalScore,
+                        score: finalScore + 1,
                         description: `Activate ${card.name}`
                     });
                 }
@@ -289,7 +428,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                 possiblePlays.push({
                     action: { type: 'PLAY_CARD', payload: { card, options: { isScavenged: true } } },
-                    score: finalScore,
+                    score: finalScore + 1,
                     description: `Scavenge ${card.name}`
                 });
              }
@@ -300,16 +439,16 @@ export const getAiAction = (state: GameState): AIAction | null => {
         for (const card of aiPlayer.hand) {
             // A. Standard Play
             if (checkDiceCost(card, availableDice).canPay) {
-                if (card.abilities?.requiresTarget || card.abilities?.augment) {
+                if (card.abilities?.requiresTarget) {
                     for (const target of allPossibleTargets) {
-                        const targetOwner = players.find(p => p.units.some(c => c.instanceId === target.instanceId))!;
+                        const targetOwner = players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === target.instanceId))!;
                         if (isCardTargetable(card, target, aiPlayer, targetOwner)) {
                             let score = getCardScore(card, aiPlayer, humanPlayer, turn, target);
                             const diceCount = countDiceForCost(card.dice_cost);
                             const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                             possiblePlays.push({
                                 action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId } },
-                                score: finalScore,
+                                score: finalScore + 1,
                                 description: `Play ${card.name} targeting ${target.name}`
                             });
                         }
@@ -318,7 +457,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                     let score = getCardScore(card, aiPlayer, humanPlayer, turn);
                     const diceCount = countDiceForCost(card.dice_cost);
                     const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
-                    possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card } }, score: finalScore, description: `Play ${card.name}` });
+                    possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card } }, score: finalScore + 1, description: `Play ${card.name}` });
                 }
             }
 
@@ -335,14 +474,14 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
                     if (needsTarget) {
                         for (const target of allPossibleTargets) {
-                             const targetOwner = players.find(p => p.units.some(c => c.instanceId === target.instanceId))!;
+                             const targetOwner = players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === target.instanceId))!;
                              if (isCardTargetable(amplifiedCard, target, aiPlayer, targetOwner)) {
                                  let score = getCardScore(amplifiedCard, aiPlayer, humanPlayer, turn, target) + 2;
                                  const diceCount = countDiceForCost(combinedCost);
                                  const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                                  possiblePlays.push({
                                      action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAmplified: true } } },
-                                     score: finalScore,
+                                     score: finalScore + 1,
                                      description: `Amplify ${card.name} on ${target.name}`
                                  });
                              }
@@ -353,7 +492,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                          const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                          possiblePlays.push({
                              action: { type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } },
-                             score: finalScore,
+                             score: finalScore + 1,
                              description: `Amplify ${card.name}`
                          });
                      }
@@ -371,19 +510,40 @@ export const getAiAction = (state: GameState): AIAction | null => {
                          const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
                          possiblePlays.push({
                              action: { type: 'PLAY_CARD', payload: { card, options: { isChanneled: true } } },
-                             score: finalScore,
+                             score: finalScore + 1,
                              description: `Channel ${card.name}`
                          });
                     }
                 }
             }
+
+            // D. Augment Play
+            if (card.abilities?.augment) {
+                const cost = card.abilities.augment.cost;
+                if (checkDiceCost({ ...card, dice_cost: cost }, availableDice).canPay) {
+                    for (const target of aiPlayer.units) {
+                        let score = getCardScore(card, aiPlayer, humanPlayer, turn, target);
+                        const diceCount = countDiceForCost(cost);
+                        const finalScore = diceCount > 0 ? score / (diceCount * 0.8 + 0.2) : score * 1.2;
+                        if (finalScore > 0) {
+                            possiblePlays.push({
+                                action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAugmented: true } } },
+                                score: finalScore + 1,
+                                description: `Augment ${target.name} with ${card.name}`
+                            });
+                        }
+                    }
+                }
+            }
         }
         
-        // --- DECISION MAKING ---
         if (possiblePlays.length > 0) {
             possiblePlays.sort((a, b) => b.score - a.score);
             console.log("AI Possible Plays:", possiblePlays.map(p => `${p.description} (Score: ${p.score.toFixed(1)})`).join(', '));
-            if (possiblePlays[0].score > 3) { // Confidence threshold to act
+            
+            // Easy AI is more hesitant and needs a better reason to act.
+            const playThreshold = aiConfig.difficulty === 'easy' ? 8 : 3;
+            if (possiblePlays[0].score > playThreshold) {
                 return possiblePlays[0].action;
             }
         }
@@ -395,7 +555,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
                 for(const die of dice) {
                     if (die.isSpent) continue;
-                    const shouldKeep = diceToKeepIds.has(die.id) || die.value >= 5;
+                    // On hard difficulty, also keep high-value dice even if not immediately useful.
+                    const shouldKeep = diceToKeepIds.has(die.id) || (aiConfig.difficulty === 'hard' && die.value >= 5);
                     if (die.isKept !== shouldKeep) {
                         return { type: 'TOGGLE_DIE_KEPT', payload: { id: die.id, keep: shouldKeep } };
                     }
@@ -413,29 +574,21 @@ export const getAiAction = (state: GameState): AIAction | null => {
         if (unitsThatCanAssault.length === 0) {
             return { type: 'ADVANCE_PHASE', payload: { assault: false } };
         }
-
-        const totalPotentialDamage = unitsThatCanAssault.reduce((sum, unit) => {
+    
+        const totalAIAssaultThreat = unitsThatCanAssault.reduce((sum, unit) => {
             return sum + getEffectiveStats(unit, aiPlayer, { isAssaultPhase: true }).strength;
         }, 0);
-
-        if (totalPotentialDamage >= humanPlayer.command) {
+    
+        // If attack is lethal, always take it.
+        if (totalAIAssaultThreat >= humanPlayer.command) {
             return { type: 'ADVANCE_PHASE', payload: { assault: true } };
         }
-
-        const breachUnit = unitsThatCanAssault.find(u => u.abilities?.breach && !u.hasAssaulted);
-        if (breachUnit && humanPlayer.hand.length >= 3) {
-            const breachUnitThreat = getUnitThreat(breachUnit, aiPlayer, humanPlayer);
-            if (breachUnitThreat > 12 && aiPlayer.command <= humanPlayer.command) {
-                 return { type: 'ADVANCE_PHASE', payload: { assault: false } }; // Play defensively to protect high-value unit
-            }
-        }
-
-        const humanThreats = humanPlayer.units.map(u => getUnitThreat(u, humanPlayer, aiPlayer));
-        const aiThreats = aiPlayer.units.filter(u => !u.abilities?.entrenched).map(u => getUnitThreat(u, aiPlayer, humanPlayer));
-        const totalHumanThreat = humanThreats.reduce((a, b) => a + b, 0);
-        const totalAIAssaultThreat = aiThreats.reduce((a, b) => a + b, 0);
         
-        const shouldAssault = totalAIAssaultThreat > totalHumanThreat || humanPlayer.command <= 10 || aiPlayer.units.length > humanPlayer.units.length;
+        const totalHumanBoardStrength = humanPlayer.units.reduce((sum, u) => sum + getEffectiveStats(u, humanPlayer).strength, 0);
+        
+        // Easy AI will only attack if it has a clear advantage.
+        const assaultAdvantageMultiplier = aiConfig.difficulty === 'easy' ? 1.5 : 1.0;
+        const shouldAssault = totalAIAssaultThreat > totalHumanBoardStrength * assaultAdvantageMultiplier || aiPlayer.units.length >= humanPlayer.units.length + 1;
         
         return { type: 'ADVANCE_PHASE', payload: { assault: shouldAssault } };
     }
@@ -444,5 +597,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return { type: 'ADVANCE_PHASE' };
     }
 
-    return null;
+    // Failsafe: If the AI's turn reaches this point, it's in an unhandled state.
+    // Advance the phase to prevent a soft-lock, rather than returning null.
+    console.warn(`AI action logic fell through to the end for phase: ${phase}. Advancing phase as a failsafe.`);
+    return { type: 'ADVANCE_PHASE' };
 }

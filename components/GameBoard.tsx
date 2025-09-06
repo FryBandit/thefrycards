@@ -1,6 +1,5 @@
 
 
-
 import React, { useMemo } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType, DiceCost, Die, DiceCostType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -8,6 +7,7 @@ import { isCardTargetable } from '../hooks/useGameState';
 import { findValuableDiceForCost } from '../game/utils';
 import DiceTray from './DiceTray';
 import Card from './Card';
+import CardPreview from './CardPreview';
 
 // Helper function (copied from ai.ts) to determine which dice are useful for a given cost.
 // MOVED TO game/utils.ts
@@ -17,17 +17,19 @@ import Card from './Card';
 const FieldArea: React.FC<{ 
     player: Player;
     players: [Player, Player];
-    currentPlayerId: number;
+    gameState: GameState;
     isOpponent: boolean;
     onCardClick: (card: CardInGame) => void;
     targetingCard: CardInGame | null;
     isCardActivatable: (card: CardInGame) => boolean;
     onActivateCard: (card: CardInGame) => void;
-    phase: TurnPhase;
     lastActivatedCardId: string | null;
     onExamineCard: (card: CardInGame) => void;
-}> = ({ player, players, currentPlayerId, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, phase, lastActivatedCardId, onExamineCard }) => {
+    selectedBlockerId?: string | null;
+    blockAssignments?: Map<string, string>;
+}> = ({ player, players, gameState, isOpponent, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, onExamineCard, selectedBlockerId, blockAssignments }) => {
     
+    const { phase, currentPlayerId, combatants } = gameState;
     const backRowCards = [...player.locations, ...player.artifacts];
     const frontRowCards = [...player.units];
     const allCards = [...backRowCards, ...frontRowCards];
@@ -37,14 +39,32 @@ const FieldArea: React.FC<{
         const targetPlayer = player;
         const cardIsTargetable = targetingCard ? isCardTargetable(targetingCard, card, sourcePlayer, targetPlayer) : false;
 
-        const isAssaultPhase = currentPlayerId === player.id && phase === TurnPhase.ASSAULT;
+        const isAssaultPhase = phase === TurnPhase.ASSAULT || phase === TurnPhase.BLOCK;
         const { strength: effectiveStrength, durability: effectiveDurability, rallyBonus } = getEffectiveStats(card, player, { isAssaultPhase });
         
+        // Combat states
+        const isAttacking = phase === TurnPhase.BLOCK && combatants?.some(c => c.attackerId === card.instanceId) || false;
+        const isBlocker = phase === TurnPhase.BLOCK && blockAssignments?.has(card.instanceId) || false;
+        const isSelectedAsBlocker = phase === TurnPhase.BLOCK && selectedBlockerId === card.instanceId;
+        
+        const isPlayerDefender = phase === TurnPhase.BLOCK && currentPlayerId === 1; // AI is attacking, Player is defending
+        const isPotentialBlocker = isPlayerDefender && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched && !isBlocker;
+
+        const isPlayerAttackerInAssaultPhase = phase === TurnPhase.ASSAULT && currentPlayerId === 0;
+        const isPotentialAttacker = isPlayerAttackerInAssaultPhase && player.id === 0 && card.type === CardType.UNIT && !card.abilities?.entrenched;
+
+        let blockingTargetName: string | undefined;
+        if (isBlocker) {
+            const attackerId = blockAssignments?.get(card.instanceId);
+            const attackerCard = players[1 - player.id].units.find(u => u.instanceId === attackerId);
+            blockingTargetName = attackerCard?.name;
+        }
+
         return (
             <Card 
                 key={card.instanceId} 
                 card={card} 
-                onClick={cardIsTargetable ? () => onCardClick(card) : undefined}
+                onClick={() => onCardClick(card)}
                 isTargetable={cardIsTargetable}
                 onActivate={card.abilities?.activate && currentPlayerId === player.id ? () => onActivateCard(card) : undefined}
                 isActivatable={currentPlayerId === player.id && isCardActivatable(card)}
@@ -53,6 +73,12 @@ const FieldArea: React.FC<{
                 isActivating={lastActivatedCardId === card.instanceId}
                 rallyBonus={rallyBonus}
                 onExamine={onExamineCard}
+                isAttacking={isAttacking}
+                isBlocker={isBlocker}
+                isSelectedAsBlocker={isSelectedAsBlocker}
+                isPotentialBlocker={isPotentialBlocker}
+                blockingTargetName={blockingTargetName}
+                isPotentialAttacker={isPotentialAttacker}
             />
         );
     };
@@ -90,7 +116,6 @@ const HandArea: React.FC<{
     onGraveyardCardClick: (card: CardInGame) => void;
     isCardPlayable: (card: CardInGame) => boolean;
     isCardScavengeable: (card: CardInGame) => boolean;
-    // FIX: The `isCardChannelable` function should return a boolean to indicate if the action is possible, not void.
     isCardChannelable: (card: CardInGame) => boolean;
     onChannelClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
@@ -189,9 +214,9 @@ interface GameBoardProps {
   gameState: GameState;
   onDieClick: (id: number) => void;
   onRoll: () => void;
-  onCardClick: (card: CardInGame) => void;
+  onHandCardClick: (card: CardInGame) => void;
   onGraveyardCardClick: (card: CardInGame) => void;
-  onFieldCardClick: (card: CardInGame) => void;
+  onBoardCardClick: (card: CardInGame) => void;
   isCardPlayable: (card: CardInGame) => boolean;
   isCardScavengeable: (card: CardInGame) => boolean;
   isCardChannelable: (card: CardInGame) => boolean;
@@ -208,15 +233,18 @@ interface GameBoardProps {
   setHoveredCardInHand: (card: CardInGame | null) => void;
   onMulligan: (mulligan: boolean) => void;
   showConfirmation: (title: string, message: string, onConfirm: () => void) => void;
+  onConfirmBlocks: () => void;
+  selectedBlockerId: string | null;
+  blockAssignments: Map<string, string>;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
-    gameState, onDieClick, onRoll, onCardClick, onGraveyardCardClick, onFieldCardClick, 
+    gameState, onDieClick, onRoll, onHandCardClick, onGraveyardCardClick, onBoardCardClick, 
     isCardPlayable, isCardScavengeable, isCardChannelable, onChannelClick,
     isCardAmplifiable, onAmplifyClick,
     onAdvancePhase, targetingCard, isCardActivatable, onActivateCard,
     lastActivatedCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
-    onMulligan, showConfirmation
+    onMulligan, showConfirmation, onConfirmBlocks, selectedBlockerId, blockAssignments
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const currentPlayer = players[currentPlayerId];
@@ -239,8 +267,15 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
 
   const getPhaseAction = () => {
+    if (targetingCard) return { text: "CANCEL", action: () => onBoardCardClick(targetingCard), disabled: false };
+    
+    // Player is defender
+    if (phase === TurnPhase.BLOCK && currentPlayerId === 1) {
+        return { text: "CONFIRM BLOCKS", action: onConfirmBlocks, disabled: false, style: 'bg-blue-600 hover:bg-blue-500' };
+    }
+
     if (!isPlayerTurn) return null;
-    if (targetingCard) return { text: "CANCEL", action: () => onCardClick(targetingCard), disabled: false };
+    
     switch(phase) {
         case TurnPhase.MULLIGAN: return null;
         case TurnPhase.AI_MULLIGAN: return null;
@@ -267,7 +302,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
   return (
     <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
       
+      <CardPreview card={hoveredCardInHand} />
+
       {targetingCard && <div className="absolute inset-0 bg-black/50 z-20 pointer-events-none" />}
+      {phase === TurnPhase.BLOCK && <div className="absolute inset-0 bg-black/30 z-20 pointer-events-none" />}
 
       {/* Mulligan UI */}
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && (
@@ -313,15 +351,16 @@ const GameBoard: React.FC<GameBoardProps> = ({
         <FieldArea 
             player={opponentPlayer}
             players={players}
-            currentPlayerId={currentPlayerId}
-            onCardClick={onFieldCardClick} 
+            gameState={gameState}
+            onCardClick={onBoardCardClick} 
             isOpponent={true} 
             targetingCard={targetingCard}
             isCardActivatable={isCardActivatable}
             onActivateCard={onActivateCard}
-            phase={phase}
             lastActivatedCardId={lastActivatedCardId}
             onExamineCard={onExamineCard}
+            selectedBlockerId={selectedBlockerId}
+            blockAssignments={blockAssignments}
         />
         <HandArea 
             player={opponentPlayer}
@@ -341,7 +380,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
       </div>
 
       {/* Center Bar */}
-      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40">
+      <div className="flex-shrink-0 border-y-2 border-neon-cyan/20 bg-black/20 backdrop-blur-sm flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 px-2 md:px-4 py-2 md:h-40 z-30">
         <div className={`text-center w-full md:w-64 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-center bg-cyber-surface/80 p-2 rounded-lg border-2 shadow-lg transition-all duration-300 ${isPlayerTurn ? 'border-neon-cyan shadow-neon-cyan animate-pulse-glow' : 'border-cyber-border'}`}>
             <div className='flex-1 text-left md:text-center'>
                 <div className="text-xs md:text-base font-bold text-neon-cyan tracking-[0.2em] leading-tight">TURN {turn}</div>
@@ -366,6 +405,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
                     isHoveredCardPlayable={isHoveredCardPlayable}
                     lastActionDetails={gameState.lastActionDetails}
                 />
+            ) : phase === TurnPhase.BLOCK ? (
+                <div className="text-center text-yellow-300 italic p-2 md:p-4 text-sm md:text-lg animate-pulse">
+                    {currentPlayerId === 0 ? "Opponent is Declaring Blockers..." : "Declare Your Blockers!"}
+                </div>
             ) : (
                 <div className="text-center text-cyber-primary/60 italic p-2 md:p-4 text-sm md:text-lg">
                     {!isPlayerTurn ? "Opponent's Turn" : "Dice appear here during Roll & Spend Phase"}
@@ -394,7 +437,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 <button 
                     onClick={phaseAction.action}
                     disabled={phaseAction.disabled}
-                    className="bg-cyber-primary text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg hover:bg-cyber-secondary transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border"
+                    className={`${phaseAction.style || 'bg-cyber-primary hover:bg-cyber-secondary'} text-white px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 pointer-events-auto border-2 border-cyber-border`}
                 >
                     {phaseAction.text}
                 </button>
@@ -408,20 +451,21 @@ const GameBoard: React.FC<GameBoardProps> = ({
         <FieldArea 
             player={currentPlayer} 
             players={players}
-            currentPlayerId={currentPlayerId}
-            onCardClick={onFieldCardClick} 
+            gameState={gameState}
+            onCardClick={onBoardCardClick} 
             isOpponent={false} 
             targetingCard={targetingCard}
             isCardActivatable={isCardActivatable}
             onActivateCard={onActivateCard}
-            phase={phase}
             lastActivatedCardId={lastActivatedCardId}
             onExamineCard={onExamineCard}
+            selectedBlockerId={selectedBlockerId}
+            blockAssignments={blockAssignments}
         />
         <HandArea 
             player={currentPlayer}
             isOpponent={false} 
-            onCardClick={onCardClick}
+            onCardClick={onHandCardClick}
             onGraveyardCardClick={onGraveyardCardClick}
             isCardPlayable={isCardPlayable}
             isCardScavengeable={isCardScavengeable}

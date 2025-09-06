@@ -42,6 +42,7 @@
               'pulse-playable': 'pulse-glow-playable 2.5s ease-in-out infinite',
               'zoom-announce': 'zoom-in-out-fade 2s ease-in-out forwards',
               'modal-show': 'fade-in-scale-up 0.3s ease-out forwards',
+              'fade-in-left': 'fade-in-left 0.2s ease-out forwards',
             },
             keyframes: {
               'pulse-bright': {
@@ -105,6 +106,10 @@
               'fade-in-scale-up': {
                 '0%': { opacity: '0', transform: 'scale(0.95)' },
                 '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              'fade-in-left': {
+                '0%': { opacity: '0', transform: 'translateX(-20px) scale(0.98)' },
+                '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
               },
             }
           },

@@ -1,6 +1,5 @@
 
 
-
 import React, { useState } from 'react';
 import { CardInGame, CardType, DiceCost, DiceCostType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -24,6 +23,12 @@ interface CardProps {
   isActivating?: boolean;
   rallyBonus?: number;
   onExamine: (card: CardInGame) => void;
+  isAttacking?: boolean;
+  isBlocker?: boolean;
+  isSelectedAsBlocker?: boolean;
+  isPotentialBlocker?: boolean;
+  blockingTargetName?: string;
+  isPotentialAttacker?: boolean;
 }
 
 // Helper function to render dice costs
@@ -78,6 +83,26 @@ const renderDiceCost = (costs: DiceCost[]) => {
                 textContent = `${cost.count} of Any Dice`;
                 content = <span>ANY({cost.count})</span>;
                 break;
+            case DiceCostType.ODD_DICE:
+                textContent = `${cost.count} Odd Dice`;
+                content = <span>ODD({cost.count})</span>;
+                break;
+            case DiceCostType.EVEN_DICE:
+                textContent = `${cost.count} Even Dice`;
+                content = <span>EVEN({cost.count})</span>;
+                break;
+            case DiceCostType.NO_DUPLICATES:
+                textContent = `${cost.count} Dice with Unique Values`;
+                content = <span>UNIQUE({cost.count})</span>;
+                break;
+            case DiceCostType.SUM_BETWEEN:
+                textContent = `Sum of ${cost.count} dice between ${cost.value} and ${cost.maxValue}`;
+                content = <span>Σ({cost.count})∈[{cost.value}-{cost.maxValue}]</span>;
+                break;
+            case DiceCostType.SPREAD:
+                textContent = `One die <= ${cost.lowValue} and one die >= ${cost.highValue}`;
+                content = <span className="text-[10px]">SPREAD(≤{cost.lowValue},≥{cost.highValue})</span>;
+                break;
             default:
                 content = null;
                 textContent = 'Unknown Cost';
@@ -109,7 +134,7 @@ const CardTypeIcon: React.FC<{ type: CardType, className?: string }> = ({ type, 
     ),
     [CardType.ARTIFACT]: (
       <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61.22l2 3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
       </svg>
     ),
   };
@@ -122,7 +147,9 @@ const Card: React.FC<CardProps> = ({
     isActivatable = false, onActivate, isChannelable = false, onChannel,
     isAmplifiable = false, onAmplify,
     effectiveStrength, effectiveDurability, origin = 'hand',
-    isActivating = false, rallyBonus = 0, onExamine
+    isActivating = false, rallyBonus = 0, onExamine,
+    isAttacking = false, isBlocker = false, isSelectedAsBlocker = false, isPotentialBlocker = false, blockingTargetName,
+    isPotentialAttacker = false,
 }) => {
   const typeColor = {
     [CardType.UNIT]: 'border-unit shadow-unit/30',
@@ -142,9 +169,16 @@ const Card: React.FC<CardProps> = ({
   const tokenClasses = card.isToken ? 'opacity-95 border-dashed border-neon-cyan' : '';
 
   const interactiveClasses = (onClick || onExamine) ? "cursor-pointer" : "";
-  const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 animate-pulse z-30" : "";
+  const targetableClasses = isTargetable ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 scale-105 z-30" : "";
   const activatingClasses = isActivating ? 'animate-pulse-bright' : '';
   
+  const attackingClasses = isAttacking ? "ring-4 ring-red-500 shadow-lg shadow-red-500/50 animate-pulse" : "";
+  const blockerClasses = isBlocker ? "ring-4 ring-blue-500 shadow-lg shadow-blue-500/50" : "";
+  const selectedBlockerClasses = isSelectedAsBlocker ? "ring-4 ring-yellow-400 shadow-lg shadow-yellow-400/50 scale-105" : "";
+  const potentialBlockerClasses = isPotentialBlocker ? "ring-2 ring-blue-300 ring-offset-2 ring-offset-cyber-bg" : "";
+  const potentialAttackerClasses = isPotentialAttacker ? "ring-2 ring-red-400 ring-offset-2 ring-offset-cyber-bg" : "";
+
+
   const isActionable = (isPlayable || isActivatable) && !isTargetable;
   const hoverScaleClass = isActionable ? 'hover:scale-105' : '';
   const hoverGlowClasses = isActionable ? 'hover:shadow-neon-cyan hover:ring-4 hover:ring-neon-cyan' : '';
@@ -238,11 +272,11 @@ const Card: React.FC<CardProps> = ({
   return (
     <div className={`relative ${cardSizeClasses}`}>
       <div 
-        className={`group absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass}`}
+        className={`group absolute inset-0 transition-all duration-200 transform-gpu ${targetableClasses} ${activatingClasses} ${hoverScaleClass} ${attackingClasses} ${blockerClasses} ${selectedBlockerClasses} ${potentialBlockerClasses} ${potentialAttackerClasses}`}
       >
         <div 
             className={`relative w-full h-full rounded-lg border-2 bg-cyber-surface/80 shadow-lg text-white transform transition-all duration-200 ${interactiveClasses} ${typeColor} ${originClasses} ${tokenClasses} ${hoverGlowClasses} ${playableClasses}`}
-            onClick={onClick ? onClick : () => onExamine(card)}
+            onClick={onClick}
         >
             {card.imageUrl ? (
                 isVideo ? (
@@ -257,11 +291,20 @@ const Card: React.FC<CardProps> = ({
             )}
             
             {card.imageUrl && (
-                <div className="absolute inset-0 bg-gradient-to-t from-cyber-surface via-cyber-surface/70 to-transparent rounded-lg flex flex-col justify-between text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-t from-cyber-surface via-cyber-surface/70 to-transparent rounded-lg flex flex-col justify-between text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <CardFace />
                 </div>
             )}
             
+            {isBlocker && blockingTargetName && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-max max-w-[90%] bg-blue-800/90 text-white text-[10px] text-center px-2 py-0.5 z-20 rounded-t-md truncate flex items-center" title={`Blocking: ${blockingTargetName}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5.002 12.052 12.052 0 0110 18.451 12.052 12.052 0 0117.834 5.002 11.954 11.954 0 0110 1.944zM9 11.75l-2.293-2.293a1 1 0 011.414-1.414L9 9.586l3.879-3.879a1 1 0 111.414 1.414L9 11.75z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-bold">BLOCKING:</span>&nbsp;<span className="truncate">{blockingTargetName}</span>
+                </div>
+            )}
+
             <button
                 onClick={(e) => { e.stopPropagation(); onExamine(card); }}
                 className="absolute bottom-1 right-1 bg-cyber-primary text-white text-xs font-bold px-2 py-0.5 rounded-full hover:bg-cyber-secondary transition-colors z-20 opacity-0 group-hover:opacity-100"

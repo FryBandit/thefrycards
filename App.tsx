@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
@@ -25,6 +26,10 @@ const App: React.FC = () => {
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
   const [hoveredCardInHand, setHoveredCardInHand] = useState<CardInGame | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void; } | null>(null);
+  
+  // State for block assignments
+  const [blockAssignments, setBlockAssignments] = useState<Map<string, string>>(new Map()); // blockerId -> attackerId
+  const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -66,6 +71,13 @@ const App: React.FC = () => {
     loadCards();
   }, []);
 
+  // Clear transient state on phase/turn changes
+  useEffect(() => {
+    setTargetingInfo(null);
+    setSelectedBlockerId(null);
+    setBlockAssignments(new Map());
+  }, [state.phase, state.currentPlayerId]);
+
 
   const handleStartGame = () => {
     if (!allCards || allCards.length === 0) return;
@@ -95,7 +107,7 @@ const App: React.FC = () => {
     }
   };
   
-  const handleCardClick = (card: CardInGame) => {
+  const handleHandCardClick = (card: CardInGame) => {
     if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
     
     if (targetingInfo) { // Cancel targeting
@@ -121,18 +133,61 @@ const App: React.FC = () => {
       }
   }
 
-  const handleFieldCardClick = (targetCard: CardInGame) => {
-      if (state.currentPlayerId !== 0 || !targetingInfo) return;
-      
-      const { card, isAmplify } = targetingInfo;
-      const player = state.players[0];
-      const targetOwner = state.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(u => u.instanceId === targetCard.instanceId))!;
-      
-      if (isCardTargetable(card, targetCard, player, targetOwner)) {
-          dispatch({ type: 'PLAY_CARD', payload: { card, targetInstanceId: targetCard.instanceId, options: { isAmplified: isAmplify } } });
-          setTargetingInfo(null);
-      }
+  const handleBoardCardClick = (card: CardInGame) => {
+    // --- BLOCKING LOGIC ---
+    const isPlayerDefender = state.phase === TurnPhase.BLOCK && state.currentPlayerId === 1;
+    if (isPlayerDefender) {
+        const isOwnUnit = state.players[0].units.some(u => u.instanceId === card.instanceId);
+        const isAttacker = state.combatants?.some(c => c.attackerId === card.instanceId) ?? false;
+        
+        if (isOwnUnit && !card.abilities?.entrenched) { // Clicked on one of my units
+            if (selectedBlockerId === card.instanceId) {
+                // Clicked the selected blocker again -> deselect it
+                setSelectedBlockerId(null);
+            } else {
+                // Select this unit as the blocker. If it was already blocking someone else,
+                // that assignment is broken and it's now ready to be reassigned.
+                const newAssignments = new Map(blockAssignments);
+                newAssignments.delete(card.instanceId); // Remove previous assignment if it exists
+                setBlockAssignments(newAssignments);
+                setSelectedBlockerId(card.instanceId);
+            }
+        } else if (isAttacker && selectedBlockerId) { // Clicked on an attacker with a blocker selected
+            const newAssignments = new Map(blockAssignments);
+            // An attacker can only be blocked by one unit. So if another unit was blocking this attacker, un-assign it.
+            newAssignments.forEach((attackerId, blockerId) => {
+                if (attackerId === card.instanceId) {
+                    newAssignments.delete(blockerId);
+                }
+            });
+            // Assign the currently selected unit to block this attacker
+            newAssignments.set(selectedBlockerId, card.instanceId);
+            setBlockAssignments(newAssignments);
+            setSelectedBlockerId(null); // Clear selection after assignment
+        }
+        return;
+    }
+
+    // --- TARGETING LOGIC ---
+    if (state.currentPlayerId !== 0 || !targetingInfo) return;
+    
+    const { card: sourceCard, isAmplify } = targetingInfo;
+    const player = state.players[0];
+    const targetOwner = state.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(u => u.instanceId === card.instanceId))!;
+    
+    if (isCardTargetable(sourceCard, card, player, targetOwner)) {
+        dispatch({ type: 'PLAY_CARD', payload: { card: sourceCard, targetInstanceId: card.instanceId, options: { isAmplified: isAmplify } } });
+        setTargetingInfo(null);
+    }
   }
+
+  const handleConfirmBlocks = () => {
+    const assignments: { [blockerId: string]: string } = {};
+    for (const [key, value] of blockAssignments.entries()) {
+        assignments[key] = value;
+    }
+    dispatch({ type: 'DECLARE_BLOCKS', payload: { assignments } });
+  };
 
   const isCardPlayable = (card: CardInGame): boolean => {
     if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
@@ -249,7 +304,10 @@ const App: React.FC = () => {
     if (state.winner || !state.isProcessing || state.turn === 0) return;
 
     let timeoutId: number | undefined;
-    const isAiTurnToAct = state.currentPlayerId === 1 || state.phase === TurnPhase.AI_MULLIGAN;
+    
+    const isPlayerCurrent = state.currentPlayerId === 0;
+    // AI needs to act if it's its turn OR if it's the BLOCK phase and the player is attacking
+    const isAiTurnToAct = !isPlayerCurrent || (state.phase === TurnPhase.BLOCK && isPlayerCurrent) || state.phase === TurnPhase.AI_MULLIGAN;
 
     if (isAiTurnToAct) {
         if (aiAction) {
@@ -259,7 +317,7 @@ const App: React.FC = () => {
             }, 1800);
         } else {
             // Failsafe: If AI computes no action, advance the phase to prevent a soft lock.
-            console.error("AI returned no action during its turn. Advancing phase to prevent stall.");
+            console.error("AI returned no action. Advancing phase to prevent stall.");
             timeoutId = window.setTimeout(() => {
                 dispatch({ type: 'ADVANCE_PHASE' });
             }, 1800);
@@ -267,8 +325,11 @@ const App: React.FC = () => {
     } else if (state.phase === TurnPhase.START) {
         // Auto-advance start phase for any player
         timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1500);
+    } else if (isPlayerCurrent && state.phase === TurnPhase.DRAW) {
+        // Auto-advance draw phase for the player
+        timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1500);
     } else if (state.isProcessing) {
-        // If it's not the AI's turn but still processing, it's the player's turn. Unlock the UI.
+        // Unlock UI for player if it's not the AI's turn to act but state is processing
         dispatch({ type: 'AI_ACTION' });
     }
 
@@ -296,9 +357,9 @@ const App: React.FC = () => {
         gameState={state}
         onDieClick={handleDieClick}
         onRoll={handleRoll}
-        onCardClick={handleCardClick}
+        onHandCardClick={handleHandCardClick}
         onGraveyardCardClick={handleGraveyardCardClick}
-        onFieldCardClick={handleFieldCardClick}
+        onBoardCardClick={handleBoardCardClick}
         isCardPlayable={isCardPlayable}
         isCardScavengeable={isCardScavengeable}
         isCardChannelable={isCardChannelable}
@@ -315,6 +376,9 @@ const App: React.FC = () => {
         setHoveredCardInHand={setHoveredCardInHand}
         onMulligan={handleMulliganChoice}
         showConfirmation={showConfirmation}
+        onConfirmBlocks={handleConfirmBlocks}
+        selectedBlockerId={selectedBlockerId}
+        blockAssignments={blockAssignments}
       />
 
       {/* HUD Elements */}

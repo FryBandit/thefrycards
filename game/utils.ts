@@ -69,6 +69,19 @@ export const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
         
         case DiceCostType.ANY_X_DICE:
              return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
+        
+        case DiceCostType.ODD_DICE:
+            return availableDice.filter(d => d.value % 2 === 1);
+        case DiceCostType.EVEN_DICE:
+            return availableDice.filter(d => d.value % 2 === 0);
+        case DiceCostType.NO_DUPLICATES:
+            // Any die could be part of a unique set, return them all sorted by value
+            return [...availableDice].sort((a,b) => b.value - a.value);
+        case DiceCostType.SUM_BETWEEN:
+            // Similar to SUM_OF_X, keeping high dice is a good heuristic
+            return [...availableDice].sort((a, b) => b.value - a.value).slice(0, cost.count);
+        case DiceCostType.SPREAD:
+            return availableDice.filter(d => d.value <= cost.lowValue! || d.value >= cost.highValue!);
 
         default:
             return [];
@@ -127,12 +140,17 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
     });
 
     // Rally
-    const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
-    strength += rallySources;
+    let rallyBonus = 0;
+    if (card.abilities?.rally) {
+        // A unit with Rally gets +1 strength for each OTHER friendly unit with Rally.
+        const rallySources = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+        strength += rallySources;
+        rallyBonus = rallySources;
+    }
 
     // Assault phase specific buffs
     if (context.isAssaultPhase && card.abilities?.assault) {
         strength += card.abilities.assault;
     }
-    return { strength, durability, rallyBonus: rallySources };
+    return { strength, durability, rallyBonus };
 };
