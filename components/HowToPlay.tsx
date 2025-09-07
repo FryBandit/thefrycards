@@ -4,6 +4,8 @@ import KeywordText from './KeywordText';
 
 interface HowToPlayProps {
   onPlay: () => void;
+  onReturn: () => void;
+  isGameInProgress: boolean;
 }
 
 const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
@@ -18,7 +20,7 @@ const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
     );
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, onReturn, isGameInProgress }) => {
   // We can group keywords for better organization on the page.
   const keywordGroups = {
       "Unique & Game-Changing": ['Obliterate', 'Vanish', 'Warp', 'Chain Reaction'],
@@ -41,12 +43,20 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
         </div>
         
         <div className="text-center my-8">
-            <div className="mb-8">
+            <div className="mb-8 flex justify-center space-x-4">
+                {isGameInProgress && (
+                     <button
+                        onClick={onReturn}
+                        className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase"
+                    >
+                        Return to Game
+                    </button>
+                )}
                 <button
                     onClick={onPlay}
-                    className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase"
+                    className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase"
                 >
-                    Play Game
+                    Start New Game
                 </button>
             </div>
         </div>

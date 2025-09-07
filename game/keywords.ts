@@ -31,6 +31,7 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   'Exhaust': 'A potent disruption effect that forces your opponent to skip their next Draw Phase, denying them resources.',
   
   // Core Gameplay Keywords
+  'Arrival': 'An ability that triggers when a card enters the battlefield.',
   'Strike': 'This unit gets +X Strength during your Strike Phase.',
   'Barrage': 'Arrival: Deal X damage to each enemy unit.',
   'Breach': 'This unit cannot be targeted by opponent\'s Events until after it has participated in a Strike.',

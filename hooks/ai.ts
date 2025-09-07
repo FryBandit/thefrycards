@@ -80,9 +80,6 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
         if (card.abilities?.banish) {
             score += targetThreat * 2.5;
         }
-        if (card.abilities?.voidTarget) {
-            score += targetThreat * 2.5;
-        }
         if (card.abilities?.corrupt || card.abilities?.weaken) {
             const reduction = card.abilities.corrupt || card.abilities.weaken || 0;
             score += Math.min(getEffectiveStats(target, humanPlayer).strength, reduction) * 2.5;
@@ -97,13 +94,18 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     
     if (card.abilities?.barrage && humanPlayer.units.length > 0) {
         const potentialDamage = humanPlayer.units.reduce((acc, unit) => {
-            if (unit.abilities?.immutable || (unit.abilities?.breach && !unit.hasStruck)) return acc;
+            if (unit.abilities?.immutable) return acc;
             return acc + (card.abilities?.barrage || 0);
         }, 0);
         score += potentialDamage * (opponentHasStrongBoard ? 2.5 : 1.5);
     }
 
-    if (card.abilities?.exhaust) score += 25;
+    if (card.abilities?.exhaust) {
+        // Exhaust is more valuable if the opponent has a large hand or few cards left in deck.
+        const handValue = Math.max(0, humanPlayer.hand.length - 2) * 2;
+        const deckValue = humanPlayer.deck.length < 5 ? 15 : 5;
+        score += 15 + handValue + deckValue;
+    }
     if (card.abilities?.discard) score += card.abilities.discard * Math.min(humanPlayer.hand.length, 4) * 1.5;
     if (card.abilities?.purge && humanPlayer.graveyard.length > 1) score += Math.min(card.abilities.purge, humanPlayer.graveyard.length) * 2.5;
     if (card.abilities?.disrupt) score += 12;
@@ -123,6 +125,9 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     if (card.abilities?.landmark && !aiPlayer.locations.some(l => l.abilities?.landmark)) score += 5;
     if (card.type === CardType.UNIT) {
         score += 5 + getUnitThreat(card, aiPlayer, humanPlayer) * 0.5;
+        if (aiPlayer.units.length < 2) {
+            score += 8; // Prioritize board presence
+        }
     }
     if (card.abilities?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.abilities.overload.per || 2)) * card.abilities.overload.amount * 1.2;
     if (card.abilities?.phasing) score += getEffectiveStats(card, aiPlayer).strength * 1.5;
@@ -334,20 +339,13 @@ export const getAiAction = (state: GameState): AIAction | null => {
         
         aiPlayer.graveyard.forEach(card => {
             if (card.abilities?.reclaim && checkDiceCost({ ...card, dice_cost: card.abilities.reclaim.cost }, availableDice).canPay) {
-                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn) - 5, description: `Reclaim ${card.name}`});
+                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn) * 0.9, description: `Reclaim ${card.name}`});
             }
         });
         
         aiPlayer.hand.forEach(card => {
-            if (card.abilities?.augment) {
-                if (checkDiceCost({ ...card, dice_cost: card.abilities.augment.cost }, availableDice).canPay) {
-                    aiPlayer.units.forEach(target => {
-                         if (isCardTargetable(card, target, aiPlayer, aiPlayer)) {
-                             possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAugmented: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn, target), description: `Augment ${target.name} with ${card.name}` });
-                         }
-                    });
-                }
-            } else if (checkDiceCost(card, availableDice).canPay) {
+            // Normal Play
+            if (checkDiceCost(card, availableDice).canPay) {
                 if (card.abilities?.requiresTarget) {
                     [...aiPlayer.units, ...humanPlayer.units].forEach(target => {
                         const targetOwner = players.find(p => [...p.units, ...p.artifacts, ...p.locations].some(u => u.instanceId === target.instanceId))!;
@@ -358,6 +356,44 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 } else {
                     possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card } }, score: getCardScore(card, aiPlayer, humanPlayer, turn), description: `Play ${card.name}` });
                 }
+            }
+
+            // Amplify Play
+            if (card.abilities?.amplify) {
+                const combinedCost = { ...card, dice_cost: (card.dice_cost || []).concat(card.abilities.amplify.cost || []) };
+                if (checkDiceCost(combinedCost, availableDice).canPay) {
+                    const score = getCardScore(card, aiPlayer, humanPlayer, turn) + 15; // Amplify is powerful
+                    const amplifiedCard = { ...card, abilities: { ...card.abilities, requiresTarget: card.abilities.requiresTarget || card.abilities.amplify.requiresTarget } };
+                    if (amplifiedCard.abilities.requiresTarget) {
+                        [...aiPlayer.units, ...humanPlayer.units].forEach(target => {
+                            const targetOwner = players.find(p => [...p.units, ...p.artifacts, ...p.locations].some(u => u.instanceId === target.instanceId))!;
+                            if (isCardTargetable(amplifiedCard, target, aiPlayer, targetOwner)) {
+                                possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAmplified: true } } }, score, description: `Amplify ${card.name} on ${target.name}` });
+                            }
+                        });
+                    } else {
+                        possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } }, score, description: `Amplify ${card.name}` });
+                    }
+                }
+            }
+
+            // Evoke Play
+            if (card.abilities?.evoke && checkDiceCost({ ...card, dice_cost: card.abilities.evoke.cost }, availableDice).canPay) {
+                let score = 8;
+                // @ts-ignore
+                if(card.abilities.evoke.effect?.type === 'draw_card') {
+                    score = 5 + (7 - aiPlayer.hand.length); // More valuable when hand is empty
+                }
+                possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isEvoked: true } } }, score, description: `Evoke ${card.name}` });
+            }
+
+            // Augment Play
+            if (card.abilities?.augment && checkDiceCost({ ...card, dice_cost: card.abilities.augment.cost }, availableDice).canPay) {
+                aiPlayer.units.forEach(target => {
+                     if (isCardTargetable(card, target, aiPlayer, aiPlayer)) {
+                         possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAugmented: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn, target), description: `Augment ${target.name} with ${card.name}` });
+                     }
+                });
             }
         });
         

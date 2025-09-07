@@ -63,7 +63,7 @@ const DiceTray: React.FC<DiceTrayProps> = ({ dice, rollCount, maxRolls, onDieCli
         <button
           onClick={handleRoll}
           disabled={!canRoll || isRolling}
-          className="w-24 h-12 sm:h-16 bg-arcane-primary text-white font-bold rounded-lg shadow-md hover:bg-arcane-secondary transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed border-2 border-arcane-border"
+          className={`w-24 h-12 sm:h-16 bg-arcane-primary text-white font-bold rounded-lg shadow-md hover:bg-arcane-secondary transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed border-2 border-arcane-border ${canRoll && !isRolling ? 'animate-pulse-glow' : ''}`}
         >
           {isRolling ? '...' : 'ROLL'}
         </button>

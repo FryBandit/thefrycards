@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Player } from '../game/types';
 
@@ -16,12 +15,20 @@ const StatIcon: React.FC<{ animClass: string; title: string; children: React.Rea
 );
 
 const ClickableStatIcon: React.FC<{ value: number; animClass: string; onClick: () => void; title: string; children: React.ReactNode; }> = ({ value, animClass, onClick, title, children }) => (
-    <button onClick={onClick} className={`relative flex flex-col items-center justify-center w-12 h-12 bg-black/20 p-1 rounded hover:bg-arcane-primary transition-colors border-2 border-transparent hover:border-vivid-cyan active:scale-95 ${animClass}`} title={title}>
+    <button onClick={onClick} className={`relative flex flex-col items-center justify-center w-12 h-12 bg-black/20 p-1 rounded hover:bg-arcane-primary transition-colors border-2 border-transparent hover:border-vivid-cyan active:scale-95 ${animClass} ${value === 0 ? 'opacity-60' : ''}`} title={title}>
         {children}
-        <div className="absolute -top-1 -right-1 bg-vivid-yellow text-arcane-bg font-bold text-xs rounded-full w-5 h-5 flex items-center justify-center">
-            {value}
-        </div>
+        {value > 0 && (
+            <div className="absolute -top-1 -right-1 bg-vivid-yellow text-arcane-bg font-bold text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {value}
+            </div>
+        )}
     </button>
+);
+
+const StatusEffectIcon: React.FC<{ title: string, bgColor: string, icon: React.ReactNode }> = ({ title, bgColor, icon }) => (
+    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bgColor}`} title={title}>
+        {icon}
+    </div>
 );
 
 
@@ -54,25 +61,38 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isCurrent, is
     };
     
     const deckAnim = useStatAnimation(player.deck.length);
+    const handAnim = useStatAnimation(player.hand.length);
     const graveAnim = useStatAnimation(player.graveyard.length);
     const oblivionAnim = useStatAnimation(player.oblivion.length);
 
+    const isMoraleFortified = [...player.units, ...player.locations, ...player.artifacts].some(c => c.abilities?.fortify);
+
     return (
     <div className={`w-full bg-arcane-surface/80 backdrop-blur-sm p-2 rounded-lg text-white flex items-center justify-between border-2 transition-all duration-500 ${isCurrent ? 'border-vivid-cyan shadow-vivid-cyan' : 'border-arcane-border'}`}>
-        <div className={`flex items-center gap-4 ${isOpponent ? 'flex-row-reverse' : ''}`}>
-            <div className={isOpponent ? 'text-right' : 'text-left'}>
-                <h2 className={`text-lg font-bold truncate ${isCurrent ? 'text-vivid-cyan' : ''}`}>{player.name}</h2>
-                <p className={`text-3xl font-black text-vivid-pink ${moraleAnim}`}>{player.morale}</p>
+        <div className={`flex items-center gap-3 ${isOpponent ? 'flex-row-reverse' : ''}`}>
+            <div>
+                <h2 className={`text-lg font-bold truncate ${isCurrent ? 'text-vivid-cyan' : ''} ${isOpponent ? 'text-right' : 'text-left'}`}>{player.name}</h2>
+                <div className="flex items-center gap-2">
+                    <p className={`text-3xl font-black text-vivid-pink ${moraleAnim}`}>{player.morale}</p>
+                     {/* Status Effects */}
+                    <div className={`flex gap-1.5 text-xs font-bold uppercase tracking-wider text-center ${isOpponent ? 'flex-row-reverse' : ''}`}>
+                        {isMoraleFortified && <StatusEffectIcon title="Morale Fortified" bgColor="bg-blue-800/80" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>} />}
+                        {player.skipNextDrawPhase > 0 && <StatusEffectIcon title={`Will skip next ${player.skipNextDrawPhase} draw phase(s)`} bgColor="bg-yellow-800/80" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-300" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm3 0v12h4V4H8z" /></svg>} />}
+                        {player.diceModifier < 0 && <StatusEffectIcon title={`Will roll ${player.diceModifier} fewer dice`} bgColor="bg-red-800/80" icon={<span className="font-black text-red-300 text-sm">{player.diceModifier}</span>} />}
+                    </div>
+                </div>
             </div>
-            {/* Status Effects */}
-            <div className={`flex gap-1 text-xs font-bold uppercase tracking-wider text-center ${isOpponent ? 'flex-row-reverse' : ''}`}>
-                {player.isMoraleFortified && <div className="bg-blue-800/50 text-blue-300 px-2 py-0.5 rounded animate-pulse" title="Morale Fortified">Fortified</div>}
-                {player.skipNextDrawPhase && <div className="bg-yellow-800/50 text-yellow-300 px-2 py-0.5 rounded" title="Will skip next draw">Stagnated</div>}
-                {player.diceModifier < 0 && <div className="bg-red-800/50 text-red-300 px-2 py-0.5 rounded" title={`Will roll ${player.diceModifier} dice`}>{player.diceModifier} Dice</div>}
-            </div>
+           
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold">
+            <StatIcon animClass={handAnim} title={`Hand: ${player.hand.length} cards`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-75" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                </svg>
+                <div className="opacity-75">{player.hand.length}</div>
+            </StatIcon>
+            
             <StatIcon animClass={deckAnim} title={`Deck: ${player.deck.length} cards remaining`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-75" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm2 0v12h6V4H7z" />

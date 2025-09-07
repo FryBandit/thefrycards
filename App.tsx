@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
@@ -15,7 +9,7 @@ import PhaseAnnouncer from './components/PhaseAnnouncer';
 import ConfirmModal from './components/ConfirmModal';
 import LoadingScreen from './components/LoadingScreen';
 import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameState';
-import { CardInGame, TurnPhase, Player, CardDefinition, CardType, DiceCost } from './game/types';
+import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
 import { fetchCardDefinitions, requiredComposition } from './game/cards';
 
 
@@ -33,8 +27,6 @@ const App: React.FC = () => {
   
   const [blockAssignments, setBlockAssignments] = useState<Map<string, string>>(new Map()); // blockerId -> attackerId
   const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(null);
-
-  const [isOpponentDrawing, setIsOpponentDrawing] = useState(false);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -167,6 +159,7 @@ const App: React.FC = () => {
       if (state.currentPlayerId !== 0 || state.phase !== TurnPhase.ROLL_SPEND) return;
       if (isCardReclaimable(card)) {
           dispatch({ type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } });
+          setViewingZone(null); // Close the modal after reclaiming
       }
   }
 
@@ -200,6 +193,11 @@ const App: React.FC = () => {
     }
 
     if (state.currentPlayerId !== 0 || !targetingInfo) return;
+    
+    if (card.instanceId === targetingInfo.card.instanceId) {
+        setTargetingInfo(null);
+        return;
+    }
     
     const { card: sourceCard, isAmplify, isAugment } = targetingInfo;
     const player = state.players[0];
@@ -289,7 +287,8 @@ const App: React.FC = () => {
   };
   
   const handleZoneClick = (player: Player, zone: 'graveyard' | 'oblivion') => {
-    const title = `${player.name}'s ${zone.charAt(0).toUpperCase() + zone.slice(1)}`;
+    const zoneName = zone.charAt(0).toUpperCase() + zone.slice(1);
+    const title = `${player.name}'s ${zoneName} (${player[zone].length})`;
     setViewingZone({ player, zone, title });
   };
 
@@ -311,11 +310,6 @@ const App: React.FC = () => {
     
     const isPlayerCurrent = state.currentPlayerId === 0;
     const isAiTurnToAct = !isPlayerCurrent || (state.phase === TurnPhase.BLOCK && isPlayerCurrent) || state.phase === TurnPhase.AI_MULLIGAN;
-
-    if (state.isProcessing && state.phase === TurnPhase.DRAW && state.currentPlayerId === 1) {
-        setIsOpponentDrawing(true);
-        setTimeout(() => setIsOpponentDrawing(false), 1200);
-    }
 
     if (isAiTurnToAct) {
         if (aiAction) {
@@ -348,8 +342,9 @@ const App: React.FC = () => {
     return <LoadingScreen loadingError={loadingError} />;
   }
   
+  const isGameInProgress = state.turn > 0 && !state.winner;
   if (view === 'howToPlay') {
-    return <HowToPlay onPlay={handleStartGame} />;
+    return <HowToPlay onPlay={handleStartGame} onReturn={() => setView('game')} isGameInProgress={isGameInProgress} />;
   }
 
   return (
@@ -359,16 +354,11 @@ const App: React.FC = () => {
         onDieClick={handleDieClick}
         onRoll={handleRoll}
         onHandCardClick={handleHandCardClick}
-        onGraveyardCardClick={handleGraveyardCardClick}
         onBoardCardClick={handleBoardCardClick}
         isCardPlayable={isCardPlayable}
-        isCardReclaimable={isCardReclaimable}
-        isCardEvokeable={isCardEvokeable}
-        onEvokeClick={handleEvokeClick}
-        isCardAmplifiable={isCardAmplifiable}
-        onAmplifyClick={handleAmplifyClick}
         onAdvancePhase={handleAdvancePhase}
         targetingCard={targetingInfo?.card ?? null}
+        onCancelTargeting={() => setTargetingInfo(null)}
         isCardActivatable={isCardActivatable}
         onActivateCard={handleActivateCard}
         lastActivatedCardId={lastActivatedCardId}
@@ -380,15 +370,20 @@ const App: React.FC = () => {
         onConfirmBlocks={handleConfirmBlocks}
         selectedBlockerId={selectedBlockerId}
         blockAssignments={blockAssignments}
-        isOpponentDrawing={isOpponentDrawing}
         onZoneClick={handleZoneClick}
+        onGraveyardCardClick={handleGraveyardCardClick}
+        isCardReclaimable={isCardReclaimable}
+        isCardEvokeable={isCardEvokeable}
+        onEvokeClick={handleEvokeClick}
+        isCardAmplifiable={isCardAmplifiable}
+        onAmplifyClick={handleAmplifyClick}
       />
 
       <ActionHistory history={state.actionHistory} players={state.players} />
       
       <button 
         onClick={() => setView('howToPlay')} 
-        className="absolute bottom-4 right-4 w-12 h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-arcane-secondary transition-colors z-20 border-2 border-arcane-border"
+        className="absolute top-4 right-4 w-12 h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-arcane-secondary transition-colors z-40 border-2 border-arcane-border"
         aria-label="How to Play"
       >
         ?
@@ -416,6 +411,8 @@ const App: React.FC = () => {
             cards={viewingZone.player[viewingZone.zone]}
             onClose={() => setViewingZone(null)}
             onExamine={handleExamineCard}
+            isCardReclaimable={isCardReclaimable}
+            onCardClick={viewingZone.zone === 'graveyard' && viewingZone.player.id === 0 ? handleGraveyardCardClick : undefined}
           />
       )}
       {examiningCard && (

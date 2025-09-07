@@ -1,5 +1,3 @@
-
-
 import { Die, DiceCost, DiceCostType, CardInGame, Player, CardType } from './types';
 
 // Helper to shuffle arrays
@@ -89,6 +87,17 @@ export const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
             return [];
     }
 }
+
+// Checks if a card has a specific ability, including those granted by attachments.
+export const cardHasAbility = (card: CardInGame, ability: string): boolean => {
+    const lowerCaseAbility = ability.toLowerCase();
+    if ((card.abilities as any)?.[lowerCaseAbility]) return true;
+    if (card.attachments?.length) {
+        return card.attachments.some(att => att.abilities?.augment?.effect?.grants?.some((g: string) => g.toLowerCase() === lowerCaseAbility));
+    }
+    return false;
+};
+
 // Shared game logic for calculating effective stats.
 export const getEffectiveStats = (card: CardInGame, owner: Player, context: { isStrikePhase?: boolean } = {}) => {
     let rallyBonus = 0;

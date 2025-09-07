@@ -82,7 +82,6 @@ export interface Player {
   oblivion: CardInGame[];
   vanishZone: { card: CardInGame, turnsRemaining: number }[]; // For Vanish
   diceModifier: number;
-  isMoraleFortified: boolean;
   skipNextDrawPhase: number;
   fatigueCounter: number;
   hasMulliganed: boolean;

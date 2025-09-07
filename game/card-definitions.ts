@@ -356,21 +356,6 @@ export const cardDefinitions: CardDefinition[] = [
     imageUrl: "https://cdn.midjourney.com/e238ba98-7623-41e9-8387-7d8f3a9055dd/0_2.png"
   },
   {
-    id: 23,
-    name: "The Last Transmission",
-    type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.STRAIGHT, "count": 4 }],
-    strength: undefined,
-    durability: undefined,
-    text: "Chain Reaction.",
-    abilities: { "chain_reaction": true },
-    rarity: "Super-Rare",
-    flavor_text: "This is Captain Oran, and we are not alone.",
-    card_set: "Space Horror",
-    author: "Fry",
-    imageUrl: "https://cdn.midjourney.com/b289bfd0-6cfc-4298-84f6-48a47e37ab55/0_2.png"
-  },
-  {
     id: 24,
     name: "Shadow of the Dreadnought",
     type: CardType.LOCATION,
