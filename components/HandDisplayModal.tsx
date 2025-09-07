@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CardInGame, Player } from '../game/types';
 import Card from './Card';
@@ -23,8 +22,11 @@ export const HandDisplayModal: React.FC<HandDisplayModalProps> = ({
     player, isCurrentPlayer, onCardClick, onGraveyardCardClick, isCardPlayable, isCardReclaimable,
     isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, onExamineCard, setHoveredCardInHand, onClose
 }) => {
-    const reclaimableCards = player.graveyard.filter(isCardReclaimable).map(c => ({ ...c, source: 'graveyard' as const }));
-    const allPlayableCards = [...player.hand.map(c => ({ ...c, source: 'hand' as const })), ...reclaimableCards];
+    const reclaimableCards = player.graveyard
+        .filter(c => c.abilities?.reclaim)
+        .map(c => ({ ...c, source: 'graveyard' as const }));
+
+    const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col p-4 animate-modal-show" onClick={onClose}>
@@ -34,41 +36,62 @@ export const HandDisplayModal: React.FC<HandDisplayModalProps> = ({
                     <button onClick={onClose} className="bg-arcane-border px-4 py-2 rounded-lg font-bold text-white hover:bg-arcane-primary transition-all uppercase border-2 border-arcane-border">Close</button>
                 </div>
 
-                <div className="flex-grow overflow-y-auto p-4 bg-arcane-surface/50 rounded-lg">
-                    {allPlayableCards.length > 0 ? (
-                        <div className="flex flex-wrap justify-center gap-x-4 gap-y-10">
-                             {allPlayableCards.map((card) => {
-                                const isPlayableFromSource = card.source === 'hand' ? isCardPlayable(card) : isCardReclaimable(card);
-                                const clickHandler = card.source === 'hand' ? onCardClick : onGraveyardCardClick;
-
-                                return (
+                <div className="flex-grow overflow-y-auto p-4 bg-arcane-surface/50 rounded-lg space-y-8">
+                    {/* Hand Section */}
+                    <div>
+                        <h3 className="text-xl font-bold text-vivid-pink mb-4 border-b-2 border-vivid-pink/30 pb-2">In Hand ({handCards.length})</h3>
+                        {handCards.length > 0 ? (
+                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-10">
+                                {handCards.map((card) => (
                                     <div 
                                         key={card.instanceId} 
                                         className="flex-shrink-0" 
-                                        onMouseEnter={() => card.source === 'hand' && setHoveredCardInHand(card)}
+                                        onMouseEnter={() => setHoveredCardInHand(card)}
                                         onMouseLeave={() => setHoveredCardInHand(null)}
                                     >
                                         <Card
                                             card={card}
                                             inHand={true}
-                                            isPlayable={isCurrentPlayer && isPlayableFromSource}
-                                            onClick={() => clickHandler(card)}
-                                            onChannel={card.abilities?.evoke && card.source === 'hand' && isCurrentPlayer ? () => onEvokeClick(card) : undefined}
-                                            isChannelable={isCurrentPlayer && isCardEvokeable(card)}
-                                            onAmplify={card.abilities?.amplify && card.source === 'hand' && isCurrentPlayer ? () => onAmplifyClick(card) : undefined}
+                                            isPlayable={isCurrentPlayer && isCardPlayable(card)}
+                                            onClick={() => onCardClick(card)}
+                                            onEvoke={card.abilities?.evoke ? () => onEvokeClick(card) : undefined}
+                                            isEvokeable={isCurrentPlayer && isCardEvokeable(card)}
+                                            onAmplify={card.abilities?.amplify ? () => onAmplifyClick(card) : undefined}
                                             isAmplifiable={isCurrentPlayer && isCardAmplifiable(card)}
                                             origin={card.source}
                                             onExamine={onExamineCard}
                                         />
                                     </div>
-                                )
-                             })}
-                        </div>
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-arcane-primary/60 italic text-2xl">
-                            YOUR HAND IS EMPTY
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="w-full text-center text-arcane-primary/60 italic text-lg">Hand is empty.</div>
+                        )}
+                    </div>
+                    
+                    {/* Graveyard/Reclaim Section */}
+                    <div>
+                        <h3 className="text-xl font-bold text-vivid-yellow mb-4 border-b-2 border-vivid-yellow/30 pb-2">Reclaimable ({reclaimableCards.length})</h3>
+                        {reclaimableCards.length > 0 ? (
+                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-10">
+                                {reclaimableCards.map((card) => (
+                                     <div key={card.instanceId} className="flex-shrink-0">
+                                        <Card
+                                            card={card}
+                                            inHand={true} // Use inHand styling for better visibility/size
+                                            isPlayable={isCurrentPlayer && isCardReclaimable(card)}
+                                            onClick={() => onGraveyardCardClick(card)}
+                                            origin={card.source}
+                                            onExamine={onExamineCard}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                             <div className="w-full text-center text-arcane-primary/60 italic text-lg">No reclaimable cards in graveyard.</div>
+                        )}
+                    </div>
+
                 </div>
             </div>
         </div>

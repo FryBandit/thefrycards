@@ -10,6 +10,12 @@ const ActionHistory: React.FC<ActionHistoryProps> = ({ history, players }) => {
     const [isOpen, setIsOpen] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        if (panelRef.current) {
+            panelRef.current.scrollTop = 0;
+        }
+    }, [history]);
+
     return (
         <div className={`absolute top-4 left-0 h-[calc(50%-2rem)] z-30 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%-3rem)]'}`}>
             <div className="relative w-80 h-full flex">

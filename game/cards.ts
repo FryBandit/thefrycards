@@ -10,10 +10,10 @@ export const fetchCardDefinitions = async (): Promise<CardDefinition[]> => {
 };
 
 export const requiredComposition = {
+    [CardType.UNIT]: 10,
+    [CardType.EVENT]: 6,
+    [CardType.ARTIFACT]: 3,
     [CardType.LOCATION]: 2,
-    [CardType.UNIT]: 8,
-    [CardType.EVENT]: 5,
-    [CardType.ARTIFACT]: 2,
 };
 
 // Helper to build a valid, randomized deck from the full card list

@@ -1,6 +1,7 @@
 
 
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -63,6 +64,9 @@ export interface CardInGame extends CardDefinition {
   shieldUsedThisTurn?: boolean;
   counters?: number; // For Consume
   attachments?: CardInGame[]; // For Augment
+  isTargetForBlocker?: boolean;
+  isPotentialAttacker?: boolean;
+  source?: 'hand' | 'graveyard';
 }
 
 export interface Player {
@@ -78,9 +82,8 @@ export interface Player {
   oblivion: CardInGame[];
   vanishZone: { card: CardInGame, turnsRemaining: number }[]; // For Vanish
   diceModifier: number;
-  shieldUsedThisTurn: boolean;
   isMoraleFortified: boolean;
-  skipNextDrawPhase: boolean;
+  skipNextDrawPhase: number;
   fatigueCounter: number;
   hasMulliganed: boolean;
 }

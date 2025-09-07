@@ -55,7 +55,6 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   'Chain Reaction': 'This card\'s effect may trigger additional, chained effects when played.',
   'Weaken': 'An Event effect that gives a target unit -X Strength.',
   'Discard': 'An Event effect that forces the opponent to discard X cards at random.',
-  'Foresight': 'An Event effect that lets you look at the top X cards of your deck.',
   'Purge': 'An Event effect that sends X random cards from the opponent\'s graveyard to Oblivion.',
   'Warp': 'An Event effect that lets you take an extra turn after this one.',
   'Disrupt': 'Arrival: Your opponent rolls X fewer dice on their next turn.',

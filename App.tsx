@@ -1,4 +1,9 @@
 
+
+
+
+
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
 import ActionHistory from './components/GameLog';
@@ -19,7 +24,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<'howToPlay' | 'game'>('howToPlay');
   const [allCards, setAllCards] = useState<CardDefinition[] | null>(null);
   const [loadingError, setLoadingError] = useState<string | null>(null);
-  const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify: boolean } | null>(null);
+  const [targetingInfo, setTargetingInfo] = useState<{ card: CardInGame; isAmplify?: boolean, isAugment?: boolean } | null>(null);
   const [viewingZone, setViewingZone] = useState<{ player: Player; zone: 'graveyard' | 'oblivion'; title: string } | null>(null);
   const [lastActivatedCardId, setLastActivatedCardId] = useState<string | null>(null);
   const [examiningCard, setExaminingCard] = useState<CardInGame | null>(null);
@@ -109,12 +114,12 @@ const App: React.FC = () => {
   const isCardPlayable = useCallback((card: CardInGame): boolean => {
     if (state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) return false;
     
-    let dice_cost: DiceCost[] | undefined = card.dice_cost;
-    if (card.abilities?.augment) {
-        dice_cost = card.abilities.augment.cost;
-    }
+    const costConfig = {
+      dice_cost: card.abilities?.augment ? card.abilities.augment.cost : card.dice_cost,
+      abilities: card.abilities,
+    };
 
-    const canPayCost = checkDiceCost({ ...card, dice_cost: dice_cost || [] }, state.dice).canPay;
+    const canPayCost = checkDiceCost(costConfig, state.dice).canPay;
     if (!canPayCost) return false;
 
     if (card.abilities?.requiresTarget || card.abilities?.augment) {
@@ -139,8 +144,12 @@ const App: React.FC = () => {
 
     if (!isCardPlayable(card)) return;
 
-    if (card.abilities?.requiresTarget || card.abilities?.augment) {
-        setTargetingInfo({ card, isAmplify: false });
+    if (card.abilities?.augment) {
+        setTargetingInfo({ card, isAugment: true });
+        return;
+    }
+    if (card.abilities?.requiresTarget) {
+        setTargetingInfo({ card });
         return;
     }
     
@@ -192,12 +201,12 @@ const App: React.FC = () => {
 
     if (state.currentPlayerId !== 0 || !targetingInfo) return;
     
-    const { card: sourceCard, isAmplify } = targetingInfo;
+    const { card: sourceCard, isAmplify, isAugment } = targetingInfo;
     const player = state.players[0];
     const targetOwner = state.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(u => u.instanceId === card.instanceId))!;
     
     if (isCardTargetable(sourceCard, card, player, targetOwner)) {
-        dispatch({ type: 'PLAY_CARD', payload: { card: sourceCard, targetInstanceId: card.instanceId, options: { isAmplified: isAmplify } } });
+        dispatch({ type: 'PLAY_CARD', payload: { card: sourceCard, targetInstanceId: card.instanceId, options: { isAmplified: isAmplify, isAugmented: isAugment } } });
         setTargetingInfo(null);
     }
   }
@@ -256,7 +265,8 @@ const App: React.FC = () => {
 
   const handleAmplifyClick = (card: CardInGame) => {
     if (!isCardAmplifiable(card)) return;
-    if (card.abilities?.requiresTarget || card.abilities.amplify.effect?.type === 'DEAL_DAMAGE') {
+    // Check if the base card effect OR the amplify-specific effect requires a target.
+    if (card.abilities?.requiresTarget || card.abilities.amplify.requiresTarget) {
       setTargetingInfo({ card, isAmplify: true });
     } else {
       dispatch({ type: 'PLAY_CARD', payload: { card, options: { isAmplified: true } } });
@@ -397,7 +407,7 @@ const App: React.FC = () => {
 
       {targetingInfo && (
         <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-arcane-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-vivid-pink shadow-vivid-pink'}`}>
-          Select a target for {targetingInfo.card.name} {targetingInfo.isAmplify ? '(Amplified)' : ''}
+          Select a target for {targetingInfo.card.name}
         </div>
       )}
       {viewingZone && (

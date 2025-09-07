@@ -91,98 +91,107 @@ export const findValuableDiceForCost = (cost: DiceCost, dice: Die[]): Die[] => {
 }
 // Shared game logic for calculating effective stats.
 export const getEffectiveStats = (card: CardInGame, owner: Player, context: { isStrikePhase?: boolean } = {}) => {
-    if (card.type !== CardType.UNIT) {
+    let rallyBonus = 0;
+    let synergyBonus = 0;
+
+    if (card.type !== CardType.UNIT && card.type !== CardType.ARTIFACT) {
         return { 
             strength: card.strength ?? 0, 
-            durability: card.durability ?? 0,
-            rallyBonus: 0,
+            durability: card.durability ?? 1,
+            rallyBonus,
+            synergyBonus,
         };
     }
 
     let strength = (card.strength ?? 0) + card.strengthModifier;
     let durability = (card.durability ?? 1) + card.durabilityModifier;
     
-    // Overload keyword
-    if (card.abilities?.overload) {
-        const bonus = Math.floor(owner.graveyard.length / card.abilities.overload.per) * card.abilities.overload.amount;
-        strength += bonus;
-    }
-
-    // Synergy keyword
-    if (card.abilities?.synergy) {
-        const cardSet = card.abilities.synergy.card_set;
-        const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
-            .filter(c => c.instanceId !== card.instanceId && c.card_set === cardSet)
-            .length;
-        if (synergyCount > 0) {
-            const effect = card.abilities.synergy.effect;
-            const totalBonus = synergyCount * effect.amount;
-            if (effect.type === 'BUFF_STRENGTH') strength += totalBonus;
-            if (effect.type === 'BUFF_DURABILITY') durability += totalBonus;
+    if (card.type === CardType.UNIT) {
+        // Overload keyword
+        if (card.abilities?.overload) {
+            const bonus = Math.floor(owner.graveyard.length / card.abilities.overload.per) * card.abilities.overload.amount;
+            strength += bonus;
         }
-    }
 
-    // Augment keyword (from attachments)
-    if (card.attachments && card.attachments.length > 0) {
-        card.attachments.forEach(attachment => {
-            if (attachment.abilities?.augment?.effect?.buffs) {
-                attachment.abilities.augment.effect.buffs.forEach((buff: { type: string, amount: number }) => {
-                    if (buff.type === 'STRENGTH') {
-                        strength += buff.amount;
+        // Synergy keyword
+        if (card.abilities?.synergy) {
+            const cardSet = card.abilities.synergy.card_set;
+            const synergyCount = [...owner.units, ...owner.locations, ...owner.artifacts]
+                .filter(c => c.instanceId !== card.instanceId && c.card_set === cardSet)
+                .length;
+            if (synergyCount > 0) {
+                const effect = card.abilities.synergy.effect;
+                const totalBonus = synergyCount * effect.amount;
+                if (effect.type === 'BUFF_STRENGTH') {
+                    strength += totalBonus;
+                    synergyBonus = totalBonus;
+                };
+                if (effect.type === 'BUFF_DURABILITY') durability += totalBonus;
+            }
+        }
+
+        // Augment keyword (from attachments)
+        if (card.attachments && card.attachments.length > 0) {
+            card.attachments.forEach(attachment => {
+                if (attachment.abilities?.augment?.effect?.buffs) {
+                    attachment.abilities.augment.effect.buffs.forEach((buff: { type: string, amount: number }) => {
+                        if (buff.type === 'STRENGTH') {
+                            strength += buff.amount;
+                        }
+                        if (buff.type === 'DURABILITY') {
+                            durability += buff.amount;
+                        }
+                    });
+                }
+            });
+        }
+
+        // Buffs from player's other cards (Locations/Artifacts with passive buffs)
+        owner.locations.forEach(loc => {
+            if (loc.abilities?.passive_buff?.type === 'STRENGTH') {
+                const buff = loc.abilities.passive_buff;
+                // card_set-specific buff
+                if (buff.card_set) {
+                    if (card.card_set === buff.card_set) {
+                        strength += buff.value;
                     }
-                    if (buff.type === 'DURABILITY') {
-                        durability += buff.amount;
-                    }
-                });
+                } 
+                // Global buff
+                else {
+                    strength += buff.value;
+                }
             }
         });
-    }
-
-    // Buffs from player's other cards (Locations/Artifacts with passive buffs)
-    owner.locations.forEach(loc => {
-        if (loc.abilities?.passive_buff?.type === 'STRENGTH') {
-            const buff = loc.abilities.passive_buff;
-            // card_set-specific buff
-            if (buff.card_set) {
-                if (card.card_set === buff.card_set) {
+        owner.artifacts.forEach(art => {
+            if (art.abilities?.passive_buff?.type === 'STRENGTH') {
+                const buff = art.abilities.passive_buff;
+                // card_set-specific buff
+                if (buff.card_set) {
+                    if (card.card_set === buff.card_set) {
+                        strength += buff.value;
+                    }
+                } 
+                // Global buff
+                else {
                     strength += buff.value;
                 }
-            } 
-            // Global buff
-            else {
-                strength += buff.value;
             }
+        });
+
+        // Rally
+        if (card.abilities?.rally) {
+            // A unit with Rally gets +1 Strength for each OTHER friendly unit with Rally.
+            const otherRallyUnitsCount = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
+            strength += otherRallyUnitsCount;
+            rallyBonus = otherRallyUnitsCount;
         }
-    });
-    owner.artifacts.forEach(art => {
-        if (art.abilities?.passive_buff?.type === 'STRENGTH') {
-            const buff = art.abilities.passive_buff;
-            // card_set-specific buff
-            if (buff.card_set) {
-                if (card.card_set === buff.card_set) {
-                    strength += buff.value;
-                }
-            } 
-            // Global buff
-            else {
-                strength += buff.value;
-            }
+
+
+        // Strike phase specific buffs
+        if (context.isStrikePhase && card.abilities?.strike) {
+            strength += card.abilities.strike;
         }
-    });
-
-    // Rally
-    let rallyBonus = 0;
-    if (card.abilities?.rally) {
-        // A unit with Rally gets +1 Strength for each OTHER friendly unit with Rally.
-        const otherRallyUnitsCount = owner.units.filter(u => u.abilities?.rally && u.instanceId !== card.instanceId).length;
-        strength += otherRallyUnitsCount;
-        rallyBonus = otherRallyUnitsCount;
     }
-
-
-    // Strike phase specific buffs
-    if (context.isStrikePhase && card.abilities?.strike) {
-        strength += card.abilities.strike;
-    }
-    return { strength, durability, rallyBonus };
+    
+    return { strength, durability, rallyBonus, synergyBonus };
 };

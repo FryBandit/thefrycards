@@ -1,5 +1,3 @@
-
-
 import { useReducer, useMemo } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats } from '../game/utils';
@@ -17,11 +15,9 @@ type Action =
   | { type: 'ROLL_DICE' }
   | { type: 'TOGGLE_DIE_KEPT'; payload: { id: number, keep: boolean } }
   | { type: 'PLAY_CARD'; payload: { card: CardInGame, targetInstanceId?: string, options?: { isEvoked?: boolean; isReclaimed?: boolean; isAmplified?: boolean; isAugmented?: boolean; } } }
-  | { type: 'ACTIVATE_ABILITY'; payload: { cardInstanceId: string } }
+  | { type: 'ACTIVATE_ABILITY'; payload: { cardInstanceId: string, targetInstanceId?: string } }
   | { type: 'AI_ACTION' };
 
-// Helper Functions
-// MOVED TO UTILS
 
 const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): Player => {
   const shuffledDeck = shuffle(deck);
@@ -38,9 +34,8 @@ const createInitialPlayer = (id: number, name: string, deck: CardDefinition[]): 
     oblivion: [],
     vanishZone: [],
     diceModifier: 0,
-    shieldUsedThisTurn: false,
     isMoraleFortified: false,
-    skipNextDrawPhase: false,
+    skipNextDrawPhase: 0,
     fatigueCounter: 0,
     hasMulliganed: false,
   };
@@ -151,45 +146,23 @@ const checkOfAKind = (count: number, availableDice: Die[]): CostCheckResult => {
 const checkSumOfX = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
     if (availableDice.length < cost.count!) return initialCostResult(availableDice);
     
-    // Find all combinations of 'count' dice and check their sum.
     const combinations = ((arr: Die[], size: number): Die[][] => {
         const result: Die[][] = [];
         const f = (prefix: Die[], arr: Die[]) => {
-            if (prefix.length === size) {
-                result.push(prefix);
-                return;
-            }
-            for (let i = 0; i < arr.length; i++) {
-                f([...prefix, arr[i]], arr.slice(i + 1));
-            }
+            if (prefix.length === size) { result.push(prefix); return; }
+            for (let i = 0; i < arr.length; i++) { f([...prefix, arr[i]], arr.slice(i + 1)); }
         }
         f([], arr);
         return result;
     })(availableDice, cost.count!);
 
     const validCombinations = combinations.filter(combo => combo.reduce((acc, die) => acc + die.value, 0) >= cost.value!);
-
     if (validCombinations.length === 0) return initialCostResult(availableDice);
 
-    // Sort by sum (ascending), then by max die value (ascending) to use lowest dice possible
-    validCombinations.sort((a, b) => {
-        const sumA = a.reduce((acc, die) => acc + die.value, 0);
-        const sumB = b.reduce((acc, die) => acc + die.value, 0);
-        if (sumA !== sumB) {
-            return sumA - sumB;
-        }
-        const maxA = Math.max(...a.map(d => d.value));
-        const maxB = Math.max(...b.map(d => d.value));
-        return maxA - maxB;
-    });
-
+    validCombinations.sort((a, b) => a.reduce((s,d)=>s+d.value,0) - b.reduce((s,d)=>s+d.value,0));
     const bestCombination = validCombinations[0];
     const comboIds = new Set(bestCombination.map(d => d.id));
-    return { 
-        canPay: true, 
-        diceToSpend: bestCombination, 
-        remainingDice: availableDice.filter(d => !comboIds.has(d.id)) 
-    };
+    return { canPay: true, diceToSpend: bestCombination, remainingDice: availableDice.filter(d => !comboIds.has(d.id)) };
 };
 
 const checkStraight = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
@@ -198,12 +171,7 @@ const checkStraight = (cost: DiceCost, availableDice: Die[]): CostCheckResult =>
     
     for (let i = 0; i <= uniqueSorted.length - cost.count!; i++) {
         let isStraight = true;
-        for(let j=0; j < cost.count! - 1; j++) {
-            if (uniqueSorted[i+j+1] !== uniqueSorted[i+j] + 1) {
-                isStraight = false;
-                break;
-            }
-        }
+        for(let j=0; j < cost.count! - 1; j++) { if (uniqueSorted[i+j+1] !== uniqueSorted[i+j] + 1) { isStraight = false; break; } }
         if (isStraight) {
             const vals = uniqueSorted.slice(i, i + cost.count!);
             const diceToSpend: Die[] = [];
@@ -222,22 +190,16 @@ const checkStraight = (cost: DiceCost, availableDice: Die[]): CostCheckResult =>
 const checkTwoPair = (availableDice: Die[]): CostCheckResult => {
     const counts: { [key: number]: number } = {};
     for (const die of availableDice) { counts[die.value] = (counts[die.value] || 0) + 1; }
-    
     const pairs = Object.keys(counts).filter(k => counts[parseInt(k)] >= 2).map(k => parseInt(k));
-    const fourOfAKindVal = Object.keys(counts).find(k => counts[parseInt(k)] >= 4);
-
-    if (pairs.length < 2 && !fourOfAKindVal) return initialCostResult(availableDice);
+    if (pairs.length < 2 && !Object.keys(counts).some(k => counts[parseInt(k)] >= 4)) return initialCostResult(availableDice);
     
     let diceToSpend: Die[] = [];
+    const fourOfAKindVal = Object.keys(counts).find(k => counts[parseInt(k)] >= 4);
     if (fourOfAKindVal) {
         diceToSpend = availableDice.filter(d => d.value === parseInt(fourOfAKindVal)).slice(0, 4);
     } else {
-        diceToSpend = [
-            ...availableDice.filter(d => d.value === pairs[0]).slice(0, 2),
-            ...availableDice.filter(d => d.value === pairs[1]).slice(0, 2),
-        ];
+        diceToSpend = [...availableDice.filter(d => d.value === pairs[0]).slice(0, 2), ...availableDice.filter(d => d.value === pairs[1]).slice(0, 2)];
     }
-
     const spentIds = new Set(diceToSpend.map(d => d.id));
     return { canPay: true, diceToSpend, remainingDice: availableDice.filter(d => !spentIds.has(d.id)) };
 };
@@ -245,24 +207,18 @@ const checkTwoPair = (availableDice: Die[]): CostCheckResult => {
 const checkFullHouse = (availableDice: Die[]): CostCheckResult => {
     const counts: {[key: number]: number} = {};
     for (const die of availableDice) { counts[die.value] = (counts[die.value] || 0) + 1; }
-    
     const threeValStr = Object.keys(counts).find(k => counts[parseInt(k)] >= 3);
     if (!threeValStr) return initialCostResult(availableDice);
-    
     const threeVal = parseInt(threeValStr);
-    const pairValStr = Object.keys(counts).find(k => counts[parseInt(k)] >= 2 && parseInt(k) !== threeVal);
+    const pairValStr = Object.keys(counts).find(k => parseInt(k) !== threeVal && counts[parseInt(k)] >= 2);
     if (!pairValStr) return initialCostResult(availableDice);
-
-    const diceToSpend = [
-        ...availableDice.filter(d => d.value === threeVal).slice(0, 3),
-        ...availableDice.filter(d => d.value === parseInt(pairValStr)).slice(0, 2)
-    ];
-    
+    const diceToSpend = [...availableDice.filter(d => d.value === threeVal).slice(0, 3), ...availableDice.filter(d => d.value === parseInt(pairValStr)).slice(0, 2)];
     const spentIds = new Set(diceToSpend.map(d => d.id));
     return { canPay: true, diceToSpend, remainingDice: availableDice.filter(d => !spentIds.has(d.id)) };
 };
 
-const checkOddEven = (isOdd: boolean, cost: DiceCost, availableDice: Die[]): CostCheckResult => {
+const checkOddEvenDice = (cost: DiceCost, availableDice: Die[], type: 'ODD' | 'EVEN'): CostCheckResult => {
+    const isOdd = type === 'ODD';
     const matchingDice = availableDice.filter(d => (d.value % 2 === 1) === isOdd);
     if (matchingDice.length < cost.count!) return initialCostResult(availableDice);
     const diceToSpend = matchingDice.slice(0, cost.count!);
@@ -286,60 +242,24 @@ const checkNoDuplicates = (cost: DiceCost, availableDice: Die[]): CostCheckResul
 };
 
 const checkSumBetween = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
-    if (availableDice.length < cost.count!) return initialCostResult(availableDice);
-    
-    // This is computationally expensive for large counts, but for card games (count typically 2-3) it's fine.
-    const combinations = ((arr: Die[], size: number): Die[][] => {
-        const result: Die[][] = [];
-        const f = (prefix: Die[], arr: Die[]) => {
-            if (prefix.length === size) {
-                result.push(prefix);
-                return;
-            }
-            for (let i = 0; i < arr.length; i++) {
-                f([...prefix, arr[i]], arr.slice(i + 1));
-            }
-        }
-        f([], arr);
-        return result;
-    })(availableDice, cost.count!);
-
-    const validCombinations = combinations.filter(combo => {
-        const sum = combo.reduce((acc, die) => acc + die.value, 0);
-        return sum >= cost.value! && sum <= cost.maxValue!;
-    });
-
-    if (validCombinations.length === 0) return initialCostResult(availableDice);
-    
-    // Heuristic: use the combination with the lowest sum to save higher dice.
-    validCombinations.sort((a, b) => {
-        const sumA = a.reduce((acc, die) => acc + die.value, 0);
-        const sumB = b.reduce((acc, die) => acc + die.value, 0);
-        return sumA - sumB;
-    });
-
-    const bestCombination = validCombinations[0];
-    const comboIds = new Set(bestCombination.map(d => d.id));
-    return { 
-        canPay: true, 
-        diceToSpend: bestCombination, 
-        remainingDice: availableDice.filter(d => !comboIds.has(d.id)) 
-    };
+    const result = checkSumOfX({ ...cost, value: cost.value }, availableDice);
+    if (result.canPay) {
+        const sum = result.diceToSpend.reduce((acc, d) => acc + d.value, 0);
+        if (sum <= cost.maxValue!) return result;
+    }
+    return initialCostResult(availableDice);
 };
 
 const checkSpread = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
     const lowDie = availableDice.find(d => d.value <= cost.lowValue!);
     if (!lowDie) return initialCostResult(availableDice);
-
-    const highDie = availableDice.find(d => d.id !== lowDie.id && d.value >= cost.highValue!);
+    const highDie = availableDice.find(d => d.value >= cost.highValue! && d.id !== lowDie.id);
     if (!highDie) return initialCostResult(availableDice);
-
-    return {
-        canPay: true,
-        diceToSpend: [lowDie, highDie],
-        remainingDice: availableDice.filter(d => d.id !== lowDie.id && d.id !== highDie.id)
-    };
+    const diceToSpend = [lowDie, highDie];
+    const spentIds = new Set(diceToSpend.map(d => d.id));
+    return { canPay: true, diceToSpend, remainingDice: availableDice.filter(d => !spentIds.has(d.id)) };
 };
+
 
 const checkSingleCost = (cost: DiceCost, availableDice: Die[]): CostCheckResult => {
     switch (cost.type) {
@@ -353,8 +273,8 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): CostCheckResult 
         case DiceCostType.STRAIGHT: return checkStraight(cost, availableDice);
         case DiceCostType.TWO_PAIR: return checkTwoPair(availableDice);
         case DiceCostType.FULL_HOUSE: return checkFullHouse(availableDice);
-        case DiceCostType.ODD_DICE: return checkOddEven(true, cost, availableDice);
-        case DiceCostType.EVEN_DICE: return checkOddEven(false, cost, availableDice);
+        case DiceCostType.ODD_DICE: return checkOddEvenDice(cost, availableDice, 'ODD');
+        case DiceCostType.EVEN_DICE: return checkOddEvenDice(cost, availableDice, 'EVEN');
         case DiceCostType.NO_DUPLICATES: return checkNoDuplicates(cost, availableDice);
         case DiceCostType.SUM_BETWEEN: return checkSumBetween(cost, availableDice);
         case DiceCostType.SPREAD: return checkSpread(cost, availableDice);
@@ -363,78 +283,47 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): CostCheckResult 
 }
 // #endregion
 
-
-// Cost Checking Logic
 export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
     let availableDice = dice.filter(d => !d.isSpent);
-    
-    // Handle Wild keyword: transform costs before checking
-    const costToUse = card.abilities?.wild 
-        ? card.dice_cost.map(c => c.type === DiceCostType.EXACT_VALUE ? { ...c, type: DiceCostType.ANY_X_DICE } : c)
-        : card.dice_cost;
-        
+    const costToUse = card.abilities?.wild ? card.dice_cost.map(c => c.type === DiceCostType.EXACT_VALUE ? { ...c, type: DiceCostType.ANY_X_DICE } : c) : card.dice_cost;
     if (!costToUse || costToUse.length === 0) return { canPay: true, diceToSpend: [] };
     
     let totalDiceToSpend: Die[] = [];
-    let canPay = true;
-
     for(const cost of costToUse) {
         const result = checkSingleCost(cost, availableDice);
-        if (!result.canPay) {
-            canPay = false;
-            break;
-        }
+        if (!result.canPay) return { canPay: false, diceToSpend: [] };
         totalDiceToSpend.push(...result.diceToSpend);
-        
-        const spentIds = new Set(result.diceToSpend.map(d => d.id));
-        availableDice = availableDice.filter(d => !spentIds.has(d.id));
+        availableDice = result.remainingDice;
     }
-    
-    return { canPay, diceToSpend: canPay ? totalDiceToSpend : [] };
+    return { canPay: true, diceToSpend: totalDiceToSpend };
 }
 
-
 export const isCardTargetable = (targetingCard: CardInGame, targetCard: CardInGame, sourcePlayer: Player, targetPlayer: Player): boolean => {
-    if (!targetingCard) return false;
-
-    // --- Absolute Protections ---
     if (targetCard.abilities?.immutable) return false;
-
-    // --- Conditional Protections ---
     const isOpponentTarget = sourcePlayer.id !== targetPlayer.id;
-    if (isOpponentTarget && targetingCard.type === CardType.EVENT) {
-        if (targetCard.abilities?.stealth) return false;
-        if (targetCard.abilities?.breach && !targetCard.hasStruck) return false;
-    }
-
-    // --- Ability-based Targeting Rules ---
-    const abilities = targetingCard.abilities;
-    // Stricter rules: these effects almost always target opponents.
-    const mustTargetOpponent = abilities?.corrupt || abilities?.voidTarget || abilities?.weaken;
-    // Stricter rules: these effects almost always target friendlies.
-    const mustTargetFriendly = abilities?.recall || abilities?.augment;
-
-    if (mustTargetOpponent && !isOpponentTarget) {
-        return false;
-    }
+    if (isOpponentTarget && targetingCard.type === CardType.EVENT && (targetCard.abilities?.stealth || (targetCard.abilities?.breach && !targetCard.hasStruck))) return false;
     
-    if (mustTargetFriendly && isOpponentTarget) {
-        return false;
+    if (targetingCard.abilities?.banish) {
+        return isOpponentTarget && targetCard.type === CardType.UNIT && getEffectiveStats(targetCard, targetPlayer).durability <= targetingCard.abilities.banish.maxDurability;
     }
-
-    // --- Default Case ---
-    // If no specific rules prevent targeting, it is allowed. This is more flexible for future abilities
-    // and allows for advanced plays like using a damage ability on your own unit with Martyrdom.
-    return true;
+    if (targetingCard.abilities?.corrupt || targetingCard.abilities?.voidTarget || targetingCard.abilities?.weaken || targetingCard.abilities?.damage || targetingCard.abilities?.snipe) {
+        return isOpponentTarget;
+    }
+    if (targetingCard.abilities?.recall) {
+        return !isOpponentTarget && targetCard.type === CardType.UNIT;
+    }
+    if (targetingCard.abilities?.augment) {
+        return !isOpponentTarget && targetCard.type === CardType.UNIT;
+    }
+    return true; // Default case if no specific targeting rule applies
 };
 
 
 const cardHasAbility = (card: CardInGame, ability: string): boolean => {
-    if ((card.abilities as any)?.[ability]) {
-        return true;
-    }
-    if (card.attachments && card.attachments.length > 0) {
-        return card.attachments.some(att => att.abilities?.augment?.effect?.grants?.includes(ability.toUpperCase()));
+    const lowerCaseAbility = ability.toLowerCase();
+    if ((card.abilities as any)?.[lowerCaseAbility]) return true;
+    if (card.attachments?.length) {
+        return card.attachments.some(att => att.abilities?.augment?.effect?.grants?.some((g: string) => g.toLowerCase() === lowerCaseAbility));
     }
     return false;
 };
@@ -442,25 +331,12 @@ const cardHasAbility = (card: CardInGame, ability: string): boolean => {
 const gameReducer = (state: GameState, action: Action): GameState => {
   try {
     if (state.winner && action.type !== 'START_GAME') return state;
-
-    // A note on state updates:
-    // We use JSON.parse(JSON.stringify(state)) to create a deep copy of the state.
-    // This is a simple and effective way to ensure immutability for a state object that is fully serializable, like ours.
-    // While libraries like Immer can offer better performance for very large and complex states,
-    // this approach avoids adding external dependencies and is sufficient for the current scale of the game.
     const newState = JSON.parse(JSON.stringify(state)) as GameState;
-    
     const log = (message: string) => newState.log.push(message);
-
     const logAction = (message: string) => {
         let lastHistoryEntry = newState.actionHistory[newState.actionHistory.length - 1];
-
         if (!lastHistoryEntry || lastHistoryEntry.turn !== newState.turn || lastHistoryEntry.playerId !== newState.currentPlayerId) {
-            newState.actionHistory.push({
-                turn: newState.turn,
-                playerId: newState.currentPlayerId,
-                actions: [message],
-            });
+            newState.actionHistory.push({ turn: newState.turn, playerId: newState.currentPlayerId, actions: [message] });
         } else {
             lastHistoryEntry.actions.push(message);
         }
@@ -468,22 +344,20 @@ const gameReducer = (state: GameState, action: Action): GameState => {
     
     const damagePlayer = (player: Player, amount: number, source: string, type: 'damage' | 'loss' = 'damage') => {
         if (player.isMoraleFortified && type === 'damage') {
-            log(`${player.name}'s Morale is fortified and takes no damage from ${source}!`);
+            log(`${player.name}'s Morale is fortified!`);
             return;
         }
+        
+        const allPlayerCardsOnBoard = [...player.units, ...player.locations, ...player.artifacts];
+        const fortifyValue = allPlayerCardsOnBoard
+            .filter(c => c.abilities?.fortify)
+            .reduce((max, c) => Math.max(max, c.abilities!.fortify!.value), 0);
 
-        // Handle Fortify keyword
-        if (type === 'damage') {
-            const fortifyValue = player.locations
-                .filter(l => l.abilities?.fortify)
-                .reduce((max, l) => Math.max(max, l.abilities!.fortify!.value), 0);
-
-            if (fortifyValue > 0 && player.morale - amount < fortifyValue) {
-                const prevented = player.morale - fortifyValue;
-                player.morale = fortifyValue;
-                log(`Fortify prevents ${amount - prevented} damage! ${player.name}'s Morale is now ${player.morale}.`);
-                return;
-            }
+        if (type === 'damage' && fortifyValue > 0 && player.morale - amount < fortifyValue) {
+            const damagePrevented = amount - (player.morale - fortifyValue);
+            log(`Fortify prevents ${damagePrevented} damage!`);
+            player.morale = fortifyValue;
+            return;
         }
         player.morale -= amount;
         log(`${player.name} loses ${amount} Morale from ${source}!`);
@@ -491,263 +365,145 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
     const dealDamageToUnit = (target: CardInGame, amount: number, sourceCard: CardInGame | null, targetOwner: Player, isCombatDamage: boolean = false) => {
         if (target.abilities?.immutable) {
-            log(`${target.name} is Immutable and ignores damage from ${sourceCard?.name || 'Effect'}.`);
+            log(`${target.name} is Immutable and ignores damage.`);
             return;
         }
-
-        if (target.abilities?.shield && !target.shieldUsedThisTurn) {
+        if (cardHasAbility(target, 'shield') && !target.shieldUsedThisTurn) {
             target.shieldUsedThisTurn = true;
-            log(`${target.name}'s Shield prevents the damage from ${sourceCard?.name || 'Effect'}!`);
-            return; // Prevent damage
+            log(`${target.name}'s Shield prevents the damage!`);
+            return;
         }
-
-        let finalAmount = amount;
-
-        // Fragile triggers on non-combat damage from a card source
-        if (target.abilities?.fragile && sourceCard && !isCombatDamage) {
-            finalAmount *= 2;
-            log(`${target.name} is Fragile and takes double damage!`);
-        }
+        let finalAmount = (cardHasAbility(target, 'fragile') && sourceCard && !isCombatDamage) ? amount * 2 : amount;
         target.damage += finalAmount;
         log(`${sourceCard?.name || 'Effect'} deals ${finalAmount} damage to ${target.name}.`);
-
         if (sourceCard && cardHasAbility(sourceCard, 'venomous') && finalAmount > 0) {
-            const { durability } = getEffectiveStats(target, targetOwner);
-            target.damage = durability; // Mark for destruction
+            target.damage = getEffectiveStats(target, targetOwner).durability;
             log(`${sourceCard.name}'s Venomous ability marks ${target.name} for destruction!`);
         }
     };
-
-    const checkForDestroyedUnits = (sourcePlayerId: number, sourceCard?: CardInGame): boolean => {
-        let anyChangeInLoop = false;
-        let loopAgain = true;
-        let loopCount = 0;
-        const MAX_CHAIN_REACTIONS = 20; // Prevent infinite loops
-
-        while (loopAgain) {
-            if (loopCount++ > MAX_CHAIN_REACTIONS) {
-                log('!! System Warning: Exceeded maximum chain reaction limit. Halting destruction sequence.');
-                console.error('Potential infinite loop detected in checkForDestroyedUnits. Breaking.');
+    
+    const banishCard = (card: CardInGame, owner: Player, opponent: Player) => {
+        const zones: (keyof Player)[] = ['units', 'locations', 'artifacts'];
+        let found = false;
+        for (const zone of zones) {
+            const cardIndex = (owner[zone] as CardInGame[]).findIndex(c => c.instanceId === card.instanceId);
+            if (cardIndex > -1) {
+                (owner[zone] as CardInGame[]).splice(cardIndex, 1);
+                found = true;
                 break;
             }
-            loopAgain = false;
+        }
+        if (found) {
+            owner.oblivion.push(card);
+            log(`${card.name} was Banished to Oblivion.`);
+            if (card.type === CardType.UNIT) {
+                damagePlayer(owner, card.moraleValue ?? 0, `${card.name}'s banishment`, 'loss');
+            }
+        }
+    }
 
+
+    const checkForDestroyedCards = (sourcePlayerId: number, sourceCard?: CardInGame): boolean => {
+        let anyChangeInLoop = false;
+        let loopAgain = true;
+        while (loopAgain) {
+            loopAgain = false;
             for (let i = 0; i < 2; i++) {
                 let destroyedInPass;
                 do {
                     destroyedInPass = false;
                     const player = newState.players[i];
                     const opponent = newState.players[1 - i];
-                    
-                    const destroyedUnit = player.units.find(unit => {
-                        const { durability } = getEffectiveStats(unit, player);
-                        return unit.damage >= durability;
-                    });
+                    const potentiallyDestroyed = [...player.units.map(c=>({c, z:'units'})), ...player.artifacts.map(c=>({c, z:'artifacts'}))];
+                    const destroyedItem = potentiallyDestroyed.find(item => item.c.damage >= getEffectiveStats(item.c, player).durability);
 
-                    if (destroyedUnit) {
-                        loopAgain = true;
-                        anyChangeInLoop = true;
-                        destroyedInPass = true;
+                    if (destroyedItem) {
+                        loopAgain = anyChangeInLoop = destroyedInPass = true;
+                        const { c: destroyedCard, z: zone } = destroyedItem;
+                        player[zone] = player[zone].filter(card => card.instanceId !== destroyedCard.instanceId) as any;
 
-                        player.units = player.units.filter(u => u.instanceId !== destroyedUnit.instanceId);
+                        if (destroyedCard.attachments && destroyedCard.attachments.length > 0) {
+                            log(`${destroyedCard.name}'s attachments fall off and are sent to the graveyard.`);
+                            player.graveyard.push(...destroyedCard.attachments);
+                        }
 
-                        if (destroyedUnit.isReclaimed || destroyedUnit.isToken) {
-                            player.oblivion.push(destroyedUnit);
-                            log(`${destroyedUnit.name} was destroyed and sent to Oblivion (${destroyedUnit.isToken ? 'Token' : 'Reclaimed'}).`);
+                        if (destroyedCard.isReclaimed || destroyedCard.isToken) {
+                            player.oblivion.push(destroyedCard);
+                            log(`${destroyedCard.name} was destroyed and sent to Oblivion.`);
                         } else {
-                            player.graveyard.push(destroyedUnit);
-                            log(`${destroyedUnit.name} was destroyed.`);
+                            player.graveyard.push(destroyedCard);
+                            log(`${destroyedCard.name} was destroyed.`);
                         }
 
-                        if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) {
-                            damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`, 'damage');
-                        }
-
-                        let standardPenaltyApplies = true;
-
-                        if (destroyedUnit.abilities?.bounty && player.id !== sourcePlayerId) {
-                            opponent.morale += destroyedUnit.abilities.bounty.amount;
-                            log(`${opponent.name} gains ${destroyedUnit.abilities.bounty.amount} Morale from ${destroyedUnit.name}'s Bounty.`);
-                        }
-                        if (destroyedUnit.abilities?.malice) {
-                            damagePlayer(player, destroyedUnit.abilities.malice, `${destroyedUnit.name}'s Malice`, 'loss');
-                        }
-                        if (destroyedUnit.abilities?.martyrdom) {
-                            const effect = destroyedUnit.abilities.martyrdom;
-                            log(`${destroyedUnit.name}'s Martyrdom triggers!`);
-                            switch(effect.type) {
-                                case 'DRAW_CARD': {
-                                    const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(newState.players[player.id], effect.value);
-                                    newState.players[player.id] = p;
-                                    if (overdrawnToGraveyard.length > 0) {
-                                        log(`${p.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
-                                    }
-                                    if (fatigueDamage.length > 0) {
-                                        fatigueDamage.forEach(dmg => {
-                                            damagePlayer(p, dmg, 'Fatigue', 'damage');
-                                            log(`${p.name} failed to draw and takes ${dmg} Fatigue damage!`);
-                                        });
-                                    }
-                                    break;
-                                }
-                                case 'DEAL_DAMAGE_TO_OPPONENT':
-                                    damagePlayer(opponent, effect.value, `${destroyedUnit.name}'s Martyrdom`, 'damage');
-                                    break;
-                            }
-                        }
-                        if (destroyedUnit.abilities?.haunt) {
-                            damagePlayer(opponent, destroyedUnit.abilities.haunt, `${destroyedUnit.name}'s Haunt`, 'loss');
-                            standardPenaltyApplies = false;
-                        } 
+                        const activePlayerEffects: (() => void)[] = [];
+                        const nonActivePlayerEffects: (() => void)[] = [];
+                        const addEffect = (isOwnerActive: boolean, effect: () => void) => (isOwnerActive ? activePlayerEffects : nonActivePlayerEffects).push(effect);
                         
-                        if (standardPenaltyApplies && player.id !== sourcePlayerId) {
-                            damagePlayer(player, destroyedUnit.moraleValue ?? 0, `${destroyedUnit.name}'s destruction`, 'loss');
+                        if (sourceCard?.abilities?.executioner && player.id !== sourcePlayerId) addEffect(sourcePlayerId === newState.currentPlayerId, () => damagePlayer(player, sourceCard.abilities.executioner.amount, `${sourceCard.name}'s Executioner`));
+                        if (destroyedCard.abilities?.bounty && player.id !== sourcePlayerId) addEffect(player.id === newState.currentPlayerId, () => { opponent.morale += destroyedCard.abilities.bounty.amount; log(`${opponent.name} gains ${destroyedCard.abilities.bounty.amount} Morale from Bounty.`); });
+                        if (destroyedCard.abilities?.malice) addEffect(player.id === newState.currentPlayerId, () => damagePlayer(player, destroyedCard.abilities.malice, `${destroyedCard.name}'s Malice`, 'loss'));
+                        if (destroyedCard.abilities?.martyrdom) addEffect(player.id === newState.currentPlayerId, () => { const { effect } = destroyedCard.abilities.martyrdom; if (effect.type === 'DRAW_CARD') { const {player:p, fatigueDamage} = drawCards(player, effect.value); newState.players[i] = p; fatigueDamage.forEach(d => damagePlayer(p, d, 'Fatigue')); } });
+                        if (destroyedCard.abilities?.haunt) addEffect(player.id === newState.currentPlayerId, () => damagePlayer(opponent, destroyedCard.abilities.haunt, `${destroyedCard.name}'s Haunt`, 'loss'));
+                        
+                        [...activePlayerEffects, ...nonActivePlayerEffects].forEach(e => e());
+                        
+                        if (zone === 'units' && player.id !== sourcePlayerId) {
+                            damagePlayer(player, destroyedCard.moraleValue ?? 0, `${destroyedCard.name}'s destruction`, 'loss');
                         }
                     }
                 } while(destroyedInPass);
             }
-            
             if (newState.players[0].morale <= 0) newState.winner = newState.players[1];
             if (newState.players[1].morale <= 0) newState.winner = newState.players[0];
             if (newState.winner) loopAgain = false;
         }
-        
         return anyChangeInLoop;
     }
 
-    const resolveAnnihilate = (sourceCard: CardInGame, player: Player, opponent: Player) => {
-        log(`${sourceCard.name}'s Annihilate voids all other units!`);
+    const resolveObliterate = (sourceCard: CardInGame, player: Player, opponent: Player) => {
+        log(`${sourceCard.name} voids all other units!`);
         const opponentUnitsToVoid = opponent.units.filter(u => !u.abilities?.immutable);
         const playerUnitsToVoid = player.units.filter(u => u.instanceId !== sourceCard.instanceId && !u.abilities?.immutable);
         
-        opponent.units = opponent.units.filter(u => u.abilities?.immutable);
-        player.units = player.units.filter(u => u.instanceId === sourceCard.instanceId || u.abilities?.immutable);
-        
-        playerUnitsToVoid.forEach(u => {
-          player.oblivion.push(u);
-          log(`${u.name} is voided.`);
-        });
-
-        opponentUnitsToVoid.forEach(u => {
-          opponent.oblivion.push(u);
-          log(`${u.name} is voided.`);
-          damagePlayer(opponent, u.moraleValue ?? 0, `${u.name}'s voiding`, 'loss');
-        });
+        opponentUnitsToVoid.forEach(u => banishCard(u, opponent, player));
+        playerUnitsToVoid.forEach(u => banishCard(u, player, opponent));
     };
 
-    const resolveArrivalAbilities = (card: CardInGame, player: Player, opponent: Player, amplified: boolean) => {
-        // Echo keyword
-        if (card.type === CardType.UNIT && card.abilities?.echo) {
+    const resolveArrivalAbilities = (card: CardInGame, player: Player, opponent: Player) => {
+        if (card.abilities?.echo && card.type === CardType.UNIT) {
             log(`${card.name} Echoes, creating a token copy!`);
-            const tokenCopy: CardInGame = {
-                ...card,
-                instanceId: `${card.id}-token-${Date.now()}-${Math.random()}`,
-                isToken: true,
-                attachments: [],
-            };
-            player.units.push(tokenCopy);
+            player.units.push({ ...card, instanceId: `${card.id}-token-${Date.now()}`, isToken: true, attachments: [] });
         }
-
-        // Keyword-based Effects
-        if (card.abilities?.resonance) {
-            if (player.deck.length > 0) {
-                const topCardDef = player.deck[player.deck.length - 1]; // Peek at the top card
-                log(`${card.name}'s Resonance reveals ${topCardDef.name}.`);
-                if ((topCardDef.moraleValue ?? 0) >= card.abilities.resonance.value) {
-                    log(`Resonance successful!`);
-                    const effect = card.abilities.resonance.effect;
-                    // Using a switch to be more extensible for future Resonance effects
-                    switch(effect.type) {
-                        case 'BUFF_STRENGTH': {
-                            const cardInPlay = player.units.find(u => u.instanceId === card.instanceId);
-                            if (cardInPlay) {
-                                cardInPlay.strengthModifier += effect.amount;
-                                log(`${card.name} gains +${effect.amount} Strength.`);
-                            }
-                            break;
-                        }
-                        // Other potential Resonance effects can be added here.
-                    }
-                } else {
-                    log(`Resonance failed. Top card's Morale Value was too low.`);
-                }
-                // The card is only revealed and remains on top of the deck.
-            }
-        }
-        if (card.abilities?.stagnate) {
-            opponent.skipNextDrawPhase = true;
-            log(`${opponent.name} will skip their next Draw Phase due to Stagnate!`);
-        }
-        if((card.abilities?.fateweave || card.abilities?.prophecy) && newState.rollCount < newState.maxRolls) {
-            const amount = card.abilities.fateweave || card.abilities.prophecy || 0;
-            newState.maxRolls += amount;
-            log(`${player.name} gains an extra roll from ${card.abilities.fateweave ? 'Fateweave' : 'Prophecy'}!`);
-        }
-        if(card.abilities?.foresight && player.deck.length > 0) {
-            const foresightValue = card.abilities.foresight.value || 1;
-            const topCards = player.deck.slice(-foresightValue).reverse();
-            if (topCards.length > 0) {
-              const cardNames = topCards.map(c => c.name).join(', ');
-              log(`Foresight reveals ${player.name}'s top ${topCards.length} card(s): ${cardNames}`);
-            }
+        if (card.abilities?.exhaust) {
+            opponent.skipNextDrawPhase++;
+            log(`${opponent.name} will skip their next Draw Phase!`);
         }
         if(card.abilities?.draw) {
-            const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(player, card.abilities.draw);
+            const { player: p, fatigueDamage } = drawCards(player, card.abilities.draw);
             player = p;
-            if (overdrawnToGraveyard.length > 0) {
-                log(`${player.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
-            }
-            if (fatigueDamage.length > 0) {
-                fatigueDamage.forEach(dmg => {
-                    damagePlayer(player, dmg, 'Fatigue', 'damage');
-                    log(`${player.name} failed to draw and takes ${dmg} Fatigue damage!`);
-                });
-            }
+            fatigueDamage.forEach(dmg => damagePlayer(player, dmg, 'Fatigue'));
         }
         if (card.abilities?.barrage) {
             log(`${card.name}'s Barrage deals ${card.abilities.barrage} damage to all enemy units!`);
-            opponent.units.forEach(unit => {
-                if (unit.abilities?.breach && !unit.hasStruck) {
-                    log(`${unit.name} is protected from ${card.name}'s Barrage by Breach.`);
-                    return; 
-                }
-                dealDamageToUnit(unit, card.abilities.barrage, card, opponent);
-            });
+            opponent.units.forEach(unit => dealDamageToUnit(unit, card.abilities.barrage, card, opponent));
         }
-        if (card.abilities?.purge) {
-            log(`${card.name} purges ${card.abilities.purge} cards from ${opponent.name}'s graveyard.`);
-            for (let i=0; i < card.abilities.purge; i++) {
-                if (opponent.graveyard.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * opponent.graveyard.length);
-                    const purgedCard = opponent.graveyard.splice(randomIndex, 1)[0];
-                    opponent.oblivion.push(purgedCard);
-                    log(`Voided ${purgedCard.name}.`);
+        if (card.abilities?.obliterate) resolveObliterate(card, player, opponent);
+        if (card.abilities?.prophecy) {
+            newState.maxRolls += card.abilities.prophecy;
+            log(`${player.name} gains ${card.abilities.prophecy} extra roll(s) from Prophecy.`);
+        }
+        if (card.abilities?.discard) {
+            for (let i = 0; i < card.abilities.discard; i++) {
+                if (opponent.hand.length > 0) {
+                    const discarded = opponent.hand.splice(Math.floor(Math.random() * opponent.hand.length), 1)[0];
+                    opponent.graveyard.push(discarded);
+                    log(`${opponent.name} discards ${discarded.name}.`);
                 }
             }
         }
         if (card.abilities?.disrupt) {
             opponent.diceModifier -= card.abilities.disrupt;
-            log(`${opponent.name} will roll ${card.abilities.disrupt} fewer dice next turn!`);
-        }
-        if (card.abilities?.warp) {
-            newState.extraTurns += 1;
-            log(`${player.name} will take an extra turn!`);
-        }
-        if (card.abilities?.discard) {
-            if (opponent.hand.length > 0) {
-                const discardCount = card.abilities.discard;
-                for(let i=0; i < discardCount; i++) {
-                    if(opponent.hand.length === 0) break;
-                    const randomIndex = Math.floor(Math.random() * opponent.hand.length);
-                    const discardedCard = opponent.hand.splice(randomIndex, 1)[0];
-                    opponent.graveyard.push(discardedCard);
-                    log(`${opponent.name} discards ${discardedCard.name}.`);
-                }
-            }
-        }
-         // Card-specific (unique) effects / High-rarity keywords
-        if (card.abilities?.annihilate) {
-            resolveAnnihilate(card, player, opponent);
+            log(`${opponent.name} will roll ${card.abilities.disrupt} fewer dice next turn.`);
         }
         return { player, opponent };
     }
@@ -760,48 +516,23 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         let player2 = createInitialPlayer(1, 'CPU', p2Deck);
         player1 = drawCards(player1, 3).player;
         player2 = drawCards(player2, 3).player;
-        newState.lastActionDetails = null;
-
-        return {
-          players: [player1, player2],
-          currentPlayerId: 0,
-          turn: 1,
-          phase: TurnPhase.MULLIGAN,
-          dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })),
-          rollCount: 0,
-          maxRolls: 3,
-          log: ['SYSTEM BOOT: Game initialized.'],
-          winner: null,
-          isProcessing: false,
-          extraTurns: 0,
-          lastActionDetails: null,
-          actionHistory: [],
-          combatants: null,
-        };
+        return { players: [player1, player2], currentPlayerId: 0, turn: 1, phase: TurnPhase.MULLIGAN, dice: Array.from({ length: 5 }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false })), rollCount: 0, maxRolls: 3, log: ['Game initialized.'], winner: null, isProcessing: false, extraTurns: 0, lastActionDetails: null, actionHistory: [], combatants: null };
       }
       
       case 'PLAYER_MULLIGAN_CHOICE': {
           if (newState.phase !== TurnPhase.MULLIGAN) return state;
-          newState.lastActionDetails = null;
           const { mulligan } = action.payload;
           let player = newState.players[0];
-
           if (mulligan) {
               log(`You chose to mulligan.`);
-              logAction('Mulliganed their hand.');
-              const handToReturn = player.hand;
-              player.deck.push(...handToReturn);
-              player.deck = shuffle(player.deck);
+              logAction('Mulliganed hand.');
+              player.deck.push(...player.hand);
               player.hand = [];
-              const { player: p1 } = drawCards(player, 3);
-              player = p1;
-          } else {
-              log(`You kept your starting hand.`);
-              logAction('Kept their hand.');
-          }
+              player.deck = shuffle(player.deck);
+              player = drawCards(player, 3).player;
+          } else { logAction('Kept hand.'); }
           player.hasMulliganed = true;
           newState.players[0] = player;
-          
           newState.phase = TurnPhase.AI_MULLIGAN;
           newState.isProcessing = true;
           return newState;
@@ -809,26 +540,18 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
       case 'AI_MULLIGAN': {
           if (newState.phase !== TurnPhase.AI_MULLIGAN) return state;
-          newState.lastActionDetails = null;
           const { mulligan } = action.payload;
           let ai = newState.players[1];
-
           if (mulligan) {
               log(`CPU chose to mulligan.`);
-              logAction('Mulliganed their hand.');
-              const handToReturn = ai.hand;
-              ai.deck.push(...handToReturn);
-              ai.deck = shuffle(ai.deck);
+              logAction('Mulliganed hand.');
+              ai.deck.push(...ai.hand);
               ai.hand = [];
-              const { player: p2 } = drawCards(ai, 3);
-              ai = p2;
-          } else {
-              log(`CPU kept its starting hand.`);
-              logAction('Kept their hand.');
-          }
+              ai.deck = shuffle(ai.deck);
+              ai = drawCards(ai, 3).player;
+          } else { logAction('Kept hand.'); }
           ai.hasMulliganed = true;
           newState.players[1] = ai;
-
           newState.phase = TurnPhase.START;
           newState.isProcessing = true;
           return newState;
@@ -836,668 +559,430 @@ const gameReducer = (state: GameState, action: Action): GameState => {
 
       case 'ROLL_DICE': {
         if (newState.rollCount >= newState.maxRolls) return state;
-        newState.lastActionDetails = null;
         const diceToRoll = newState.dice.filter(d => !d.isKept && !d.isSpent);
-        const rolledValues: number[] = [];
-        diceToRoll.forEach(d => {
-          const newValue = Math.floor(Math.random() * 6) + 1;
-          newState.dice.find(nd => nd.id === d.id)!.value = newValue;
-          rolledValues.push(newValue);
-        });
+        diceToRoll.forEach(d => { d.value = Math.floor(Math.random() * 6) + 1; });
         newState.rollCount++;
-        log(`${newState.players[newState.currentPlayerId].name} rolled dice.`);
-        logAction(`Rolled: [${rolledValues.join(', ')}]`);
+        logAction(`Rolled dice.`);
         return newState;
       }
       case 'TOGGLE_DIE_KEPT':
         const die = newState.dice.find(d => d.id === action.payload.id);
-        if (die && !die.isSpent && newState.rollCount > 0) {
-          die.isKept = action.payload.keep;
-        }
+        if (die && !die.isSpent && newState.rollCount > 0) die.isKept = action.payload.keep;
         return newState;
       
       case 'PLAY_CARD': {
-        newState.lastActionDetails = null;
-        let currentPlayer = newState.players[newState.currentPlayerId];
-        let opponentPlayer = newState.players[1 - newState.currentPlayerId];
-        
-        const { card: cardToPlay, targetInstanceId, options } = action.payload;
+        let player = newState.players[newState.currentPlayerId];
+        let opponent = newState.players[1 - newState.currentPlayerId];
+        const { card, targetInstanceId, options } = action.payload;
         let actionType: LastActionType = LastActionType.PLAY;
-        let costConfig = { dice_cost: cardToPlay.dice_cost, abilities: cardToPlay.abilities };
-        
-        if (options?.isEvoked) {
-            actionType = LastActionType.EVOKE;
-            costConfig = { dice_cost: cardToPlay.abilities.evoke.cost, abilities: cardToPlay.abilities };
-        }
-        if (options?.isReclaimed) {
-            actionType = LastActionType.RECLAIM;
-            costConfig = { dice_cost: cardToPlay.abilities.reclaim.cost, abilities: cardToPlay.abilities };
-        }
-        if (options?.isAmplified && cardToPlay.abilities?.amplify) {
-            costConfig = { dice_cost: cardToPlay.dice_cost.concat(cardToPlay.abilities.amplify.cost), abilities: cardToPlay.abilities };
-        }
-        if (options?.isAugmented && cardToPlay.abilities?.augment) {
-            costConfig = { dice_cost: cardToPlay.abilities.augment.cost, abilities: cardToPlay.abilities };
-        }
+        if (options?.isReclaimed) actionType = LastActionType.RECLAIM;
+        else if (options?.isEvoked) actionType = LastActionType.EVOKE;
+        else if (options?.isAugmented) actionType = LastActionType.ACTIVATE;
 
-        const costCheck = checkDiceCost(costConfig, newState.dice);
-        if(!costCheck.canPay) return state;
+        let costs = card.dice_cost;
+        if (options?.isReclaimed) costs = card.abilities.reclaim.cost;
+        if (options?.isEvoked) costs = card.abilities.evoke.cost;
+        if (options?.isAugmented) costs = card.abilities.augment.cost;
+        if (options?.isAmplified) costs = (costs || []).concat(card.abilities.amplify.cost || []);
 
-        let logMessage = '';
-        if (options?.isReclaimed) {
-            logMessage = `Reclaimed ${cardToPlay.name}`;
-        } else if (options?.isEvoked) {
-            logMessage = `Evoked ${cardToPlay.name}`;
-        } else if (options?.isAugmented) {
-            logMessage = `Augmented with ${cardToPlay.name}`;
-        } else {
-            logMessage = `Played ${cardToPlay.name}`;
-        }
-        if (options?.isAmplified) {
-            logMessage += ' (Amplified)';
-        }
-        if (targetInstanceId) {
-            const targetOwner = newState.players.find(p => [...p.units, ...p.locations, ...p.artifacts].some(c => c.instanceId === targetInstanceId));
-            const targetCard = targetOwner ? [...targetOwner.units, ...targetOwner.locations, ...targetOwner.artifacts].find(c => c.instanceId === targetInstanceId) : null;
-            if (targetCard) {
-                logMessage += ` targeting ${targetCard.name}.`;
-            } else {
-                logMessage += `.`;
-            }
-        } else {
-            logMessage += `.`;
-        }
-        logAction(logMessage);
+        const costCheck = checkDiceCost({ dice_cost: costs, abilities: card.abilities }, newState.dice);
+        if (!costCheck.canPay) return state;
 
-        newState.lastActionDetails = { type: actionType, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
-
-        costCheck.diceToSpend.forEach(dts => {
-            newState.dice.find(d => d.id === dts.id)!.isSpent = true;
-        });
-        
-        const diceCostString = costCheck.diceToSpend.map(d => d.value).sort().join(', ');
-        
-        // Handle immediate morale gain
-        if (cardToPlay.abilities?.gain_morale) {
-            currentPlayer.morale += cardToPlay.abilities.gain_morale;
-            log(`${currentPlayer.name} gains ${cardToPlay.abilities.gain_morale} morale from ${cardToPlay.name}.`);
-        }
-        
-        // Remove card from its source location
-        if(options?.isReclaimed) {
-          currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToPlay.instanceId);
-          cardToPlay.isReclaimed = true;
-          log(`${currentPlayer.name} Reclaimed ${cardToPlay.name} (cost: ${diceCostString}).`);
-        } else {
-          currentPlayer.hand = currentPlayer.hand.filter(c => c.instanceId !== cardToPlay.instanceId);
-           if (options?.isEvoked) {
-                log(`${currentPlayer.name} Evoked ${cardToPlay.name} (cost: ${diceCostString}).`);
-           } else {
-                log(`${currentPlayer.name} played ${cardToPlay.name} (cost: ${diceCostString}).`);
-           }
-        }
-
-
-        // Handle Evoke effect
-        if(options?.isEvoked) {
-          const effect = cardToPlay.abilities.evoke.effect;
-          switch(effect.type) {
-            case 'DRAW': {
-              const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, effect.value);
-              currentPlayer = p;
-              if (overdrawnToGraveyard.length > 0) {
-                log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
-              }
-              if (fatigueDamage.length > 0) {
-                  fatigueDamage.forEach(dmg => {
-                    damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
-                    log(`${currentPlayer.name} failed to draw and takes ${dmg} Fatigue damage!`);
-                  });
-              }
-              break;
-            }
-          }
-          currentPlayer.graveyard.push(cardToPlay); // Evoked cards go to graveyard
-          newState.players[newState.currentPlayerId] = currentPlayer;
-          return newState;
-        }
-
-        // --- Card Placement ---
-        const isOneShotAmplify = options?.isAmplified && cardToPlay.type !== CardType.EVENT && (cardToPlay.abilities.amplify?.effect?.type === 'DEAL_DAMAGE');
-
-        if (isOneShotAmplify) {
-            currentPlayer.graveyard.push(cardToPlay);
-            log(`${cardToPlay.name} (Amplified) resolves and is sent to the graveyard.`);
-        } else if (options?.isAugmented && cardToPlay.abilities?.augment && targetInstanceId) {
-            const targetUnit = currentPlayer.units.find(u => u.instanceId === targetInstanceId);
-            if (targetUnit) {
-                targetUnit.attachments = targetUnit.attachments || [];
-                targetUnit.attachments.push(cardToPlay);
-                log(`${cardToPlay.name} augments ${targetUnit.name}.`);
-            } else {
-                currentPlayer.graveyard.push(cardToPlay); // Fizzle if target is gone
-            }
-        } else if (cardToPlay.abilities?.vanish) {
-            log(`${cardToPlay.name} Vanishes and will return in ${cardToPlay.abilities.vanish.turns} turn(s).`);
-            currentPlayer.vanishZone.push({ card: cardToPlay, turnsRemaining: cardToPlay.abilities.vanish.turns });
-        } else {
-            switch(cardToPlay.type) {
-                case CardType.UNIT: currentPlayer.units.push(cardToPlay); break;
-                case CardType.LOCATION:
-                    currentPlayer.locations.push(cardToPlay);
-                    if (cardToPlay.abilities?.landmark) {
-                        const otherLandmarks = currentPlayer.locations.filter(l => l.abilities?.landmark && l.instanceId !== cardToPlay.instanceId);
-                        if (otherLandmarks.length > 0) {
-                            const otherLandmarkIds = new Set(otherLandmarks.map(l => l.instanceId));
-                            currentPlayer.locations = currentPlayer.locations.filter(l => !otherLandmarkIds.has(l.instanceId));
-                            for (const removed of otherLandmarks) {
-                                currentPlayer.graveyard.push(removed);
-                                log(`${removed.name} was replaced by the new Landmark.`);
-                            }
-                        }
-                    }
-                    break;
-                case CardType.ARTIFACT: 
-                    if(cardToPlay.abilities?.consume) cardToPlay.counters = cardToPlay.abilities.consume.initial;
-                    currentPlayer.artifacts.push(cardToPlay); 
-                    break;
-                case CardType.EVENT: {
-                    currentPlayer.graveyard.push(cardToPlay);
-                    
-                    let cardToChain: CardInGame | undefined = cardToPlay.abilities?.chain_reaction ? cardToPlay : undefined;
-                    let chainDepth = 0;
-                    const MAX_CHAIN_DEPTH = 5; // Safety limit
-
-                    while(cardToChain && chainDepth < MAX_CHAIN_DEPTH) {
-                        chainDepth++;
-                        if (chainDepth === 1) {
-                            log(`${cardToChain.name} starts a Chain Reaction!`);
-                        } else {
-                            log(`Chain Reaction continues with ${cardToChain.name}!`);
-                        }
-                        
-                        const { player: p, drawnToHand, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, 1);
-                        currentPlayer = p;
-
-                        if (overdrawnToGraveyard.length > 0) {
-                            log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard[0].name}.`);
-                        }
-                        const drawnCards = drawnToHand;
-
-                        cardToChain = undefined; // Assume chain ends unless a new event is drawn
-
-                        if (fatigueDamage.length > 0) {
-                            fatigueDamage.forEach(dmg => {
-                                damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
-                                log(`Chain Reaction fizzles: deck is empty. ${currentPlayer.name} takes ${dmg} Fatigue damage!`);
-                            });
-                        } else if (drawnCards.length > 0) {
-                            const nextCardInChain = drawnCards[0];
-                            logAction(`Chain Reaction played ${nextCardInChain.name}.`);
-                    
-                            if (nextCardInChain.type === CardType.EVENT) {
-                                log(`Chain Reaction triggers ${nextCardInChain.name}!`);
-                                currentPlayer.graveyard.push(nextCardInChain);
-                                
-                                if (nextCardInChain.abilities?.gain_morale) {
-                                    currentPlayer.morale += nextCardInChain.abilities.gain_morale;
-                                    log(`${currentPlayer.name} gains ${nextCardInChain.abilities.gain_morale} morale from chained ${nextCardInChain.name}.`);
-                                }
-                                
-                                const arrivalResultChained = resolveArrivalAbilities(nextCardInChain, currentPlayer, opponentPlayer, false);
-                                currentPlayer = arrivalResultChained.player;
-                                opponentPlayer = arrivalResultChained.opponent;
-
-                                if (nextCardInChain.abilities?.requiresTarget && (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe || nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken)) {
-                                    const validTargets = opponentPlayer.units.filter(u => !u.abilities?.immutable && isCardTargetable(nextCardInChain, u, currentPlayer, opponentPlayer));
-                                    if (validTargets.length > 0) {
-                                        const randomTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
-                                        log(`${nextCardInChain.name} randomly targets ${randomTarget.name}.`);
-                                        if (nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe) {
-                                            dealDamageToUnit(randomTarget, nextCardInChain.abilities.damage || nextCardInChain.abilities.snipe, nextCardInChain, opponentPlayer);
-                                        }
-                                        if (nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken) {
-                                             const amount = nextCardInChain.abilities.corrupt || nextCardInChain.abilities.weaken;
-                                             randomTarget.strengthModifier -= amount;
-                                             log(`${randomTarget.name} gets -${amount} Strength.`);
-                                        }
-                                    }
-                                }
-                                
-                                if (nextCardInChain.abilities?.chain_reaction) {
-                                    cardToChain = nextCardInChain; // Continue the chain
-                                }
-                            } else {
-                                log(`Chain reaction fizzles: ${nextCardInChain.name} is not an event and is returned to the deck.`);
-                                const { id, name, type, dice_cost, strength, durability, moraleValue, text, abilities, imageUrl, rarity, flavor_text, card_set, author } = nextCardInChain;
-                                const originalCardDef: CardDefinition = { id, name, type, dice_cost, strength, durability, moraleValue, text, abilities, imageUrl, rarity, flavor_text, card_set, author };
-                                currentPlayer.deck.push(originalCardDef);
-                            }
-                        }
-                    }
-
-                    if (chainDepth >= MAX_CHAIN_DEPTH) {
-                        log(`Chain Reaction limit reached.`);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Instability keyword
-        if (cardToPlay.abilities?.instability) {
-            currentPlayer.diceModifier -= 1;
-            log(`${cardToPlay.name}'s Instability means ${currentPlayer.name} rolls one fewer die next turn.`);
-        }
-
-        const arrivalResult = resolveArrivalAbilities(cardToPlay, currentPlayer, opponentPlayer, !!options?.isAmplified);
-        currentPlayer = arrivalResult.player;
-        opponentPlayer = arrivalResult.opponent;
-
-        // --- Targeted effects ---
-        let target: CardInGame | undefined;
-        let targetOwner: Player | undefined;
+        let target: CardInGame | undefined, targetOwner: Player | undefined;
         if (targetInstanceId) {
             for (const p of newState.players) {
                 const found = [...p.units, ...p.locations, ...p.artifacts].find(c => c.instanceId === targetInstanceId);
-                if (found) {
-                    target = found;
-                    targetOwner = p;
-                    break;
+                if (found) { target = found; targetOwner = p; break; }
+            }
+        }
+        
+        logAction(`Played ${card.name}${options?.isAmplified ? ' (Amplified)' : ''}${target ? ` targeting ${target.name}.` : '.'}`);
+        newState.lastActionDetails = { type: actionType, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
+        costCheck.diceToSpend.forEach(dts => { newState.dice.find(d => d.id === dts.id)!.isSpent = true; });
+        
+        if(options?.isReclaimed) {
+          player.graveyard = player.graveyard.filter(c => c.instanceId !== card.instanceId);
+          card.isReclaimed = true;
+        } else {
+          player.hand = player.hand.filter(c => c.instanceId !== card.instanceId);
+        }
+
+        if (card.abilities?.gain_morale) {
+            player.morale += card.abilities.gain_morale;
+            log(`${player.name} gains ${card.abilities.gain_morale} Morale from ${card.name}.`);
+        }
+        if (card.abilities?.instability) {
+            player.diceModifier -= 1;
+            log(`${player.name} feels Instability and will roll 1 fewer die next turn.`);
+        }
+        if (card.abilities?.warp) {
+            newState.extraTurns += 1;
+            log(`${player.name} Warps time, gaining an extra turn!`);
+        }
+        if (card.abilities?.purge) {
+            for(let i=0; i<card.abilities.purge; i++) {
+                if (opponent.graveyard.length > 0) {
+                    const purged = opponent.graveyard.splice(Math.floor(Math.random() * opponent.graveyard.length), 1)[0];
+                    opponent.oblivion.push(purged);
+                    log(`${purged.name} was purged from ${opponent.name}'s graveyard.`);
                 }
             }
         }
         
-        // Fizzle check
-        if(cardToPlay.abilities?.requiresTarget && !target) {
-            log(`${cardToPlay.name}'s target is gone. The effect fizzles.`);
-            if(cardToPlay.type !== CardType.EVENT) {
-                 currentPlayer.graveyard.push(cardToPlay); // Non-events go to grave if their target is gone
-            }
-        } else if (target && targetOwner) {
-            if (cardToPlay.abilities?.recall) {
-                if (targetOwner.id === currentPlayer.id) {
-                    const targetIndex = currentPlayer.units.findIndex(u => u.instanceId === target.instanceId);
-                    if (targetIndex > -1) {
-                        const recalledUnit = currentPlayer.units.splice(targetIndex, 1)[0];
-                        if (recalledUnit.isToken) {
-                            currentPlayer.oblivion.push(recalledUnit);
-                            log(`${recalledUnit.name} was a Token and is sent to Oblivion when Recalled.`);
-                        } else {
-                            log(`${recalledUnit.name} is Recalled to ${currentPlayer.name}'s hand.`);
-                             if (recalledUnit.isReclaimed) {
-                                log('It retains its Reclaimed property.');
+        if (options?.isAugmented && target) {
+            target.attachments = target.attachments || [];
+            target.attachments.push(card);
+            log(`${card.name} augments ${target.name}.`);
+            // Augment doesn't trigger arrival abilities for the artifact itself
+            return newState;
+        }
+
+        if (card.abilities?.consume) {
+            card.counters = card.abilities.consume.initial;
+        }
+
+        if (card.abilities?.vanish) {
+            player.vanishZone.push({ card, turnsRemaining: card.abilities.vanish.turns });
+            log(`${card.name} Vanishes. It will return in ${card.abilities.vanish.turns} turns.`);
+        } else if (options?.isEvoked) {
+            player.graveyard.push(card);
+        } else if (card.type === CardType.EVENT) {
+            player.graveyard.push(card);
+            if (card.abilities?.chain_reaction) {
+                let cardToChain: CardInGame | undefined = card;
+                while (cardToChain) {
+                    log(`${cardToChain.name} starts a Chain Reaction!`);
+                    const { player: p, drawnToHand, fatigueDamage } = drawCards(player, 1);
+                    player = p;
+                    fatigueDamage.forEach(d => damagePlayer(player, d, 'Fatigue'));
+                    cardToChain = undefined;
+
+                    if (drawnToHand.length > 0) {
+                        const nextCard = drawnToHand[0];
+                        if (nextCard.type === CardType.EVENT) {
+                            player.hand = player.hand.filter(c => c.instanceId !== nextCard.instanceId);
+                            player.graveyard.push(nextCard);
+                            
+                            let canResolve = true;
+                            let chainTarget: CardInGame | undefined;
+
+                            if (nextCard.abilities?.requiresTarget) {
+                                const validTargets = newState.players.flatMap(p => 
+                                    [...p.units, ...p.locations, ...p.artifacts].filter(target =>
+                                        isCardTargetable(nextCard, target, player, p)
+                                    )
+                                );
+                                if (validTargets.length === 0) {
+                                    log(`Chain Reaction fizzles: No valid targets for ${nextCard.name}.`);
+                                    canResolve = false;
+                                } else {
+                                    chainTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
+                                    log(`${nextCard.name} randomly targets ${chainTarget.name}.`);
+                                }
                             }
-                            const baseCard = {
-                                ...recalledUnit,
-                                damage: 0, strengthModifier: 0, durabilityModifier: 0, hasStruck: false,
-                                isToken: false, attachments: [],
-                            };
-                            currentPlayer.hand.push(baseCard);
+
+                            if (canResolve) {
+                                log(`Chain Reaction triggers ${nextCard.name}!`);
+                                const arrivalResultChained = resolveArrivalAbilities(nextCard, player, opponent);
+                                player = arrivalResultChained.player;
+                                opponent = arrivalResultChained.opponent;
+                                if (chainTarget) {
+                                    const chainTargetOwner = newState.players.find(p => [...p.units, ...p.artifacts, ...p.locations].some(c => c.instanceId === chainTarget!.instanceId))!;
+                                    if (nextCard.abilities.damage) dealDamageToUnit(chainTarget, nextCard.abilities.damage, nextCard, chainTargetOwner);
+                                    if (nextCard.abilities.banish) banishCard(chainTarget, chainTargetOwner, player);
+                                }
+                                if (nextCard.abilities?.chain_reaction) {
+                                    cardToChain = nextCard;
+                                }
+                            }
+                        } else {
+                            log(`Chain reaction ends: ${nextCard.name} is added to hand.`);
                         }
                     }
                 }
             }
-            if(cardToPlay.abilities?.voidTarget) {
-              if (target.abilities?.immutable) {
-                  log(`${target.name} is Immutable and cannot be voided.`);
-              } else {
-                  targetOwner.units = targetOwner.units.filter(u => u.instanceId !== targetInstanceId);
-                  targetOwner.oblivion.push(target);
-                  log(`${target.name} was voided by ${cardToPlay.name}.`);
-              }
-            }
-            const amplifiedDamageEffect = options?.isAmplified && cardToPlay.abilities.amplify?.effect.type === 'DEAL_DAMAGE';
-            if (cardToPlay.abilities?.damage || cardToPlay.abilities?.snipe || amplifiedDamageEffect) {
-                let damage = cardToPlay.abilities.damage || cardToPlay.abilities.snipe || 0;
-                if (amplifiedDamageEffect) {
-                    damage = cardToPlay.abilities.amplify.effect.amount;
-                    log(`${cardToPlay.name} is Amplified!`);
-                }
-                dealDamageToUnit(target, damage, cardToPlay, targetOwner);
-            }
-             if (cardToPlay.abilities?.corrupt || cardToPlay.abilities?.weaken) {
-                if (target.abilities?.immutable) {
-                  log(`${target.name} is Immutable and cannot be affected.`);
-                } else {
-                  const amount = cardToPlay.abilities.corrupt || cardToPlay.abilities.weaken;
-                  target.strengthModifier -= amount;
-                  log(`${target.name} gets -${amount} Strength.`);
+        } else {
+            if (card.abilities?.landmark) {
+                const existingLandmark = player.locations.find(l => l.abilities?.landmark);
+                if (existingLandmark) {
+                    player.locations = player.locations.filter(l => l.instanceId !== existingLandmark.instanceId);
+                    player.graveyard.push(existingLandmark);
+                    log(`${existingLandmark.name} is destroyed by the new Landmark.`);
                 }
             }
-            const amplifiedCorruptEffect = options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'CORRUPT';
-            const amplifiedWeakenEffect = options?.isAmplified && cardToPlay.abilities.amplify?.effect?.type === 'WEAKEN';
-            if (amplifiedCorruptEffect || amplifiedWeakenEffect) {
-                log(`${cardToPlay.name} is Amplified!`);
-                const corruptAmount = cardToPlay.abilities.amplify.effect.amount;
-                if (target.abilities?.immutable) {
-                  log(`${target.name} is Immutable and cannot be affected.`);
-                } else {
-                  target.strengthModifier -= corruptAmount;
-                  log(`${target.name} gets -${corruptAmount} Strength.`);
+            player[card.type.toLowerCase()+'s'].push(card);
+        }
+
+        const arrivalResult = resolveArrivalAbilities(card, player, opponent);
+        player = arrivalResult.player; opponent = arrivalResult.opponent;
+        
+        if (target && targetOwner) {
+            if (card.abilities?.recall) {
+                if (targetOwner.id === player.id) {
+                    const unit = player.units.find(u => u.instanceId === target.instanceId)!;
+                    
+                    if (unit.attachments && unit.attachments.length > 0) {
+                        log(`Attachments on ${unit.name} are sent to the graveyard.`);
+                        player.graveyard.push(...unit.attachments);
+                        unit.attachments = [];
+                    }
+
+                    player.units = player.units.filter(u => u.instanceId !== target.instanceId);
+                    
+                    if (unit.isToken || unit.isReclaimed) {
+                        player.oblivion.push(unit);
+                        log(`${unit.name} was recalled and sent to Oblivion.`);
+                    } else {
+                        const refreshedCard = { ...unit, damage: 0, strengthModifier: 0, durabilityModifier: 0, hasStruck: false, isToken: false, attachments: [], shieldUsedThisTurn: false, counters: undefined, isReclaimed: false };
+                        player.hand.push(refreshedCard);
+                        log(`${unit.name} was recalled to hand.`);
+                    }
+                }
+            }
+            if (card.abilities?.damage || card.abilities?.snipe) dealDamageToUnit(target, card.abilities.damage || card.abilities.snipe, card, targetOwner);
+            if (card.abilities?.corrupt || card.abilities?.weaken) target.strengthModifier -= (card.abilities.corrupt || card.abilities.weaken);
+            if (card.abilities?.banish) banishCard(target, targetOwner, player);
+            
+            if (options?.isAmplified && card.abilities?.amplify?.effect) {
+                const effect = card.abilities.amplify.effect;
+                if (effect.type === 'WEAKEN') {
+                    target.strengthModifier -= effect.amount;
+                    log(`${card.name}'s Amplified effect weakens ${target.name}.`);
                 }
             }
         }
         
-        checkForDestroyedUnits(currentPlayer.id, cardToPlay);
-        if (opponentPlayer.morale <= 0) newState.winner = currentPlayer;
+        checkForDestroyedCards(player.id, card);
 
-        newState.players[newState.currentPlayerId] = currentPlayer;
-        newState.players[1-newState.currentPlayerId] = opponentPlayer;
-
+        newState.players[newState.currentPlayerId] = player;
+        newState.players[1-newState.currentPlayerId] = opponent;
         return newState;
       }
 
       case 'ACTIVATE_ABILITY': {
-        newState.lastActionDetails = null;
-        const { cardInstanceId } = action.payload;
-        const currentPlayer = newState.players[newState.currentPlayerId];
-        
-        const card = [...currentPlayer.units, ...currentPlayer.locations, ...currentPlayer.artifacts].find(c => c.instanceId === cardInstanceId);
-        
+        const player = newState.players[newState.currentPlayerId];
+        const card = [...player.units, ...player.artifacts, ...player.locations].find(c => c.instanceId === action.payload.cardInstanceId);
         if (!card || !card.abilities?.activate) return state;
-
         const costCheck = checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, newState.dice);
         if (!costCheck.canPay) return state;
         
         logAction(`Activated ${card.name}.`);
         newState.lastActionDetails = { type: LastActionType.ACTIVATE, spentDiceIds: costCheck.diceToSpend.map(d => d.id) };
-        
-        costCheck.diceToSpend.forEach(dts => {
-            newState.dice.find(d => d.id === dts.id)!.isSpent = true;
-        });
+        costCheck.diceToSpend.forEach(dts => { newState.dice.find(d => d.id === dts.id)!.isSpent = true; });
+        if (card.abilities.consume) card.counters = (card.counters ?? 0) - 1;
 
-        log(`${currentPlayer.name} activated ${card.name}.`);
-
-        if(card.abilities.consume) {
-            card.counters = (card.counters ?? 0) - 1;
-            log(`${card.name} has ${card.counters} counter(s) remaining.`);
+        const effect = card.abilities.activate.effect;
+        if (effect.type === 'draw_card') {
+            const {player:p, fatigueDamage} = drawCards(player, effect.value);
+            newState.players[newState.currentPlayerId] = p;
+            fatigueDamage.forEach(d => damagePlayer(p, d, 'Fatigue'));
         }
-
-        switch(card.abilities.activate.effect.type) {
-            case 'fortify_command':
-                currentPlayer.isMoraleFortified = true;
-                log(`${currentPlayer.name}'s Morale is fortified until their next turn!`);
-                break;
-            case 'spike': {
-                const availableDice = newState.dice.filter(d => !d.isSpent && d.value < 6);
-                if (availableDice.length > 0) {
-                    const dieToSpike = availableDice.sort((a,b) => a.value - b.value)[0];
-                    const originalValue = dieToSpike.value;
-                    dieToSpike.value = Math.min(6, dieToSpike.value + card.abilities.activate.effect.value);
-                    log(`Spiked a die from ${originalValue} to ${dieToSpike.value}.`);
-                } else {
-                    log(`No available dice to Spike.`);
-                }
-                break;
-              }
-            case 'reconstruct': {
-                const unit = currentPlayer.units.find(u => u.instanceId === cardInstanceId);
-                if(unit) {
-                    unit.damage = 0;
-                    log(`${unit.name} is fully reconstructed, removing all damage.`);
-                }
-                break;
+        if (effect.type === 'reconstruct') {
+            card.damage = 0;
+            log(`${card.name} reconstructs, removing all damage.`);
+        }
+        if (effect.type === 'spike') {
+            const dieToSpike = newState.dice.find(d => !d.isSpent && d.value < 6);
+            if (dieToSpike) {
+                dieToSpike.value++;
+                log(`${card.name} spikes a die.`);
             }
         }
-        
         if (card.abilities.consume && card.counters <= 0) {
-            log(`${card.name} is consumed and sent to the graveyard.`);
-            currentPlayer.artifacts = currentPlayer.artifacts.filter(a => a.instanceId !== cardInstanceId);
-            currentPlayer.graveyard.push(card);
+            const zone = card.type === CardType.UNIT ? 'units' : 'artifacts';
+            player[zone] = player[zone].filter(a => a.instanceId !== card.instanceId) as any;
+            player.graveyard.push(card);
+            log(`${card.name} has run out of counters and is destroyed.`);
         }
-
         return newState;
       }
       
       case 'DECLARE_BLOCKS': {
-        const { assignments } = action.payload; // { [blockerId]: attackerId }
+        const { assignments } = action.payload;
         const attackerPlayer = newState.players[newState.currentPlayerId];
         const defenderPlayer = newState.players[1 - newState.currentPlayerId];
-        
-        log(`${defenderPlayer.name} declares blockers.`);
-        let blockLog: string[] = [];
         let unblockedDamage = 0;
-
+        
         newState.combatants?.forEach(combatant => {
             const attacker = attackerPlayer.units.find(u => u.instanceId === combatant.attackerId);
             if (!attacker) return;
-
             attacker.hasStruck = true;
-            const { strength: attackerStrength } = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
-            
+            const attackerStrength = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true }).strength;
+
+            if (cardHasAbility(attacker, 'phasing')) {
+                log(`${attacker.name} is Phasing and its damage is unblockable!`);
+                damagePlayer(defenderPlayer, attackerStrength, `${attacker.name}'s strike`);
+                return;
+            }
+
             const blockerId = Object.keys(assignments).find(key => assignments[key] === combatant.attackerId);
-            
             if (blockerId) {
-                combatant.blockerId = blockerId;
-                const blocker = defenderPlayer.units.find(u => u.instanceId === blockerId);
-                if (blocker) {
-                    blockLog.push(`${blocker.name} blocks ${attacker.name}`);
-                    const { strength: blockerStrength } = getEffectiveStats(blocker, defenderPlayer);
-                    log(`${attacker.name} (${attackerStrength}) clashes with ${blocker.name} (${blockerStrength}).`);
-                    dealDamageToUnit(blocker, attackerStrength, attacker, defenderPlayer, true);
-                    dealDamageToUnit(attacker, blockerStrength, blocker, attackerPlayer, true);
-                }
+                const blocker = defenderPlayer.units.find(u => u.instanceId === blockerId)!;
+                dealDamageToUnit(blocker, attackerStrength, attacker, defenderPlayer, true);
+                dealDamageToUnit(attacker, getEffectiveStats(blocker, defenderPlayer).strength, blocker, attackerPlayer, true);
             } else {
-                // Unblocked
                 unblockedDamage += attackerStrength;
-                if (attacker.abilities?.siphon) {
-                    attackerPlayer.morale += attacker.abilities.siphon;
-                    log(`${attackerPlayer.name} gains ${attacker.abilities.siphon} Morale from ${attacker.name}'s Siphon.`);
+                if (cardHasAbility(attacker, 'siphon')) {
+                    const siphonAmount = attacker.abilities.siphon;
+                    attackerPlayer.morale += siphonAmount;
+                    log(`${attacker.name}'s Siphon heals ${attackerPlayer.name} for ${siphonAmount} Morale.`);
                 }
             }
         });
-        
-        if (blockLog.length > 0) logAction(`Blocked with: ${blockLog.join(', ')}.`);
-        else logAction(`Did not declare blockers.`);
-        
-        if (unblockedDamage > 0) {
-            damagePlayer(defenderPlayer, unblockedDamage, `${attackerPlayer.name}'s strike`, 'damage');
-        }
-    
-        checkForDestroyedUnits(attackerPlayer.id);
-    
+
+        if (unblockedDamage > 0) damagePlayer(defenderPlayer, unblockedDamage, `${attackerPlayer.name}'s strike`);
+        checkForDestroyedCards(attackerPlayer.id);
         if (defenderPlayer.morale <= 0) newState.winner = attackerPlayer;
-    
         newState.combatants = null;
         newState.phase = TurnPhase.END;
-        newState.isProcessing = true; // BUG FIX: Ensure game loop continues after blocks are confirmed.
+        newState.isProcessing = true;
         return newState;
       }
 
       case 'ADVANCE_PHASE': {
-        newState.lastActionDetails = null;
-        let currentPlayer = newState.players[newState.currentPlayerId];
-        let opponentPlayer = newState.players[1 - newState.currentPlayerId];
-
+        let player = newState.players[newState.currentPlayerId];
         switch(newState.phase) {
-          case TurnPhase.START:
-            currentPlayer.isMoraleFortified = false;
-            currentPlayer.units.forEach(u => {
-                u.hasStruck = false; // Reset for Breach keyword
-                u.shieldUsedThisTurn = false; // Reset Shield
-            });
-            // Vanish returns
-            const returningFromVanish = currentPlayer.vanishZone.filter(rw => {
-                rw.turnsRemaining--;
-                return rw.turnsRemaining <= 0;
-            });
-            if (returningFromVanish.length > 0) {
-                for (const item of returningFromVanish) {
-                    log(`${item.card.name} returns from the void!`);
-                    
-                    // Reset card state before adding it back to the field, but preserve instanceId and modifiers
-                    const resetCard: CardInGame = {
-                      ...item.card,
-                      damage: 0,
-                      hasStruck: false,
-                      shieldUsedThisTurn: false,
-                      counters: item.card.abilities?.consume ? item.card.abilities.consume.initial : undefined,
-                      attachments: [], // Attachments fall off in the void
-                    };
-
-                    currentPlayer.units.push(resetCard);
-                    const arrivalResult = resolveArrivalAbilities(resetCard, currentPlayer, opponentPlayer, false);
-                    currentPlayer = arrivalResult.player;
-                    opponentPlayer = arrivalResult.opponent;
-                }
-                currentPlayer.vanishZone = currentPlayer.vanishZone.filter(rw => rw.turnsRemaining > 0);
-            }
-
-            // Blessing effects
-            const cardsWithBlessing = [...currentPlayer.locations, ...currentPlayer.artifacts];
-            cardsWithBlessing.forEach(cardWithBlessing => {
-                if (cardWithBlessing.abilities?.blessing) {
-                    const effect = cardWithBlessing.abilities.blessing.effect;
-                    log(`${cardWithBlessing.name}'s Blessing ability triggers.`);
-                    if(effect.type === 'GAIN_MORALE') {
-                        currentPlayer.morale += effect.value;
-                    }
-                    if(effect.type === 'DRAW_CARD') {
-                        const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, effect.value);
-                        currentPlayer = p;
-                        if (overdrawnToGraveyard.length > 0) {
-                            log(`${currentPlayer.name}'s hand was full and discarded ${overdrawnToGraveyard.map(c => c.name).join(', ')}.`);
-                        }
-                        if (fatigueDamage.length > 0) {
-                            fatigueDamage.forEach(dmg => {
-                                damagePlayer(currentPlayer, dmg, 'Fatigue', 'damage');
-                                log(`${currentPlayer.name} failed to draw and takes ${dmg} Fatigue damage!`);
-                            });
-                        }
-                    }
-                    if(effect.type === 'FORESIGHT') {
-                        if (currentPlayer.deck.length > 0) {
-                            const foresightValue = effect.value || 1;
-                            const topCards = currentPlayer.deck.slice(-foresightValue).reverse();
-                            if (topCards.length > 0) {
-                                const cardNames = topCards.map(c => c.name).join(', ');
-                                log(`Foresight from ${cardWithBlessing.name} reveals top ${topCards.length} card(s): ${cardNames}`);
-                            }
-                        }
-                    }
-                    if(effect.type === 'DECAY' && effect.requiresTarget) {
-                        const opponent = newState.players[1 - newState.currentPlayerId];
-                        const targetableUnits = opponent.units.filter(u => !u.abilities?.immutable);
-                        if (targetableUnits.length > 0) {
-                            const target = targetableUnits[Math.floor(Math.random() * targetableUnits.length)];
-                            target.damage++;
-                            log(`${cardWithBlessing.name} applies Decay to ${target.name}.`);
-                        }
-                    }
-                    if(effect.type === 'DISRUPT') {
-                        const opponent = newState.players[1 - newState.currentPlayerId];
-                        opponent.diceModifier -= effect.value;
-                        log(`${cardWithBlessing.name} disrupts ${opponent.name}, who will roll ${effect.value} fewer dice next turn.`);
-                    }
-                    if(effect.type === 'PROPHECY' || effect.type === 'FATEWEAVE') {
-                         newState.maxRolls += effect.value;
-                         log(`${cardWithBlessing.name}'s Blessing grants an extra roll!`);
-                    }
-                    if(effect.type === 'RECYCLE_UNIT') {
-                        const unitsInGrave = currentPlayer.graveyard.filter(c => c.type === CardType.UNIT);
-                        if (unitsInGrave.length > 0) {
-                            const randomIndex = Math.floor(Math.random() * unitsInGrave.length);
-                            const cardToReturn = unitsInGrave[randomIndex];
-                            currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToReturn.instanceId);
-                            // Reset card state before returning to hand
-                            const freshCard = { ...cardToReturn, damage: 0, strengthModifier: 0, durabilityModifier: 0, hasStruck: false, isReclaimed: false, isToken: false, attachments: [] };
-                            currentPlayer.hand.push(freshCard);
-                            log(`${cardWithBlessing.name} returns ${cardToReturn.name} from the graveyard to hand.`);
-                        }
-                    }
-                }
-            });
-            // Decay effects
-            currentPlayer.units.forEach(unit => {
-                if(unit.abilities?.decay) {
-                    unit.damage++;
-                    log(`${unit.name} takes 1 damage from Decay.`);
-                }
-            });
-            checkForDestroyedUnits(currentPlayer.id);
-
-            newState.phase = TurnPhase.ROLL_SPEND;
-            break;
-          case TurnPhase.ROLL_SPEND:
-            newState.phase = TurnPhase.DRAW;
-            break;
+          case TurnPhase.ROLL_SPEND: newState.phase = TurnPhase.DRAW; break;
           case TurnPhase.DRAW:
-            if(currentPlayer.skipNextDrawPhase) {
-              log(`${currentPlayer.name} skips their Draw Phase due to Stagnate.`);
-              currentPlayer.skipNextDrawPhase = false;
+            if(player.skipNextDrawPhase > 0) {
+              log(`${player.name} skips their Draw Phase.`);
+              player.skipNextDrawPhase--;
             } else {
-              const { player: p, fatigueDamage, overdrawnToGraveyard } = drawCards(currentPlayer, 1);
+              const { player: p, fatigueDamage } = drawCards(player, 1);
               newState.players[newState.currentPlayerId] = p;
-              if (overdrawnToGraveyard.length > 0) {
-                  log(`${p.name}'s hand was full and discarded ${overdrawnToGraveyard[0].name}.`);
-              }
-              if (fatigueDamage.length > 0) {
-                  fatigueDamage.forEach(dmg => {
-                    damagePlayer(p, dmg, 'Fatigue', 'damage');
-                    log(`${p.name} has no cards left and takes ${dmg} Fatigue damage!`);
-                  });
-              } else if (overdrawnToGraveyard.length === 0) {
-                   log(`${p.name} drew a card.`);
-              }
+              if (fatigueDamage.length > 0) fatigueDamage.forEach(dmg => damagePlayer(p, dmg, 'Fatigue'));
             }
             newState.phase = TurnPhase.STRIKE;
             break;
           case TurnPhase.STRIKE:
             if (action.payload?.strike) {
-                const attackers = currentPlayer.units.filter(u => !u.abilities?.entrenched);
-                
-                const phasingAttackers = attackers.filter(u => u.abilities?.phasing);
-                if (phasingAttackers.length > 0) {
-                    const phasingDamage = phasingAttackers.reduce((sum, u) => sum + getEffectiveStats(u, currentPlayer, { isStrikePhase: true }).strength, 0);
-                    opponentPlayer.morale -= phasingDamage;
-                    log(`${currentPlayer.name}'s Phasing units deal ${phasingDamage} unpreventable Morale damage!`);
-                    phasingAttackers.forEach(u => u.hasStruck = true);
-                }
-                
-                const normalAttackers = attackers.filter(u => !u.abilities?.phasing);
-                if (normalAttackers.length > 0) {
-                    log(`${currentPlayer.name} declares an attack with ${normalAttackers.length} unit(s).`);
-                    logAction(`Declared an attack.`);
+                const attackers = player.units.filter(u => !u.abilities?.entrenched);
+                if (attackers.length > 0) {
                     newState.phase = TurnPhase.BLOCK;
-                    newState.combatants = normalAttackers.map(u => ({ attackerId: u.instanceId, blockerId: null }));
+                    newState.combatants = attackers.map(u => ({ attackerId: u.instanceId, blockerId: null }));
                 } else {
-                    log(`${currentPlayer.name} has no non-phasing units to strike with.`);
                     newState.phase = TurnPhase.END;
                 }
-
-                if (opponentPlayer.morale <= 0) newState.winner = currentPlayer;
-            } else {
-              log(`${currentPlayer.name} skips the strike.`);
-              logAction('Skipped the strike.');
-              newState.phase = TurnPhase.END;
-            }
+            } else { newState.phase = TurnPhase.END; }
             break;
-          case TurnPhase.END:
-              logAction('Ended their turn.');
-              currentPlayer.shieldUsedThisTurn = false;
+          case TurnPhase.END: {
               if (newState.extraTurns > 0) {
                   newState.extraTurns--;
-                  log(`${currentPlayer.name} begins an extra turn.`);
-                  newState.phase = TurnPhase.START;
-                  const diceCount = 5 + currentPlayer.diceModifier;
-                  currentPlayer.diceModifier = 0;
-                  newState.dice = Array.from({ length: Math.max(0, diceCount) }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
-                  newState.rollCount = 0;
-                  newState.maxRolls = 3;
+                  log(`${player.name} starts their extra turn!`);
               } else {
                   newState.currentPlayerId = 1 - newState.currentPlayerId;
                   newState.turn += (newState.currentPlayerId === 0 ? 1 : 0);
-                  newState.phase = TurnPhase.START;
-                  const nextPlayer = newState.players[newState.currentPlayerId];
-                  const diceCount = 5 + nextPlayer.diceModifier;
-                  nextPlayer.diceModifier = 0;
-                  newState.dice = Array.from({ length: Math.max(0, diceCount) }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
-                  newState.rollCount = 0;
-                  newState.maxRolls = 3;
-                  log(`Turn ${newState.turn} - ${nextPlayer.name}'s turn.`);
               }
+              newState.phase = TurnPhase.START;
+
+              const nextPlayer = newState.players[newState.currentPlayerId];
+              const opponentOfNextPlayer = newState.players[1 - newState.currentPlayerId];
+
+              // Reset turn-based states for the new current player
+              [...nextPlayer.units, ...nextPlayer.artifacts].forEach(c => {
+                  c.shieldUsedThisTurn = false;
+                  if (c.type === CardType.UNIT) {
+                      (c as CardInGame).hasStruck = false;
+                  }
+              });
+              
+              newState.maxRolls = 3;
+              log(`Turn ${newState.turn} - ${nextPlayer.name}'s turn.`);
+
+              // Process start-of-turn effects
+              if (nextPlayer.vanishZone.length > 0) {
+                  const returningFromVanish: CardInGame[] = [];
+                  nextPlayer.vanishZone = nextPlayer.vanishZone.filter(entry => {
+                      entry.turnsRemaining--;
+                      if (entry.turnsRemaining <= 0) {
+                          returningFromVanish.push(entry.card);
+                          return false;
+                      }
+                      return true;
+                  });
+                  if (returningFromVanish.length > 0) {
+                       log("A card returns from the void!");
+                       returningFromVanish.forEach(card => {
+                           nextPlayer.units.push(card); // Assuming they are all units for now
+                           const arrivalResult = resolveArrivalAbilities(card, nextPlayer, opponentOfNextPlayer);
+                           newState.players[newState.currentPlayerId] = arrivalResult.player;
+                           newState.players[1 - newState.currentPlayerId] = arrivalResult.opponent;
+                       });
+                  }
+              }
+
+              const locationsWithBlessing = nextPlayer.locations.filter(loc => loc.abilities?.blessing);
+              if (locationsWithBlessing.length > 0) {
+                  log(`Start of turn effects trigger for ${nextPlayer.name}.`);
+              }
+
+              locationsWithBlessing.forEach(location => {
+                  const blessing = location.abilities.blessing;
+                  log(`${nextPlayer.name}'s ${location.name} triggers its Blessing.`);
+
+                  switch(blessing.effect.type) {
+                      case 'DRAW_CARD': {
+                          const { player: p, fatigueDamage } = drawCards(nextPlayer, blessing.effect.value);
+                          newState.players[newState.currentPlayerId] = p;
+                          fatigueDamage.forEach(d => damagePlayer(p, d, 'Fatigue'));
+                          break;
+                      }
+                      case 'PROPHECY': {
+                          newState.maxRolls += blessing.effect.value;
+                          log(`${nextPlayer.name} gains ${blessing.effect.value} extra roll(s) this turn.`);
+                          break;
+                      }
+                      case 'DISCARD': {
+                          if (opponentOfNextPlayer.hand.length > 0) {
+                              const cardToDiscard = opponentOfNextPlayer.hand.splice(Math.floor(Math.random() * opponentOfNextPlayer.hand.length), 1)[0];
+                              opponentOfNextPlayer.graveyard.push(cardToDiscard);
+                              log(`${opponentOfNextPlayer.name} discards ${cardToDiscard.name}.`);
+                          }
+                          break;
+                      }
+                      case 'RECYCLE_UNIT': {
+                          const unitsInGraveyard = nextPlayer.graveyard.filter(c => c.type === CardType.UNIT);
+                          if (unitsInGraveyard.length > 0) {
+                              const cardIndex = Math.floor(Math.random() * unitsInGraveyard.length);
+                              const cardToRecycle = unitsInGraveyard[cardIndex];
+                              if (nextPlayer.hand.length < 7) {
+                                  nextPlayer.graveyard = nextPlayer.graveyard.filter(c => c.instanceId !== cardToRecycle.instanceId);
+                                  nextPlayer.hand.push(cardToRecycle);
+                                  log(`${cardToRecycle.name} is returned to ${nextPlayer.name}'s hand from the graveyard.`);
+                              } else {
+                                  log(`${nextPlayer.name}'s hand is full, cannot recycle ${cardToRecycle.name}.`);
+                              }
+                          }
+                          break;
+                      }
+                      case 'DECAY': {
+                          if (opponentOfNextPlayer.units.length > 0) {
+                              const target = opponentOfNextPlayer.units[Math.floor(Math.random() * opponentOfNextPlayer.units.length)];
+                              dealDamageToUnit(target, 1, location, opponentOfNextPlayer);
+                              log(`${location.name}'s Blessing applies Decay to ${target.name}.`);
+                          }
+                          break;
+                      }
+                  }
+              });
+
+              const cardsWithDecay = [...nextPlayer.units, ...nextPlayer.artifacts].filter(c => c.abilities?.decay);
+              cardsWithDecay.forEach(card => {
+                  dealDamageToUnit(card, 1, null, nextPlayer);
+                  log(`${card.name} takes 1 damage from Decay.`);
+              });
+
+              if (cardsWithDecay.length > 0) {
+                  checkForDestroyedCards(newState.currentPlayerId);
+              }
+
+              // Set up for the new turn
+              newState.dice = Array.from({ length: 5 + nextPlayer.diceModifier }, (_, i) => ({ id: i, value: 1, isKept: false, isSpent: false }));
+              nextPlayer.diceModifier = 0;
+              newState.rollCount = 0;
               break;
+            }
+          default: newState.phase = TurnPhase.ROLL_SPEND;
         }
         return { ...newState, isProcessing: true };
       }
@@ -1505,19 +990,13 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       case 'AI_ACTION':
           newState.isProcessing = false;
           return newState;
-
-      default:
-        return state;
+      default: return state;
     }
   } catch(error) {
     console.error("FATAL ERROR in game reducer:", error);
     const newState = JSON.parse(JSON.stringify(state)) as GameState;
-    if (error instanceof Error) {
-        newState.log.push(`!! SYSTEM CRITICAL ERROR: ${error.message} !!`);
-    } else {
-        newState.log.push(`!! SYSTEM CRITICAL UNKNOWN ERROR !!`);
-    }
-    newState.isProcessing = false; // Unlock UI to prevent freeze
+    newState.log.push(`!! SYSTEM CRITICAL ERROR: ${(error as Error).message} !!`);
+    newState.isProcessing = false;
     return newState;
   }
 };

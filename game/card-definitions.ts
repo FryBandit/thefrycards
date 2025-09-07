@@ -1,4 +1,3 @@
-
 import { CardDefinition, CardType, DiceCostType, DiceCost } from './types';
 
 export const cardDefinitions: CardDefinition[] = [
@@ -11,7 +10,7 @@ export const cardDefinitions: CardDefinition[] = [
     strength: undefined,
     durability: undefined,
     text: "Target opponent discards 1 card.",
-    abilities: { "discard": 1, "requiresTarget": false },
+    abilities: { "discard": 1 },
     rarity: "Common",
     flavor_text: "The stars used to speak. Now, it's just static.",
     card_set: "Space Horror",
@@ -25,8 +24,8 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 2 }],
     strength: undefined,
     durability: undefined,
-    text: "Foresight 1.",
-    abilities: { "foresight": { "value": 1 } },
+    text: "Draw 1 card.",
+    abilities: { "draw": 1 },
     rarity: "Common",
     flavor_text: "We thought we were alone until the whispers started.",
     card_set: "Space Horror",
@@ -72,8 +71,8 @@ export const cardDefinitions: CardDefinition[] = [
     strength: 2,
     durability: 1,
     moraleValue: 3,
-    text: "Arrival: Foresight 1.",
-    abilities: { "foresight": { "value": 1 } },
+    text: "Arrival: Draw 1 card.",
+    abilities: { "draw": 1 },
     rarity: "Common",
     flavor_text: "She watches the void. The void watches back.",
     card_set: "Space Horror",
@@ -87,10 +86,10 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 1, value: 1 }],
     strength: undefined,
     durability: undefined,
-    text: "Weaken 1 (Target unit gets -1 Strength).",
-    abilities: { "weaken": 1, "requiresTarget": true },
+    text: "Banish target unit with Durability 2 or less.",
+    abilities: { "banish": { "maxDurability": 2 }, "requiresTarget": true },
     rarity: "Common",
-    flavor_text: "You feel watched. Always.",
+    flavor_text: "You feel watched. Always. Then, you feel nothing.",
     card_set: "Space Horror",
     author: "Fry",
     imageUrl: "https://cdn.midjourney.com/8c4364d5-b169-443a-8edb-7c81e22ceab7/0_2.png"
@@ -117,8 +116,8 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
-    text: "Blessing: At the start of your turn, Foresight 1.",
-    abilities: { "blessing": { "effect": { "type": "FORESIGHT", "value": 1 } } },
+    text: "Blessing: At the start of your turn, Draw 1 card.",
+    abilities: { "blessing": { "effect": { "type": "DRAW_CARD", "value": 1 } } },
     rarity: "Uncommon",
     flavor_text: "They’re sending us coordinates. But why?",
     card_set: "Space Horror",
@@ -182,10 +181,10 @@ export const cardDefinitions: CardDefinition[] = [
     text: "Gain 3 Morale. Amplify: Also apply Weaken 3 to target unit.",
     abilities: {
       "gain_morale": 3,
-      "requiresTarget": true,
       "amplify": {
         "cost": [{ "type": "EXACT_VALUE", "count": 1, "value": 6 }],
-        "effect": { "type": "WEAKEN", "amount": 3 }
+        "effect": { "type": "WEAKEN", "amount": 3 },
+        "requiresTarget": true
       }
     },
     rarity: "Super-Rare",
@@ -201,8 +200,8 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.ANY_PAIR }],
     strength: undefined,
     durability: undefined,
-    text: "Blessing: At the start of your turn, apply Decay to a target unit.",
-    abilities: { "blessing": { "effect": { "type": "DECAY", "value": 1 }, "requiresTarget": true } },
+    text: "Blessing: At the start of your turn, apply Decay to a random enemy unit.",
+    abilities: { "blessing": { "effect": { "type": "DECAY", "value": 1 } } },
     rarity: "Uncommon",
     flavor_text: "It looks like a star, but it’s just... wrong.",
     card_set: "Space Horror",
@@ -231,9 +230,17 @@ export const cardDefinitions: CardDefinition[] = [
     type: CardType.ARTIFACT,
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 10, "count": 2 }],
     strength: undefined,
-    durability: undefined,
-    text: "Martyrdom: Draw 2 cards. Decay.",
-    abilities: { "martyrdom": { "effect": { "type": "DRAW_CARD", "value": 2 } }, "decay": true },
+    durability: 1,
+    text: "Martyrdom: Draw 2 cards. Decay. Consume 2. Activate: Pay [ANY 1]. Spike 1.",
+    abilities: {
+        "martyrdom": { "effect": { "type": "DRAW_CARD", "value": 2 } },
+        "decay": true,
+        "consume": { "initial": 2 },
+        "activate": {
+            "cost": [{ "type": "ANY_X_DICE", "count": 1 }],
+            "effect": { "type": "spike", "value": 1 }
+        }
+    },
     rarity: "Rare",
     flavor_text: "A ship isn’t just metal. It knows when it’s dying.",
     card_set: "Space Horror",
@@ -275,11 +282,11 @@ export const cardDefinitions: CardDefinition[] = [
     id: 18,
     name: "Nova Rebirth",
     type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 3 }],
+    dice_cost: [{ type: DiceCostType.ANY_X_DICE, count: 3 }],
     strength: undefined,
     durability: undefined,
-    text: "Reclaim.",
-    abilities: { "reclaim": { "cost": [{ type: DiceCostType.SUM_OF_X_DICE, "value": 12, "count": 2 }] } },
+    text: "Purge 3 cards from an opponent's graveyard.",
+    abilities: { purge: 3 },
     rarity: "Rare",
     flavor_text: "From destruction, something darker is born.",
     card_set: "Space Horror",
@@ -463,8 +470,8 @@ export const cardDefinitions: CardDefinition[] = [
     strength: 1,
     durability: 2,
     moraleValue: 2,
-    text: "Fragile.",
-    abilities: { "fragile": true },
+    text: "Fragile. Wild.",
+    abilities: { "fragile": true, "wild": true },
     rarity: "Common",
     flavor_text: "They were so eager to touch the stars. Now, they fear the dark.",
     card_set: "Space Horror",
@@ -601,8 +608,14 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.ANY_X_DICE, "count": 3 }],
     strength: undefined,
     durability: undefined,
-    text: "Consume 2.",
-    abilities: { "consume": { "initial": 2 } },
+    text: "Consume 2. Activate: Pay [ANY 1]. Draw 1 card.",
+    abilities: {
+      "consume": { "initial": 2 },
+      "activate": {
+        "cost": [{ "type": "ANY_X_DICE", "count": 1 }],
+        "effect": { "type": "draw_card", "value": 1 }
+      }
+    },
     rarity: "Rare",
     flavor_text: "Return by due date... or else.",
     card_set: "Undead College",
@@ -680,8 +693,8 @@ export const cardDefinitions: CardDefinition[] = [
     dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 6, "count": 2 }],
     strength: undefined,
     durability: undefined,
-    text: "Siphon 2.",
-    abilities: { "siphon": 2 },
+    text: "Gain 2 Morale.",
+    abilities: { "gain_morale": 2 },
     rarity: "Uncommon",
     flavor_text: "The scent of pollen, the warmth of color, the slow surrender to sleep.",
     card_set: "Biotica Fantasia",
@@ -782,7 +795,7 @@ export const cardDefinitions: CardDefinition[] = [
     durability: 3,
     moraleValue: 4,
     text: "Target opponent discards 1 card.",
-    abilities: { "discard": 1, "requiresTarget": false },
+    abilities: { "discard": 1 },
     rarity: "Uncommon",
     flavor_text: "Too much information. Too much noise. Too much everything.",
     card_set: "Artifice & Ruin",
@@ -829,10 +842,16 @@ export const cardDefinitions: CardDefinition[] = [
     strength: 2,
     durability: 4,
     moraleValue: 5,
-    text: "Decay.",
-    abilities: { "decay": true },
+    text: "Decay. Activate: Pay [ANY PAIR]. Reconstruct.",
+    abilities: {
+        "decay": true,
+        "activate": {
+            "cost": [{ "type": "ANY_PAIR" }],
+            "effect": { "type": "reconstruct" }
+        }
+    },
     rarity: "Uncommon",
-    flavor_text: "It feeds the fire, never questioning the purpose of the flames.",
+    flavor_text: "It feeds the fire, never questioning the purpose of the flames... until now.",
     card_set: "Artifice & Ruin",
     author: "Fry",
     imageUrl: "https://cdn.midjourney.com/3a9a746f-394e-41d0-9407-91351b3752ed/0_0.png"
@@ -883,4 +902,4 @@ export const cardDefinitions: CardDefinition[] = [
     card_set: "Rainbow Riot Squad",
     author: "AI",
     imageUrl: "https://cdn.midjourney.com/d547ebb7-c7f2-41c6-94e3-0b4603eeb6d6/0_0.png"
-  }]
+  }

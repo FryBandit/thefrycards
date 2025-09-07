@@ -25,7 +25,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay }) => {
       "Advanced Actions": ['Amplify', 'Evoke', 'Recall', 'Reclaim'],
       "Combat Keywords": ['Strike', 'Breach', 'Entrenched', 'Executioner', 'Phasing', 'Rally', 'Shield', 'Venomous'],
       "Protective & Evasive": ['Immutable', 'Stealth', 'Shield'],
-      "Value & Resource Keywords": ['Draw', 'Echo', 'Prophecy', 'Foresight', 'Martyrdom', 'Overload', 'Resonance', 'Siphon'],
+      "Value & Resource Keywords": ['Draw', 'Echo', 'Prophecy', 'Martyrdom', 'Overload', 'Resonance', 'Siphon'],
       "Disruption Keywords": ['Barrage', 'Weaken', 'Discard', 'Purge', 'Disrupt', 'Exhaust', 'Banish'],
       "Location & Artifact Keywords": ['Augment', 'Consume', 'Fortify', 'Blessing', 'Landmark', 'Spike'],
       "Unit-Specific Keywords": ['Reconstruct', 'Synergy', 'Wild'],
