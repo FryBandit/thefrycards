@@ -12,6 +12,7 @@ import { useGameState, checkDiceCost, isCardTargetable } from './hooks/useGameSt
 import { getAiAction } from './hooks/ai';
 import { CardInGame, TurnPhase, Player, CardDefinition, CardType } from './game/types';
 import { fetchCardDefinitions, requiredComposition } from './game/cards';
+import { cardHasAbility } from './game/utils';
 
 
 const App: React.FC = () => {
@@ -242,11 +243,14 @@ const App: React.FC = () => {
     if (!card.abilities?.activate || (gameMode === 'playerVsAi' && state.currentPlayerId !== 0) || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {
         return false;
     }
+    if (card.type === CardType.UNIT && card.turnPlayed === state.turn && !cardHasAbility(card, 'charge')) {
+        return false;
+    }
     if (card.abilities.consume && (card.counters ?? 0) <= 0) {
         return false;
     }
     return checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost || [] }, state.dice).canPay;
-  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId, gameMode]);
+  }, [state.phase, state.rollCount, state.dice, state.currentPlayerId, state.turn, gameMode]);
 
   const isCardEvokeable = useCallback((card: CardInGame): boolean => {
     if (!card.abilities?.evoke || (gameMode === 'playerVsAi' && state.currentPlayerId !== 0) || state.phase !== TurnPhase.ROLL_SPEND || state.rollCount === 0) {

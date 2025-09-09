@@ -1,6 +1,6 @@
 import React from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase, CardType } from '../game/types';
-import { getEffectiveStats } from '../game/utils';
+import { getEffectiveStats, cardHasAbility } from '../game/utils';
 import { isCardTargetable } from '../hooks/useGameState';
 import Card from './Card';
 
@@ -23,7 +23,7 @@ const PlayerArea: React.FC<{
     isCurrent: boolean;
 }> = ({ player, players, gameState, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, lastTriggeredCardId, onExamineCard, selectedBlockerId, blockAssignments, setHoveredAttackerId, hoveredAttackerId, isCurrent }) => {
     
-    const { phase, currentPlayerId, combatants } = gameState;
+    const { phase, currentPlayerId, combatants, turn } = gameState;
     const backRowCards = [...player.locations, ...player.artifacts];
     const frontRowCards = [...player.units];
     const allCards = [...backRowCards, ...frontRowCards];
@@ -41,12 +41,13 @@ const PlayerArea: React.FC<{
         const isSelectedAsBlocker = phase === TurnPhase.BLOCK && selectedBlockerId === card.instanceId;
         
         const isPlayerDefender = phase === TurnPhase.BLOCK && player.id !== currentPlayerId;
-        const isPotentialBlocker = isPlayerDefender && card.type === CardType.UNIT && !card.abilities?.entrenched && !isBlocker;
+        const isPotentialBlocker = isPlayerDefender && card.type === CardType.UNIT && !cardHasAbility(card, 'entrenched') && !isBlocker;
         const isPotentialBlockerForHover = isPotentialBlocker && !!hoveredAttackerId;
 
 
         const isPlayerAttackerInStrikePhase = phase === TurnPhase.STRIKE && player.id === currentPlayerId;
-        const isPotentialAttacker = isPlayerAttackerInStrikePhase && card.type === CardType.UNIT && !card.abilities?.entrenched;
+        const canAttack = card.turnPlayed < turn || cardHasAbility(card, 'charge');
+        const isPotentialAttacker = isPlayerAttackerInStrikePhase && card.type === CardType.UNIT && !cardHasAbility(card, 'entrenched') && canAttack;
 
         // Is this card an attacker that can be targeted by the currently selected blocker?
         const isTargetForBlocker = isPlayerDefender && isAttacking && !!selectedBlockerId;

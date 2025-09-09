@@ -29,7 +29,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onStartGame, onReturn, isGameInPr
       "Combat Keywords": ['Strike', 'Breach', 'Entrenched', 'Executioner', 'Phasing', 'Rally', 'Shield', 'Venomous'],
       "Protective & Evasive": ['Immutable', 'Stealth', 'Shield'],
       "Value & Resource Keywords": ['Draw', 'Echo', 'Prophecy', 'Martyrdom', 'Overload', 'Resonance', 'Siphon'],
-      "Disruption Keywords": ['Barrage', 'Weaken', 'Discard', 'Purge', 'Disrupt', 'Exhaust', 'Banish'],
+      "Disruption Keywords": ['Barrage', 'Weaken', 'Discard', 'Purge', 'Disrupt', 'Exhaust', 'Banish', 'Corrupt', 'Snipe'],
       "Location & Artifact Keywords": ['Augment', 'Consume', 'Fortify', 'Blessing', 'Landmark', 'Spike'],
       "Unit-Specific Keywords": ['Reconstruct', 'Synergy', 'Wild'],
       "Negative Keywords": ['Bounty', 'Decay', 'Fragile', 'Haunt', 'Instability', 'Malice'],

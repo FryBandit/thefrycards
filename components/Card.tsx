@@ -3,6 +3,7 @@ import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 import KeywordText from './KeywordText';
 import { renderDiceCost, CardTypeIcon } from './CardUtils';
+import Tooltip from './Tooltip';
 
 interface CardProps {
   card: CardInGame;
@@ -37,20 +38,24 @@ interface CardProps {
   onMouseLeave?: () => void;
 }
 
-const StatDisplay: React.FC<{ baseValue: number; modifier: number; isStrength?: boolean; currentDurability?: number }> = ({ baseValue, modifier, isStrength, currentDurability }) => {
-    const effectiveValue = isStrength ? baseValue + modifier : currentDurability;
-    const color = modifier > 0 ? 'bg-green-400' : modifier < 0 ? 'bg-red-500' : isStrength ? 'bg-vivid-pink' : 'bg-vivid-cyan';
-    const hasDamage = !isStrength && currentDurability !== undefined && currentDurability < (baseValue + modifier);
-    const finalColor = hasDamage ? 'bg-orange-400' : color;
+const StatDisplay: React.FC<{ 
+    label: string;
+    baseValue: number;
+    effectiveValue: number; 
+    color: string;
+    isDamaged?: boolean;
+}> = ({ label, baseValue, effectiveValue, color, isDamaged }) => {
+    const finalColor = isDamaged ? 'bg-orange-400' : (effectiveValue > baseValue ? 'bg-green-400' : effectiveValue < baseValue ? 'bg-red-500' : color);
+    const icon = effectiveValue > baseValue ? '▲' : effectiveValue < baseValue ? '▼' : null;
 
     return (
-        <div className={`px-2 py-0.5 rounded flex items-center justify-center text-arcane-bg gap-1 ${finalColor}`}>
-            {modifier > 0 && <span className="font-sans text-xs">▲</span>}
-            {modifier < 0 && <span className="font-sans text-xs">▼</span>}
+        <div title={label} className={`px-2 py-0.5 rounded flex items-center justify-center text-arcane-bg gap-1 ${finalColor}`}>
+            {icon && <span className="font-sans text-xs">{icon}</span>}
             <span>{effectiveValue}</span>
         </div>
     );
 };
+
 
 const Card: React.FC<CardProps> = ({ 
     card, displayMode = 'full', isPlayable, isTargetable, inHand, onClick, isActivatable, onActivate,
@@ -66,7 +71,7 @@ const Card: React.FC<CardProps> = ({
     const isVideo = card.imageUrl?.endsWith('.mp4');
 
     const baseClasses = "relative bg-arcane-surface text-white rounded-lg shadow-lg border-2 transform-gpu transition-all duration-300 group";
-    const sizeClasses = isOnBoard ? "w-28 h-40 hover:scale-[1.7] hover:z-20" : "w-40 h-56 sm:w-48 sm:h-64";
+    const sizeClasses = isOnBoard ? "w-28 h-40 hover:scale-[1.6] hover:z-20" : "w-40 h-56 sm:w-48 sm:h-64";
 
     const typeColor = {
         [CardType.UNIT]: 'border-unit',
@@ -163,8 +168,8 @@ const Card: React.FC<CardProps> = ({
 
                         {isUnit && effectiveStrength !== undefined && effectiveDurability !== undefined ? (
                             <div className={`flex items-center space-x-1 font-black ${isOnBoard ? 'text-base' : 'text-lg sm:text-xl'}`}>
-                               <StatDisplay baseValue={card.strength ?? 0} modifier={card.strengthModifier} isStrength />
-                               <StatDisplay baseValue={card.durability ?? 1} modifier={card.durabilityModifier} currentDurability={currentDurability} />
+                               <StatDisplay label="Strength" baseValue={card.strength ?? 0} effectiveValue={effectiveStrength} color="bg-vivid-pink" />
+                               <StatDisplay label="Durability" baseValue={card.durability ?? 1} effectiveValue={currentDurability} color="bg-vivid-cyan" isDamaged={hasDamage} />
                             </div>
                         ) : (
                              <div className={`flex items-center gap-1.5 transition-opacity ${isOnBoard ? 'opacity-0 group-hover:opacity-100' : ''}`} title={card.type}>

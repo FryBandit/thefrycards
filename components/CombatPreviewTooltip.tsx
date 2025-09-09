@@ -36,7 +36,7 @@ export const CombatPreviewTooltip: React.FC<CombatPreviewTooltipProps> = ({ atta
     };
     
     return (
-        <div className="fixed top-1/2 -translate-y-1/2 right-4 w-72 p-4 bg-arcane-surface/90 backdrop-blur-sm border-2 border-vivid-pink rounded-lg shadow-2xl shadow-vivid-pink/20 z-40 text-sm font-mono text-white pointer-events-none animate-fade-in-right">
+        <div className="fixed top-1/2 -translate-y-1/2 right-4 w-72 p-4 bg-arcane-surface/90 backdrop-blur-sm border-2 border-vivid-pink rounded-lg shadow-2xl shadow-vivid-pink/20 z-[60] text-sm font-mono text-white pointer-events-none animate-fade-in-right">
             <h3 className="text-lg font-bold text-vivid-pink uppercase tracking-wider mb-3 text-center border-b border-vivid-pink/30 pb-2">Combat Preview</h3>
             <div className="grid grid-cols-3 gap-2 items-center text-center mb-3">
                 <div className="font-bold text-vivid-cyan truncate" title={blocker.name}>{blocker.name}</div>

@@ -25,16 +25,21 @@ export const Hand: React.FC<HandProps> = ({
     const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
 
     const getCardStyle = (index: number, total: number): React.CSSProperties => {
-        if (total <= 1) return { transform: 'translateY(0px)' };
+        if (total <= 1) return { transform: 'translateX(-50%)' };
         
         const maxAngle = 45;
         const anglePerCard = Math.min(maxAngle / total, 8);
         const rotation = (index - (total - 1) / 2) * anglePerCard;
         
         const translateYArc = Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 30;
+
+        const baseSpacing = 120; // Spacing for a few cards
+        const minSpacing = 60;  // Minimum spacing for a full hand
+        const spacing = Math.max(minSpacing, baseSpacing - total * 10);
+        const translateX = (index - (total - 1) / 2) * spacing;
         
         return {
-            transform: `rotate(${rotation}deg) translateY(${translateYArc}px)`,
+            transform: `translateX(calc(-50% + ${translateX}px)) rotate(${rotation}deg) translateY(${translateYArc}px)`,
             transformOrigin: 'bottom center',
             transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
         };
@@ -50,11 +55,8 @@ export const Hand: React.FC<HandProps> = ({
                         return (
                          <div 
                             key={card.instanceId} 
-                            className="absolute bottom-0 h-full hover:z-30 hover:!scale-110 hover:!-translate-y-12 hover:!rotate-0"
-                            style={{
-                                ...getCardStyle(index, handCards.length),
-                                marginLeft: `${(index - (handCards.length - 1) / 2) * (handCards.length > 6 ? 60 : 100)}px`
-                            }}
+                            className="absolute bottom-0 h-full hover:z-30 hover:!scale-110 hover:!-translate-y-12 hover:!rotate-0 left-1/2"
+                            style={getCardStyle(index, handCards.length)}
                             onMouseEnter={() => setHoveredCardInHand(card)}
                             onMouseLeave={() => setHoveredCardInHand(null)}
                         >

@@ -1,5 +1,7 @@
+
+
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost } from '../game/types';
-import { getEffectiveStats } from '../game/utils';
+import { getEffectiveStats, cardHasAbility } from '../game/utils';
 import { checkDiceCost, isCardTargetable } from './useGameState';
 import { findValuableDiceForCost } from '../game/utils';
 
@@ -112,9 +114,20 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, opponentPlayer: Player
     if (card.abilities?.purge && opponentPlayer.graveyard.length > 1) score += Math.min(card.abilities.purge, opponentPlayer.graveyard.length) * 2.5;
     if (card.abilities?.disrupt) score += 12;
     if (card.abilities?.obliterate) {
-        const selfHarm = aiPlayer.units.filter(u => u.instanceId !== card.instanceId && !u.abilities?.immutable).length;
-        const opponentHarm = opponentPlayer.units.filter(u => !u.abilities?.immutable).length;
-        score += (opponentHarm > selfHarm) ? (opponentHarm - selfHarm) * 15 : -20;
+        const selfUnitsToObliterate = aiPlayer.units.filter(u => u.instanceId !== card.instanceId && !u.abilities?.immutable);
+        const opponentUnitsToObliterate = opponentPlayer.units.filter(u => !u.abilities?.immutable);
+        
+        const selfHarm = selfUnitsToObliterate.length;
+        const opponentHarm = opponentUnitsToObliterate.length;
+
+        const moraleDamage = opponentUnitsToObliterate.reduce((sum, unit) => sum + (unit.moraleValue || 0), 0);
+
+        let obliterateScore = (opponentHarm - selfHarm) * 15 + moraleDamage * 2;
+        // It's a bad play if it hurts you more UNLESS the morale damage is a game-changer.
+        if (opponentHarm <= selfHarm && moraleDamage < 10) { 
+            obliterateScore = -20;
+        }
+        score += obliterateScore;
     }
     if (card.abilities?.vanish) score += 8;
     if (card.abilities?.warp) score += 30;
@@ -244,11 +257,11 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
     
     if (phase === TurnPhase.BLOCK && currentPlayerId !== aiPlayerId) {
         const attackers = combatants!.map(c => opponentPlayer.units.find(u => u.instanceId === c.attackerId)!).filter(Boolean);
-        let availableBlockers = aiPlayer.units.filter(u => !u.abilities?.entrenched);
+        let availableBlockers = aiPlayer.units.filter(u => !cardHasAbility(u, 'entrenched'));
         const assignments: { [blockerId: string]: string } = {};
 
-        const unblockableAttackers = attackers.filter(a => a.abilities?.phasing);
-        const blockableAttackers = attackers.filter(a => !a.abilities?.phasing);
+        const unblockableAttackers = attackers.filter(a => cardHasAbility(a, 'phasing'));
+        const blockableAttackers = attackers.filter(a => !cardHasAbility(a, 'phasing'));
 
         // Sort attackers by threat so we deal with the most dangerous ones first.
         blockableAttackers.sort((a, b) => getUnitThreat(b, opponentPlayer, aiPlayer) - getUnitThreat(a, opponentPlayer, aiPlayer));
@@ -345,7 +358,8 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
         const possiblePlays: AIPossiblePlay[] = [];
         
         [...aiPlayer.artifacts, ...aiPlayer.units].forEach(card => {
-            if (card.abilities?.activate && (!card.abilities.consume || (card.counters ?? 0) > 0) && checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, availableDice).canPay) {
+            const canActivate = (card.type === CardType.ARTIFACT) || (card.turnPlayed < turn || cardHasAbility(card, 'charge'));
+            if (canActivate && card.abilities?.activate && (!card.abilities.consume || (card.counters ?? 0) > 0) && checkDiceCost({ ...card, dice_cost: card.abilities.activate.cost }, availableDice).canPay) {
                 possiblePlays.push({ action: { type: 'ACTIVATE_ABILITY', payload: { cardInstanceId: card.instanceId } }, score: 10, description: `Activate ${card.name}` });
             }
         });
@@ -433,12 +447,15 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
     }
     
     if (phase === TurnPhase.STRIKE) {
-        const unitsThatCanStrike = aiPlayer.units.filter(u => !u.abilities?.entrenched);
+        const unitsThatCanStrike = aiPlayer.units.filter(u => !cardHasAbility(u, 'entrenched') && (u.turnPlayed < turn || cardHasAbility(u, 'charge')));
         if (unitsThatCanStrike.length === 0) return { type: 'ADVANCE_PHASE', payload: { strike: false } };
+        
         const totalAIStrikeThreat = unitsThatCanStrike.reduce((sum, unit) => sum + getEffectiveStats(unit, aiPlayer, { isStrikePhase: true }).strength, 0);
         if (totalAIStrikeThreat >= opponentPlayer.morale) return { type: 'ADVANCE_PHASE', payload: { strike: true } };
+        
         const totalHumanBoardStrength = opponentPlayer.units.reduce((sum, u) => sum + getEffectiveStats(u, opponentPlayer).strength, 0);
         const shouldStrike = totalAIStrikeThreat > totalHumanBoardStrength || aiPlayer.units.length >= opponentPlayer.units.length + 1;
+        
         return { type: 'ADVANCE_PHASE', payload: { strike: shouldStrike } };
     }
 

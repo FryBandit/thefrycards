@@ -68,6 +68,7 @@ export interface CardInGame extends CardDefinition {
   isTargetForBlocker?: boolean;
   isPotentialAttacker?: boolean;
   source?: 'hand' | 'graveyard';
+  turnPlayed: number;
 }
 
 export interface Player {

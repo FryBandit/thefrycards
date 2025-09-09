@@ -1,3 +1,4 @@
+
 import { Die, DiceCost, DiceCostType, CardInGame, Player, CardType } from './types';
 
 // Helper to shuffle arrays
@@ -201,6 +202,8 @@ export const getEffectiveStats = (card: CardInGame, owner: Player, context: { is
             strength += card.abilities.strike;
         }
     }
+    
+    strength = Math.max(0, strength);
     
     return { strength, durability, rallyBonus, synergyBonus };
 };

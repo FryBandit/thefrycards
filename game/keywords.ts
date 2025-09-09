@@ -1,5 +1,6 @@
 
 
+
 export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // High-Rarity & Mythic
   'Obliterate': 'When a unit with Obliterate enters the battlefield, it sends all other units to Oblivion. The opponent loses Morale equal to the Morale Value of each of their banished units. Immutable units are immune. Obliterate bypasses on-destruction effects like Haunt or Martyrdom.',
@@ -33,6 +34,7 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // Core Gameplay Keywords
   'Arrival': 'An ability that triggers when a card enters the battlefield.',
   'Strike': 'This unit gets +X Strength during your Strike Phase.',
+  'Charge': 'A unit with Charge can attack and use activated abilities on the turn it is played.',
   'Barrage': 'Arrival: Deal X damage to each enemy unit.',
   'Breach': 'This unit cannot be targeted by opponent\'s Events until after it has participated in a Strike.',
   'Echo': 'When this unit enters the field, create a token copy of it. Tokens are sent to Oblivion when they leave the field.',
@@ -55,12 +57,14 @@ export const KEYWORD_DEFINITIONS: { [key: string]: string } = {
   // Event Keywords
   'Chain Reaction': 'This card\'s effect may trigger additional, chained effects when played.',
   'Weaken': 'An Event effect that gives a target unit -X Strength.',
+  'Corrupt': 'An Event effect that gives a target unit -X Durability.',
   'Discard': 'An Event effect that forces the opponent to discard X cards at random.',
   'Purge': 'An Event effect that sends X random cards from the opponent\'s graveyard to Oblivion.',
   'Warp': 'An Event effect that lets you take an extra turn after this one.',
   'Disrupt': 'Arrival: Your opponent rolls X fewer dice on their next turn.',
   'Draw': 'Arrival: Draw X card(s).',
   'Banish': 'An effect that moves a target from the field to the Oblivion zone.',
+  'Snipe': 'Arrival: Deal X damage to target unit. This damage bypasses Shield.',
 
   // Ability Keywords
   'Spike': 'An activated ability that increases the value of one of your available dice.',
