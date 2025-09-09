@@ -11,6 +11,12 @@
         theme: {
           extend: {
             colors: {
+              'stone-bg': '#2a2a2e',
+              'stone-surface': '#4f545c',
+              'stone-border': '#1e1e1e',
+              'glow-red': '#e53e3e',
+              'glow-blue': '#4299e1',
+              // old colors, keeping for now for compatibility with cards
               'arcane-bg': '#0d0221',
               'arcane-surface': '#1a093a',
               'arcane-border': '#2a1a5e',
@@ -26,8 +32,12 @@
             },
             fontFamily: {
               'sans': ['Rajdhani', 'sans-serif'],
+              'cinzel': ['Cinzel', 'serif'],
             },
             boxShadow: {
+              'glow-red': '0 0 8px #e53e3e, 0 0 16px #e53e3e, inset 0 0 5px rgba(229, 62, 62, 0.5)',
+              'glow-blue': '0 0 8px #4299e1, 0 0 16px #4299e1, inset 0 0 5px rgba(66, 153, 225, 0.5)',
+              // old shadows
               'vivid-cyan': '0 0 5px #00f5d4, 0 0 10px #00f5d4, 0 0 15px #00f5d4',
               'vivid-pink': '0 0 5px #f038ff, 0 0 10px #f038ff, 0 0 15px #f038ff',
               'vivid-yellow': '0 0 5px #fef08a, 0 0 10px #fef08a, 0 0 15px #fef08a',
@@ -84,11 +94,11 @@
                 '50%': { boxShadow: '0 0 10px #00f5d4, 0 0 20px #00f5d4, 0 0 30px #00f5d4' },
               },
               'flash-red': {
-                '0%, 100%': { color: '#f038ff' },
+                '0%, 100%': { color: 'inherit', transform: 'scale(1)' },
                 '50%': { color: '#ef4444', transform: 'scale(1.15)' },
               },
               'flash-green': {
-                '0%, 100%': { color: '#f038ff' },
+                 '0%, 100%': { color: 'inherit', transform: 'scale(1)' },
                 '50%': { color: '#22c55e', transform: 'scale(1.15)' },
               },
                'flash-damage': {
@@ -155,21 +165,20 @@
     </script>
     <style>
       body {
-        background-image: radial-gradient(ellipse at top, #1a093a, #0d0221 70%);
-        animation: background-pan 30s ease-in-out infinite;
-        background-size: 200% 200%;
-        perspective: 1200px;
+        background-color: #1a1a1a;
+        background-image: url('https://www.transparenttextures.com/patterns/dark-stone-wall.png');
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script type="importmap">
 {
   "imports": {
     "react/": "https://aistudiocdn.com/react@^19.1.1/",
     "react": "https://aistudiocdn.com/react@^19.1.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.1.1"
   }
 }
 </script>

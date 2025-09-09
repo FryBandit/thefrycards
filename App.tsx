@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
-import ActionHistory from './components/GameLog';
+// import ActionHistory from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
 import CardViewerModal from './components/CardViewerModal';
@@ -401,7 +401,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <main className="relative w-screen h-screen font-sans bg-arcane-bg">
+    <main className="relative w-screen h-screen font-sans bg-stone-bg">
       <GameBoard
         gameState={state}
         isSpectator={gameMode === 'aiVsAi'}
@@ -435,7 +435,7 @@ const App: React.FC = () => {
         onShowHowToPlay={() => setView('howToPlay')}
       />
 
-      <ActionHistory history={state.actionHistory} players={state.players} />
+      {/* <ActionHistory history={state.actionHistory} players={state.players} /> */}
 
       {/* Overlays */}
        <PhaseAnnouncer phase={state.phase} turn={state.turn} />
@@ -449,7 +449,7 @@ const App: React.FC = () => {
       />
 
       {targetingInfo && (
-        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-arcane-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-vivid-pink shadow-vivid-pink'}`}>
+        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-20 text-stone-bg font-bold uppercase tracking-widest px-6 py-3 rounded-lg z-30 ${targetingInfo.isAmplify ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-vivid-pink shadow-vivid-pink'}`}>
           Select a target for {targetingInfo.card.name}
         </div>
       )}

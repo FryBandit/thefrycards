@@ -93,7 +93,7 @@ const PlayerArea: React.FC<{
     };
     
     return (
-        <div className={`flex-grow w-full flex flex-col items-center justify-center p-1 min-h-[16rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_70%)] rounded-lg border-2 transition-colors duration-500 ${isCurrent ? 'animate-active-player-border border-vivid-cyan/20' : 'border-transparent'}`}>
+        <div className="flex-grow w-full flex flex-col items-center justify-center p-1 min-h-[16rem]">
             {allCards.length > 0 ? (
                  <div className="w-full h-full flex flex-col justify-center items-center gap-y-4">
                     {backRowCards.length > 0 && <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full">
@@ -104,7 +104,7 @@ const PlayerArea: React.FC<{
                     </div>}
                 </div>
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-arcane-primary/50 italic text-lg border-2 border-dashed border-arcane-border/50 rounded-lg">FIELD EMPTY</div>
+                <div className="w-full h-full flex items-center justify-center text-stone-surface/60 italic text-lg border-2 border-dashed border-stone-surface/30 rounded-lg">FIELD EMPTY</div>
             )}
         </div>
     );

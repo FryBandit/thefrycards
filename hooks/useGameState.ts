@@ -488,11 +488,11 @@ const processDestroyedUnits = (state: GameState, log: string[], combatInfo?: Map
 
                     if (cardHasAbility(destroyedUnit, 'haunt')) {
                         opponent.morale -= destroyedUnit.abilities.haunt;
-                        log.push(`${destroyedUnit.name}'s Haunt deals ${destroyedUnit.abilities.haunt} Morale damage to ${opponent.name}.`);
+                        log.push(`${destroyedUnit.name}'s Haunt deals ${destroyedUnit.abilities.haunt} damage to ${opponent.name}.`);
                     }
                     if (cardHasAbility(destroyedUnit, 'malice')) {
                         player.morale -= destroyedUnit.abilities.malice;
-                        log.push(`${destroyedUnit.name}'s Malice deals ${destroyedUnit.abilities.malice} Morale damage to ${player.name}.`);
+                        log.push(`${destroyedUnit.name}'s Malice deals ${destroyedUnit.abilities.malice} damage to ${player.name}.`);
                     }
                     if (cardHasAbility(destroyedUnit, 'martyrdom')) {
                         newState = applyCardEffects(newState, { effect: destroyedUnit.abilities.martyrdom.effect, sourceCard: destroyedUnit, target: null }, log);
@@ -612,10 +612,25 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             newState.lastActionDetails = null; // Clear dice spend animation
             
             switch (newState.phase) {
-                case TurnPhase.START:
+                case TurnPhase.START: {
                     newState.phase = TurnPhase.ROLL_SPEND;
+                    
+                    const player = newState.players[newState.currentPlayerId];
+                    const numDiceToRoll = NUM_DICE + (player.diceModifier || 0);
+                    player.diceModifier = 0; // Reset modifier after use
+                    
+                    newState.dice = Array.from({ length: numDiceToRoll }, (_, i) => ({
+                        id: i,
+                        value: 0, // Will be blank until first roll
+                        isKept: false,
+                        isSpent: false,
+                    }));
+                    newState.rollCount = 0;
+                    newState.maxRolls = MAX_ROLLS_PER_TURN;
+
                     newState.isProcessing = false;
                     break;
+                }
                 case TurnPhase.ROLL_SPEND:
                     newState.phase = TurnPhase.DRAW;
                     newState.isProcessing = true;

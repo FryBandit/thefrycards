@@ -1,15 +1,12 @@
-
 import React, { useMemo, useState } from 'react';
 import { type GameState, type CardInGame, type Player, TurnPhase } from '../game/types';
 import { checkDiceCost } from '../hooks/useGameState';
 import DiceTray from './DiceTray';
-import CardPreview from './CardPreview';
 import PlayerInfoPanel from './PlayerInfoPanel';
 import { CombatPreviewTooltip } from './CombatPreviewTooltip';
 import PlayerArea from './PlayerArea';
 import { Hand } from './Hand';
 import Card from './Card';
-import { phaseStyles } from './PhaseAnnouncer';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -43,6 +40,40 @@ interface GameBoardProps {
   onAmplifyClick: (card: CardInGame) => void;
   onShowHowToPlay: () => void;
 }
+
+const ZoneTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div className="text-center font-cinzel text-stone-surface/60 tracking-[0.3em] text-xs uppercase mb-1">{children}</div>
+);
+
+const DeploymentZone: React.FC<{ children: React.ReactNode; color: 'red' | 'blue'; isCurrent: boolean }> = ({ children, color, isCurrent }) => {
+    const shadowClass = color === 'red' ? 'shadow-glow-red' : 'shadow-glow-blue';
+    const borderClass = color === 'red' ? 'border-glow-red' : 'border-glow-blue';
+    return (
+        <div className={`w-full h-full bg-stone-border/30 p-2 rounded-lg border-2 ${isCurrent ? `${borderClass} ${shadowClass}` : 'border-stone-surface/30'} transition-all duration-300`}>
+            <ZoneTitle>Deployment Zone</ZoneTitle>
+            {children}
+        </div>
+    );
+};
+
+const DeckZone: React.FC<{ player: Player }> = ({ player }) => (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-stone-border/30 rounded-lg p-2 border-2 border-stone-surface/30">
+        <ZoneTitle>Deck</ZoneTitle>
+        <div className="w-28 h-40 bg-stone-surface/50 rounded-lg flex items-center justify-center text-4xl font-black font-cinzel text-stone-border">
+            {player.deck.length}
+        </div>
+    </div>
+);
+
+const GraveyardZone: React.FC<{ player: Player; onZoneClick: (player: Player, zone: 'graveyard' | 'oblivion') => void }> = ({ player, onZoneClick }) => (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-stone-border/30 rounded-lg p-2 border-2 border-stone-surface/30 cursor-pointer hover:border-vivid-yellow" onClick={() => onZoneClick(player, 'graveyard')}>
+        <ZoneTitle>Unleashed</ZoneTitle>
+        <div className="w-28 h-40 bg-stone-surface/50 rounded-lg flex items-center justify-center text-stone-border/70 p-2 text-center text-xs italic">
+            {player.graveyard.length > 0 ? `${player.graveyard.length} cards` : '(empty)'}
+        </div>
+    </div>
+);
+
 
 const GameBoard: React.FC<GameBoardProps> = ({ 
     gameState, isSpectator = false, onDieClick, onRoll, onBoardCardClick, 
@@ -87,41 +118,30 @@ const GameBoard: React.FC<GameBoardProps> = ({
     return null;
   }, [phase, selectedBlockerId, hoveredAttackerId, player.units, opponent.units]);
 
-  const getPhaseAction = () => {
-    if (isSpectator) return null;
-    if (targetingCard) return { text: "CANCEL", action: onCancelTargeting, disabled: false, style: 'h-16' };
-    
-    if (phase === TurnPhase.BLOCK && !isPlayerTurn) {
-        return { text: "CONFIRM BLOCKS", action: onConfirmBlocks, disabled: false, style: 'bg-blue-600 hover:bg-blue-500 h-16 text-xl' };
-    }
+  const canAdvancePhase = useMemo(() => {
+    if(isSpectator || !isPlayerTurn) return false;
+    if(targetingCard) return false;
+    if(phase === TurnPhase.ROLL_SPEND || phase === TurnPhase.END || phase === TurnPhase.DRAW) return true;
+    return false;
+  }, [phase, isPlayerTurn, isSpectator, targetingCard]);
 
-    if (!isPlayerTurn) return null;
-    
-    switch(phase) {
-        case TurnPhase.MULLIGAN: return null;
-        case TurnPhase.ROLL_SPEND: {
-            const hasUnspentDice = dice.some(d => !d.isSpent);
-            const action = () => {
-                if (hasUnspentDice) {
-                    showConfirmation('End Phase?', 'You have unspent dice. Are you sure you want to end the phase?', () => onAdvancePhase());
-                } else {
-                    onAdvancePhase();
-                }
-            };
-            return { text: "END PHASE", action, disabled: rollCount === 0, style: 'h-16 text-lg' };
+  const handleAdvance = () => {
+    if (phase === TurnPhase.ROLL_SPEND) {
+         const hasUnspentDice = dice.some(d => !d.isSpent);
+        if (hasUnspentDice) {
+            showConfirmation('End Phase?', 'You have unspent dice. Are you sure you want to end the phase?', () => onAdvancePhase());
+        } else {
+            onAdvancePhase();
         }
-        case TurnPhase.DRAW: return { text: "BEGIN STRIKE", action: () => onAdvancePhase(), disabled: false, style: 'h-16 text-lg' };
-        case TurnPhase.STRIKE: return null;
-        case TurnPhase.END: return { text: "END TURN", action: () => showConfirmation('End Turn?', 'Are you sure you want to end your turn?', () => onAdvancePhase()), disabled: false, style: 'h-16 text-lg' };
-        default: return null;
+    } else if (phase === TurnPhase.END) {
+        showConfirmation('End Turn?', 'Are you sure you want to end your turn?', () => onAdvancePhase())
+    } else {
+        onAdvancePhase();
     }
   }
-  const phaseAction = getPhaseAction();
-  const phaseStyle = phaseStyles[phase] || phaseStyles.default;
-
+  
   return (
-    <div className="relative w-full h-screen flex flex-col bg-transparent text-white font-bold uppercase overflow-hidden">
-        <CardPreview card={hoveredCardInHand} />
+    <div className="relative w-full h-screen flex items-center justify-center bg-transparent text-white font-sans p-2 sm:p-4">
         {combatPreviewData && (
             <CombatPreviewTooltip 
                 attacker={combatPreviewData.attacker}
@@ -132,60 +152,80 @@ const GameBoard: React.FC<GameBoardProps> = ({
         )}
         
         {targetingCard && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20" onClick={onCancelTargeting} />}
-        {phase === TurnPhase.BLOCK && <div className="absolute inset-0 bg-black/30 z-20 pointer-events-none" />}
 
-        {/* Top left corner actions */}
-        <div className="absolute top-4 left-4 z-40 pointer-events-auto">
-            <button 
-                onClick={onShowHowToPlay} 
-                className="w-12 h-12 bg-arcane-primary/80 rounded-full flex items-center justify-center text-2xl font-black hover:bg-arcane-secondary transition-colors border-2 border-arcane-border"
-                aria-label="How to Play"
-              >
-                ?
-              </button>
-        </div>
+        <div className="w-full h-full max-w-[1800px] max-h-[1000px] grid grid-cols-[80px_1fr_1fr_80px] grid-rows-[auto_1fr_1fr_auto] gap-4 bg-stone-bg p-4 rounded-lg border-4 border-stone-border shadow-2xl relative">
+                
+            {/* Title */}
+            <div className="col-start-2 col-span-2 text-center py-1 font-cinzel text-2xl md:text-3xl tracking-[0.5em] text-stone-surface/80 uppercase">Runworn Battlefield</div>
 
-        {/* Center Game State */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-            <div className="text-center bg-arcane-surface/80 backdrop-blur-sm p-2 rounded-lg border-2 border-arcane-border shadow-lg">
-              <div className="text-sm md:text-base font-bold text-vivid-cyan tracking-[0.2em]">TURN {turn}</div>
-              <div className={`text-xl md:text-2xl font-black leading-none transition-colors duration-300 ${phaseStyle}`}>{`${phase}`}</div>
-              <div className="text-sm md:text-base font-semibold text-vivid-yellow tracking-wider mt-1">{players[currentPlayerId].name}'s Turn</div>
+            {/* Morale Tracks */}
+            <div className="row-start-2 row-span-2"><PlayerInfoPanel player={opponent} isOpponent={true} /></div>
+            <div className="col-start-4 row-start-2 row-span-2"><PlayerInfoPanel player={player} /></div>
+
+            {/* Opponent Area */}
+            <div className="col-start-2 row-start-2 flex gap-4">
+                <div className="flex-1">
+                    <DeploymentZone color="red" isCurrent={!isPlayerTurn}>
+                       <PlayerArea player={opponent} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} isCurrent={!isPlayerTurn} />
+                    </DeploymentZone>
+                </div>
+                <div className="flex-1">
+                    <DeploymentZone color="red" isCurrent={!isPlayerTurn}>
+                        {/* Second deployment zone for opponent - currently empty */}
+                         <div className="w-full h-full flex items-center justify-center text-stone-surface/60 italic text-lg border-2 border-dashed border-stone-surface/30 rounded-lg">FIELD EMPTY</div>
+                    </DeploymentZone>
+                </div>
             </div>
+
+            {/* Player Area */}
+            <div className="col-start-2 row-start-3 flex gap-4">
+               <div className="flex-1">
+                    <DeploymentZone color="blue" isCurrent={isPlayerTurn}>
+                       <PlayerArea player={player} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} hoveredAttackerId={hoveredAttackerId} isCurrent={isPlayerTurn} />
+                    </DeploymentZone>
+                </div>
+                <div className="flex-1">
+                    <DeploymentZone color="blue" isCurrent={isPlayerTurn}>
+                        {/* Second deployment zone for player - currently empty */}
+                        <div className="w-full h-full flex items-center justify-center text-stone-surface/60 italic text-lg border-2 border-dashed border-stone-surface/30 rounded-lg">FIELD EMPTY</div>
+                    </DeploymentZone>
+                </div>
+            </div>
+
+            {/* Opponent Deck/Grave */}
+            <div className="col-start-3 row-start-2 flex gap-4">
+                <DeckZone player={opponent} />
+                <GraveyardZone player={opponent} onZoneClick={onZoneClick} />
+            </div>
+
+             {/* Player Deck/Grave */}
+            <div className="col-start-3 row-start-3 flex gap-4">
+                <DeckZone player={player} />
+                <GraveyardZone player={player} onZoneClick={onZoneClick} />
+            </div>
+
+            {/* Center Hub */}
+            <div className="col-start-2 col-span-2 row-start-2 row-span-2 flex flex-col items-center justify-center pointer-events-none">
+                <div className="pointer-events-auto">
+                    <DiceTray 
+                        dice={dice} rollCount={rollCount} maxRolls={maxRolls} onDieClick={onDieClick}
+                        onRoll={onRoll} canRoll={rollCount < maxRolls && isPlayerTurn && !isSpectator} 
+                        valuableDiceForHover={valuableDiceForHover}
+                        isHoveredCardPlayable={isHoveredCardPlayable} lastActionDetails={gameState.lastActionDetails}
+                        onAdvancePhase={handleAdvance}
+                        canAdvance={canAdvancePhase}
+                        phase={phase}
+                        isPlayerTurn={isPlayerTurn}
+                    />
+                </div>
+            </div>
+            
+            <div className="col-start-2 col-span-2 flex items-center justify-center font-cinzel text-stone-surface/60 tracking-[0.3em] text-xs uppercase"><p className="bg-stone-bg px-4">COMMAND HUB</p></div>
+            <div className="col-start-2 col-span-2 row-start-4 flex items-center justify-center font-cinzel text-stone-surface/60 tracking-[0.3em] text-xs uppercase"><p className="bg-stone-bg px-4">OBLIVION (THE AETHER)</p></div>
+
         </div>
-        
-        {/* Game Board Layout */}
-        <div className="flex-grow w-full max-w-7xl mx-auto flex flex-col justify-between items-center pt-20 pb-48">
-            {/* Opponent Side */}
-             <PlayerArea 
-                player={opponent} players={players} gameState={gameState} onCardClick={onBoardCardClick} 
-                targetingCard={targetingCard} isCardActivatable={isCardActivatable}
-                onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId}
-                lastTriggeredCardId={lastTriggeredCardId}
-                onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId}
-                blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId}
-                isCurrent={!isPlayerTurn}
-            />
-            <div className="w-full border-t-2 border-vivid-cyan/20 my-1 sm:my-2"></div>
-            {/* Player Side */}
-            <PlayerArea 
-                player={player} players={players} gameState={gameState} onCardClick={onBoardCardClick} 
-                targetingCard={targetingCard} isCardActivatable={isCardActivatable}
-                onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId}
-                lastTriggeredCardId={lastTriggeredCardId}
-                hoveredAttackerId={hoveredAttackerId}
-                onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId}
-                blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId}
-                isCurrent={isPlayerTurn}
-            />
-        </div>
-        
-        {/* Opponent Info Panel */}
-        <div className="absolute top-4 right-4 z-40 w-80">
-            <PlayerInfoPanel player={opponent} isCurrent={!isPlayerTurn} isOpponent={true} onZoneClick={(zone) => onZoneClick(opponent, zone)} />
-        </div>
-        
-        {/* Player UI Area */}
+
+        {/* Hand Area - Absolute positioned over the board */}
         <div className="absolute bottom-0 left-0 right-0 h-48 z-30 pointer-events-none">
             <Hand 
                 player={player}
@@ -198,55 +238,15 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 onAmplifyClick={onAmplifyClick}
                 onExamineCard={onExamineCard}
                 setHoveredCardInHand={setHoveredCardInHand}
+                hoveredCardInHand={hoveredCardInHand}
                 isSpectator={isSpectator}
             />
         </div>
 
-        {/* Player Info Panel */}
-        <div className="absolute bottom-4 left-4 z-40 w-80">
-            <PlayerInfoPanel player={player} isCurrent={isPlayerTurn} onZoneClick={(zone) => onZoneClick(player, zone)} />
-        </div>
-
-        {/* Action Hub */}
-        <div className="absolute bottom-4 right-4 z-40 w-96 flex items-end gap-3">
-             {phase === TurnPhase.ROLL_SPEND && isPlayerTurn && !isSpectator && (
-                <DiceTray
-                    dice={dice} rollCount={rollCount} maxRolls={maxRolls} onDieClick={onDieClick}
-                    onRoll={onRoll} canRoll={rollCount < maxRolls} valuableDiceForHover={valuableDiceForHover}
-                    isHoveredCardPlayable={isHoveredCardPlayable} lastActionDetails={gameState.lastActionDetails}
-                />
-            )}
-            
-             <div className="flex-grow flex flex-col gap-2">
-                {phase === TurnPhase.STRIKE && isPlayerTurn && !isSpectator ? (
-                    <div className="flex flex-col gap-2 w-full">
-                        <button onClick={() => onAdvancePhase(true)} disabled={player.units.filter(u => !u.abilities?.entrenched).length === 0}
-                            className="w-full bg-vivid-pink text-arcane-bg px-4 h-16 text-xl rounded-lg shadow-lg hover:bg-opacity-90 transition-colors disabled:bg-gray-600 disabled:text-white font-bold uppercase">Strike</button>
-                        <button onClick={() => onAdvancePhase(false)}
-                            className="w-full bg-arcane-primary text-white px-4 h-10 text-md rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors font-bold uppercase">Skip Strike</button>
-                    </div>
-                ) : phaseAction ? (
-                    <button onClick={phaseAction.action} disabled={phaseAction.disabled}
-                        className={`w-full ${phaseAction.style || 'bg-arcane-primary hover:bg-arcane-secondary'} text-white px-4 rounded-lg shadow-lg transition-colors disabled:bg-gray-600 border-2 border-arcane-border`}>
-                        {phaseAction.text}
-                    </button>
-                ) : phase === TurnPhase.BLOCK && !isSpectator ? (
-                    <div className="text-center text-yellow-300 italic text-lg animate-pulse h-16 flex items-center justify-center bg-arcane-surface/70 rounded-lg border-2 border-arcane-border">
-                        {isPlayerTurn ? "Opponent is Blocking" : "Declare Blockers"}
-                    </div>
-                ) : (isSpectator && phase !== TurnPhase.MULLIGAN) ? (
-                     <div className="text-center text-vivid-cyan italic text-lg animate-pulse h-16 flex items-center justify-center bg-arcane-surface/70 rounded-lg border-2 border-arcane-border">
-                        Spectating AI...
-                    </div>
-                ) : null}
-             </div>
-        </div>
-
-
       {/* Mulligan UI - Full screen overlay */}
       {phase === TurnPhase.MULLIGAN && isPlayerTurn && !isSpectator && (
-        <div className="absolute inset-0 bg-arcane-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
-            <h2 className="text-4xl font-black text-vivid-cyan uppercase tracking-widest mb-4">Choose Your Starting Hand</h2>
+        <div className="absolute inset-0 bg-stone-bg/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center text-white p-8">
+            <h2 className="text-4xl font-black text-glow-blue uppercase tracking-widest mb-4 font-cinzel">Choose Your Starting Hand</h2>
             <p className="text-vivid-yellow/70 mb-8">You may redraw your starting starting hand once.</p>
             <div className="flex justify-center items-end gap-4 h-80 mb-8">
                 {players[0].hand.map((card) => (
@@ -256,8 +256,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 ))}
             </div>
             <div className="flex space-x-6">
-                <button onClick={() => onMulligan(false)} className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase tracking-wider">Keep Hand</button>
-                <button onClick={() => onMulligan(true)} className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase tracking-wider">Mulligan</button>
+                <button onClick={() => onMulligan(false)} className="bg-stone-surface text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-stone-surface/80 transition-colors text-xl transform hover:scale-105 border-2 border-glow-blue uppercase tracking-wider font-cinzel">Keep Hand</button>
+                <button onClick={() => onMulligan(true)} className="bg-stone-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-stone-surface transition-colors text-xl transform hover:scale-105 border-2 border-stone-border uppercase tracking-wider font-cinzel">Mulligan</button>
             </div>
         </div>
       )}
