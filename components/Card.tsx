@@ -131,7 +131,7 @@ const Card: React.FC<CardProps> = ({
             <div className="relative h-full flex flex-col p-2 justify-between">
                 {/* Header */}
                 <div className="flex justify-between items-start text-shadow">
-                    <h3 className={`font-bold leading-tight flex-1 pr-1 transition-opacity ${isOnBoard ? 'text-xs opacity-0 group-hover:opacity-100' : 'text-sm sm:text-base'}`}>{card.name}</h3>
+                    <h3 className={`font-bold leading-tight flex-1 pr-1 transition-opacity truncate ${isOnBoard ? 'text-xs opacity-0 group-hover:opacity-100' : 'text-sm sm:text-base'}`}>{card.name}</h3>
                     {isUnit && card.moraleValue !== undefined && (
                         <div className={`flex-shrink-0 rounded-full flex items-center justify-center font-black ${isOnBoard ? 'w-6 h-6 text-sm' : 'w-7 h-7 sm:w-8 sm:h-8 text-lg'} ${typeColor} bg-arcane-bg/80 border-2 ${typeColor}`}>
                            {card.moraleValue}

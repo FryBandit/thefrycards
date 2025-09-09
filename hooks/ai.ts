@@ -1,5 +1,6 @@
 
 
+
 import { GameState, CardInGame, Die, TurnPhase, CardType, Player, DiceCostType, DiceCost } from '../game/types';
 import { getEffectiveStats, cardHasAbility } from '../game/utils';
 import { checkDiceCost, isCardTargetable } from './useGameState';
@@ -202,7 +203,7 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
     const sortedHand = [...hand]
         .sort((a, b) => getCardScore(b, aiPlayer, opponentPlayer, turn) - getCardScore(a, aiPlayer, opponentPlayer, turn));
     
-    const topCards = sortedHand.slice(0, 3);
+    const topCards = sortedHand;
     if (topCards.length === 0) return [];
 
     const allValuableDice = new Map<number, Die>();
@@ -247,11 +248,15 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
         const hand = playerToDecide.hand;
         if (hand.length === 0) return { type: 'AI_MULLIGAN', payload: { mulligan: false } };
 
-        const unitCount = hand.filter(c => c.type === CardType.UNIT).length;
-        const curve = hand.map(c => countDiceForCost(c.dice_cost));
-        const hasLowCurve = curve.some(c => c <= 2);
-        let score = (unitCount > 0 ? 4 : -5) + (hasLowCurve ? 3 : 0) + (new Set(hand.map(c => c.type)).size > 1 ? 2 : 0);
-        const shouldMulligan = score < 5;
+        const hasUnit = hand.some(c => c.type === CardType.UNIT);
+        const costOfCards = hand.map(c => countDiceForCost(c.dice_cost));
+        const avgCost = costOfCards.reduce((a, b) => a + b, 0) / (costOfCards.length || 1);
+        const hasPlayableEarlyCard = costOfCards.some(c => c <= 2); // Playable with 1-2 dice
+        const isBrickHand = avgCost > 3.5 && !hasPlayableEarlyCard;
+
+        // Keep if: has a unit AND is not a brick hand.
+        const shouldMulligan = !hasUnit || isBrickHand;
+        
         return { type: 'AI_MULLIGAN', payload: { mulligan: shouldMulligan } };
     }
     
@@ -353,7 +358,10 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
     if (phase === TurnPhase.BLOCK) return null; // Attacker is waiting
 
     if (phase === TurnPhase.ROLL_SPEND) {
-        if (rollCount === 0) return { type: 'ROLL_DICE' };
+        // Before the first roll of the turn, always roll.
+        if (rollCount === 0) {
+            return { type: 'ROLL_DICE' };
+        }
 
         const possiblePlays: AIPossiblePlay[] = [];
         
@@ -428,7 +436,7 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
         
         if (possiblePlays.length > 0) {
             possiblePlays.sort((a, b) => b.score - a.score);
-            const playThreshold = rollCount >= state.maxRolls ? 0.1 : 3;
+            const playThreshold = rollCount >= state.maxRolls ? 0.1 : 2.5;
             if (possiblePlays[0].score > playThreshold) return possiblePlays[0].action;
         }
 

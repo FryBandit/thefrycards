@@ -17,12 +17,12 @@ const ActionHistory: React.FC<ActionHistoryProps> = ({ history, players }) => {
     }, [history]);
 
     return (
-        <div className={`fixed top-1/2 -translate-y-1/2 right-0 w-80 h-3/4 max-h-[700px] z-40 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-[calc(100%-2.5rem)]'}`}>
+        <div className={`fixed top-1/2 -translate-y-1/2 left-0 w-80 h-5/6 max-h-[800px] z-40 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-[calc(100%-2.5rem)]'}`}>
             <div className="relative w-full h-full flex">
                  {/* Toggle Tab */}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="absolute top-1/2 left-0 -translate-y-1/2 w-10 h-24 bg-arcane-border/80 rounded-l-lg flex items-center justify-center text-vivid-yellow font-black text-lg transform-gpu hover:bg-arcane-primary transition-colors border-y-2 border-l-2 border-arcane-border"
+                    className="absolute top-1/2 left-full -translate-y-1/2 w-10 h-24 bg-arcane-border/80 rounded-r-lg flex items-center justify-center text-vivid-yellow font-black text-lg transform-gpu hover:bg-arcane-primary transition-colors border-y-2 border-r-2 border-arcane-border"
                     aria-label={isOpen ? 'Close History' : 'Open History'}
                     aria-expanded={isOpen}
                 >
@@ -35,7 +35,7 @@ const ActionHistory: React.FC<ActionHistoryProps> = ({ history, players }) => {
                 </button>
                 
                 {/* Panel Content */}
-                <div className="w-full h-full bg-arcane-surface/80 backdrop-blur-sm rounded-l-lg p-2 text-white text-xs font-mono flex flex-col border-2 border-r-0 border-arcane-border shadow-lg">
+                <div className="w-full h-full bg-arcane-surface/80 backdrop-blur-sm rounded-r-lg p-2 text-white text-xs font-mono flex flex-col border-2 border-l-0 border-arcane-border shadow-lg">
                     <h3 className="text-sm font-bold border-b border-vivid-cyan/50 mb-2 pb-1 text-vivid-cyan uppercase tracking-widest flex-shrink-0">Action History</h3>
                     <div ref={panelRef} className="overflow-y-auto flex-grow pr-2">
                         {/* Newest actions will appear at the top */}

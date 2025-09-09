@@ -42,7 +42,7 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isOpponent = 
                 {numbers.map(num => {
                     const isCurrent = player.morale === num;
                     return (
-                        <div key={num} className="relative w-full h-6 flex items-center justify-center my-0.5">
+                        <div key={num} className="relative w-full flex-1 flex items-center justify-center">
                            {isCurrent && (
                                 <div className={`absolute w-8 h-8 rounded-md ${colorClass} ${shadowClass} transition-all duration-500 flex items-center justify-center z-10 transform rotate-45 ${moraleAnim}`}>
                                     <span className={`text-stone-bg font-black transform -rotate-45 text-lg`}>{num}</span>

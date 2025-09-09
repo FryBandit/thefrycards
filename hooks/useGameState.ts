@@ -1,6 +1,7 @@
 
 
 
+
 import { useReducer } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats, cardHasAbility, shuffle } from '../game/utils';
@@ -253,7 +254,20 @@ const checkSingleCost = (cost: DiceCost, availableDice: Die[]): CostCheckResult 
 
 export const checkDiceCost = (card: { dice_cost: DiceCost[], abilities?: { [key: string]: any; } }, dice: Die[]): { canPay: boolean, diceToSpend: Die[] } => {
     let availableDice = dice.filter(d => !d.isSpent);
-    const costToUse = card.abilities?.wild ? card.dice_cost.map(c => c.type === DiceCostType.EXACT_VALUE ? { ...c, type: DiceCostType.ANY_X_DICE } : c) : card.dice_cost;
+    
+    let costToUse = card.dice_cost;
+    if (card.abilities?.wild) {
+        costToUse = card.dice_cost.map(c => {
+            if (c.type === DiceCostType.EXACT_VALUE) {
+                return { ...c, type: DiceCostType.ANY_X_DICE, count: c.count || 1 };
+            }
+            if (c.type === DiceCostType.MIN_VALUE) {
+                return { ...c, type: DiceCostType.ANY_X_DICE, count: 1 };
+            }
+            return c;
+        });
+    }
+
     if (!costToUse || costToUse.length === 0) return { canPay: true, diceToSpend: [] };
     
     let totalDiceToSpend: Die[] = [];
@@ -603,6 +617,18 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if(nextPlayerToMulligan) {
                 newState.phase = TurnPhase.AI_MULLIGAN;
             } else {
+                // Both players have decided on mulligan. Give player 2 an extra card for going second.
+                let player2 = newState.players[1];
+                ({ player: player2 } = drawCards(player2, 1));
+                
+                const logMessage = `${player2.name} draws an extra card for going second.`;
+                const player1Log = newState.actionHistory.find(h => h.turn === newState.turn && h.playerId === 1);
+                if (player1Log) {
+                    player1Log.actions.push(logMessage);
+                } else {
+                    newState.actionHistory.push({ turn: newState.turn, playerId: 1, actions: [logMessage] });
+                }
+
                 newState.phase = TurnPhase.START;
             }
             newState.isProcessing = true;

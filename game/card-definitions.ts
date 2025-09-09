@@ -545,7 +545,7 @@ export const cardDefinitions: CardDefinition[] = [
     id: 85,
     name: "ChromaVoid",
     type: CardType.EVENT,
-    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 24, "count": 3 }],
+    dice_cost: [{ type: DiceCostType.SUM_OF_X_DICE, "value": 16, "count": 3 }],
     strength: undefined,
     durability: undefined,
     text: "Obliterate.",

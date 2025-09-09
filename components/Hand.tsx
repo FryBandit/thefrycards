@@ -15,6 +15,7 @@ interface HandProps {
     setHoveredCardInHand: (card: CardInGame | null) => void;
     hoveredCardInHand: CardInGame | null;
     isSpectator?: boolean;
+    isOpponentHand?: boolean;
 }
 
 const Hand: React.FC<HandProps> = ({
@@ -22,45 +23,45 @@ const Hand: React.FC<HandProps> = ({
     isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, onExamineCard, 
     setHoveredCardInHand, hoveredCardInHand,
     isSpectator = false,
+    isOpponentHand = false,
 }) => {
     const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
 
     const getCardStyle = (index: number, total: number, isHovered: boolean): React.CSSProperties => {
         if (total <= 1) return { transform: 'translateX(-50%)', zIndex: isHovered ? 30 : 1 };
     
-        // --- Base calculations from original component ---
         const maxAngle = 45;
         const anglePerCard = Math.min(maxAngle / total, 8);
         const baseRotation = (index - (total - 1) / 2) * anglePerCard;
-        const baseTranslateY = Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 30;
+        const ySign = isOpponentHand ? -1 : 1;
+
+        const baseTranslateY = ySign * Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 40; // Increased fan
         
-        const baseSpacing = 120;
-        const minSpacing = 60;
-        const spacing = Math.max(minSpacing, baseSpacing - total * 10);
+        const baseSpacing = 100;
+        const minSpacing = 50;
+        const spacing = Math.max(minSpacing, baseSpacing - total * 8); // Adjusted spacing
         const translateX = (index - (total - 1) / 2) * spacing;
 
-        // --- Determine final values based on hover state, mimicking tailwind classes ---
         const rotation = isHovered ? 0 : baseRotation;
-        const translateY = isHovered ? -48 : baseTranslateY; // -48px is -translate-y-12
+        const translateY = isHovered ? (isOpponentHand ? 48 : -48) : baseTranslateY; // 48px is y-12
         const scale = isHovered ? 1.1 : 1;
         const zIndex = isHovered ? 30 : index;
         
-        // Replicating original transform order: translateX -> rotate -> translateY, then add scale
-        const transform = `translateX(calc(-50% + ${translateX}px)) rotate(${rotation}deg) translateY(${translateY}px) scale(${scale})`;
+        const transform = `translateX(calc(-50% + ${translateX}px)) rotate(${isOpponentHand ? -rotation : rotation}deg) translateY(${translateY}px) scale(${scale})`;
 
         return {
             transform: transform,
-            transformOrigin: 'bottom center',
+            transformOrigin: isOpponentHand ? 'top center' : 'bottom center',
             transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
             zIndex: zIndex,
         };
     };
 
     return (
-        <div className={`w-full h-full flex flex-col items-center justify-end ${isSpectator ? 'pointer-events-none' : 'pointer-events-auto'}`}>
+        <div className={`w-full h-full flex flex-col items-center ${isOpponentHand ? 'justify-start' : 'justify-end'} ${isSpectator ? 'pointer-events-none' : 'pointer-events-auto'}`}>
             {/* Card Area */}
             <div 
-                className="flex-grow w-full flex items-end justify-center px-4 relative h-[16rem]"
+                className={`w-full flex ${isOpponentHand ? 'items-start' : 'items-end'} justify-center px-4 relative h-[16rem]`}
                 onMouseLeave={() => setHoveredCardInHand(null)}
             >
                  {handCards.length > 0 ? (
@@ -70,7 +71,7 @@ const Hand: React.FC<HandProps> = ({
                         return (
                          <div 
                             key={card.instanceId} 
-                            className="absolute bottom-0 h-full left-1/2"
+                            className={`absolute ${isOpponentHand ? 'top-0' : 'bottom-0'} h-full left-1/2`}
                             style={getCardStyle(index, handCards.length, isHovered)}
                             onMouseEnter={() => setHoveredCardInHand(card)}
                         >
@@ -89,7 +90,7 @@ const Hand: React.FC<HandProps> = ({
                         </div>
                     )})
                  ) : (
-                    <div className="w-full text-center text-arcane-primary/60 italic text-lg">Hand is empty.</div>
+                    <div className="w-full text-center text-arcane-primary/60 italic text-lg">{isOpponentHand ? '' : 'Hand is empty.'}</div>
                  )}
             </div>
         </div>

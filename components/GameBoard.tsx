@@ -146,6 +146,26 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   return (
     <div className="relative w-full h-screen flex items-center justify-center bg-transparent text-white font-sans p-2 sm:p-4">
+        {isSpectator && (
+            <div className="absolute top-0 left-0 right-0 h-48 z-30 pointer-events-none">
+                <Hand 
+                    player={opponent}
+                    isCurrentPlayer={!isPlayerTurn}
+                    onCardClick={() => {}}
+                    isCardPlayable={() => false}
+                    isCardEvokeable={() => false}
+                    onEvokeClick={() => {}}
+                    isCardAmplifiable={() => false}
+                    onAmplifyClick={() => {}}
+                    onExamineCard={onExamineCard}
+                    setHoveredCardInHand={() => {}}
+                    hoveredCardInHand={null}
+                    isSpectator={isSpectator}
+                    isOpponentHand={true}
+                />
+            </div>
+        )}
+
         {/* Strike/Block Phase UI */}
         {isPlayerTurn && !isSpectator && phase === TurnPhase.STRIKE && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-stone-bg/90 backdrop-blur-md border-2 border-stone-surface rounded-lg p-6 flex flex-col items-center gap-4 shadow-2xl animate-modal-show">
@@ -192,7 +212,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         
         {targetingCard && <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20" onClick={onCancelTargeting} />}
 
-        <div className="w-full h-full max-w-[1800px] max-h-[1000px] grid grid-cols-[80px_1fr_1fr_80px] grid-rows-[auto_1fr_1fr_auto] gap-4 bg-stone-bg p-4 rounded-lg border-4 border-stone-border shadow-2xl relative">
+        <div className="w-full h-full max-w-[1800px] max-h-[1000px] grid grid-cols-[80px_2fr_1fr_80px] grid-rows-[auto_1fr_1fr_auto] gap-4 bg-stone-bg p-4 rounded-lg border-4 border-stone-border shadow-2xl relative">
                 
             {/* Title */}
             <div className="col-start-2 col-span-2 text-center py-1 font-cinzel text-2xl md:text-3xl tracking-[0.5em] text-stone-surface/80 uppercase">Runworn Battlefield</div>
@@ -202,33 +222,17 @@ const GameBoard: React.FC<GameBoardProps> = ({
             <div className="col-start-4 row-start-2 row-span-2"><PlayerInfoPanel player={player} /></div>
 
             {/* Opponent Area */}
-            <div className="col-start-2 row-start-2 flex gap-4">
-                <div className="flex-1">
-                    <DeploymentZone color="red" isCurrent={!isPlayerTurn}>
-                       <PlayerArea player={opponent} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} isCurrent={!isPlayerTurn} />
-                    </DeploymentZone>
-                </div>
-                <div className="flex-1">
-                    <DeploymentZone color="red" isCurrent={!isPlayerTurn}>
-                        {/* Second deployment zone for opponent - currently empty */}
-                         <div className="w-full h-full flex items-center justify-center text-stone-surface/60 italic text-lg border-2 border-dashed border-stone-surface/30 rounded-lg">FIELD EMPTY</div>
-                    </DeploymentZone>
-                </div>
+            <div className="col-start-2 row-start-2">
+                <DeploymentZone color="red" isCurrent={!isPlayerTurn}>
+                    <PlayerArea player={opponent} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} isCurrent={!isPlayerTurn} />
+                </DeploymentZone>
             </div>
 
             {/* Player Area */}
-            <div className="col-start-2 row-start-3 flex gap-4">
-               <div className="flex-1">
-                    <DeploymentZone color="blue" isCurrent={isPlayerTurn}>
-                       <PlayerArea player={player} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} hoveredAttackerId={hoveredAttackerId} isCurrent={isPlayerTurn} />
-                    </DeploymentZone>
-                </div>
-                <div className="flex-1">
-                    <DeploymentZone color="blue" isCurrent={isPlayerTurn}>
-                        {/* Second deployment zone for player - currently empty */}
-                        <div className="w-full h-full flex items-center justify-center text-stone-surface/60 italic text-lg border-2 border-dashed border-stone-surface/30 rounded-lg">FIELD EMPTY</div>
-                    </DeploymentZone>
-                </div>
+            <div className="col-start-2 row-start-3">
+                <DeploymentZone color="blue" isCurrent={isPlayerTurn}>
+                    <PlayerArea player={player} players={players} gameState={gameState} onCardClick={onBoardCardClick} targetingCard={targetingCard} isCardActivatable={isCardActivatable} onActivateCard={onActivateCard} lastActivatedCardId={lastActivatedCardId} lastTriggeredCardId={lastTriggeredCardId} onExamineCard={onExamineCard} selectedBlockerId={selectedBlockerId} blockAssignments={blockAssignments} setHoveredAttackerId={setHoveredAttackerId} hoveredAttackerId={hoveredAttackerId} isCurrent={isPlayerTurn} />
+                </DeploymentZone>
             </div>
 
             {/* Opponent Deck/Grave */}

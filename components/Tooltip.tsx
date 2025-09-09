@@ -8,15 +8,37 @@ interface TooltipProps {
 
 const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; transform: string } | null>(null);
   const wrapperRef = useRef<HTMLSpanElement>(null);
 
   const handleMouseEnter = () => {
     if (wrapperRef.current) {
       const rect = wrapperRef.current.getBoundingClientRect();
+      const tooltipWidth = 256; // w-64 in pixels
+      const tooltipHeight = 120; // estimate
+      const margin = 16; // 1rem
+
+      let finalTop = rect.top;
+      let finalLeft = rect.left + rect.width / 2;
+      let finalTransform = 'translate(-50%, -100%) translateY(-0.5rem)';
+
+      // Check vertical collision: if not enough space at the top, show below
+      if (rect.top - tooltipHeight - margin < 0) {
+        finalTop = rect.bottom;
+        finalTransform = 'translate(-50%, 0) translateY(0.5rem)';
+      }
+
+      // Check horizontal collision and clamp position
+      if (finalLeft - tooltipWidth / 2 < margin) {
+        finalLeft = tooltipWidth / 2 + margin;
+      } else if (finalLeft + tooltipWidth / 2 > window.innerWidth - margin) {
+        finalLeft = window.innerWidth - tooltipWidth / 2 - margin;
+      }
+
       setPosition({
-        top: rect.top, // Position at the top of the trigger element
-        left: rect.left + rect.width / 2, // Position at the horizontal center
+        top: finalTop,
+        left: finalLeft,
+        transform: finalTransform,
       });
       setIsVisible(true);
     }
@@ -40,8 +62,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
           style={{
             top: position.top,
             left: position.left,
-            // Position tooltip above the trigger element, centered horizontally, with a small margin
-            transform: 'translate(-50%, -100%) translateY(-0.5rem)',
+            transform: position.transform,
           }}
         >
           {content}

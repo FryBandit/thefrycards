@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import GameBoard from './components/GameBoard';
-// import ActionHistory from './components/GameLog';
+import ActionHistory from './components/GameLog';
 import Modal from './components/Modal';
 import HowToPlay from './components/HowToPlay';
 import CardViewerModal from './components/CardViewerModal';
@@ -439,7 +439,7 @@ const App: React.FC = () => {
         onShowHowToPlay={() => setView('howToPlay')}
       />
 
-      {/* <ActionHistory history={state.actionHistory} players={state.players} /> */}
+      <ActionHistory history={state.actionHistory} players={state.players} />
 
       {/* Overlays */}
        <PhaseAnnouncer phase={state.phase} turn={state.turn} />
