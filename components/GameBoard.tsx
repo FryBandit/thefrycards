@@ -11,6 +11,7 @@ import Card from './Card';
 interface GameBoardProps {
   gameState: GameState;
   isSpectator?: boolean;
+  gameMode: 'playerVsAi' | 'aiVsAi' | 'none';
   onDieClick: (id: number) => void;
   onRoll: () => void;
   onHandCardClick: (card: CardInGame) => void;
@@ -82,7 +83,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
     lastActivatedCardId, lastTriggeredCardId, onExamineCard, hoveredCardInHand, setHoveredCardInHand,
     onMulligan, showConfirmation, onConfirmBlocks, selectedBlockerId, blockAssignments,
     onZoneClick, onGraveyardCardClick, isCardReclaimable, isCardEvokeable, onEvokeClick,
-    isCardAmplifiable, onAmplifyClick, onHandCardClick, onShowHowToPlay
+    isCardAmplifiable, onAmplifyClick, onHandCardClick, onShowHowToPlay,
+    gameMode
 }) => {
   const { players, currentPlayerId, phase, dice, rollCount, turn, maxRolls } = gameState;
   const player = players[0];
@@ -140,8 +142,45 @@ const GameBoard: React.FC<GameBoardProps> = ({
     }
   }
   
+  const isPlayerDefender = phase === TurnPhase.BLOCK && currentPlayerId === 1 && gameMode !== 'aiVsAi';
+
   return (
     <div className="relative w-full h-screen flex items-center justify-center bg-transparent text-white font-sans p-2 sm:p-4">
+        {/* Strike/Block Phase UI */}
+        {isPlayerTurn && !isSpectator && phase === TurnPhase.STRIKE && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-stone-bg/90 backdrop-blur-md border-2 border-stone-surface rounded-lg p-6 flex flex-col items-center gap-4 shadow-2xl animate-modal-show">
+                <h3 className="text-2xl font-cinzel tracking-widest text-glow-red uppercase">Strike Phase</h3>
+                <p className="text-stone-surface/80">Declare a strike with your ready units or skip combat.</p>
+                <div className="flex gap-4 mt-2">
+                    <button 
+                        onClick={() => onAdvancePhase(false)}
+                        className="w-40 h-12 bg-stone-surface text-white text-lg rounded-lg shadow-md hover:bg-stone-surface/80 transition-colors border-2 border-stone-border font-cinzel tracking-widest"
+                    >
+                        Skip Combat
+                    </button>
+                    <button 
+                        onClick={() => onAdvancePhase(true)}
+                        className="w-40 h-12 bg-glow-red text-white text-lg rounded-lg shadow-md hover:bg-red-500 transition-colors border-2 border-stone-border font-cinzel tracking-widest"
+                    >
+                        Declare Strike
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {isPlayerDefender && !isSpectator && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-stone-bg/90 backdrop-blur-md border-2 border-glow-blue rounded-lg p-6 flex flex-col items-center gap-4 shadow-2xl animate-modal-show">
+                <h3 className="text-2xl font-cinzel tracking-widest text-glow-blue uppercase">Block Phase</h3>
+                <p className="text-stone-surface/80">Assign blockers to incoming attackers, then confirm.</p>
+                <button 
+                    onClick={onConfirmBlocks}
+                    className="w-48 h-12 bg-glow-blue text-white text-lg rounded-lg shadow-md hover:bg-blue-500 transition-colors border-2 border-stone-border font-cinzel tracking-widest mt-2"
+                >
+                    Confirm Blocks
+                </button>
+            </div>
+        )}
+
         {combatPreviewData && (
             <CombatPreviewTooltip 
                 attacker={combatPreviewData.attacker}

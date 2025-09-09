@@ -1,5 +1,6 @@
 
 
+
 import { useReducer } from 'react';
 import { GameState, Player, CardInGame, TurnPhase, Die, CardType, DiceCostType, DiceCost, CardDefinition, LastActionType } from '../game/types';
 import { getEffectiveStats, cardHasAbility, shuffle } from '../game/utils';
@@ -613,6 +614,8 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             
             switch (newState.phase) {
                 case TurnPhase.START: {
+                    // This phase is automatic. isProcessing must be true to allow the App effect loop to continue for both AI and Player.
+                    // For the player, the App effect will see a non-processing phase (like ROLL_SPEND) and set isProcessing to false.
                     newState.phase = TurnPhase.ROLL_SPEND;
                     
                     const player = newState.players[newState.currentPlayerId];
@@ -628,17 +631,29 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     newState.rollCount = 0;
                     newState.maxRolls = MAX_ROLLS_PER_TURN;
 
-                    newState.isProcessing = false;
+                    newState.isProcessing = true;
                     break;
                 }
                 case TurnPhase.ROLL_SPEND:
-                    newState.phase = TurnPhase.DRAW;
+                    newState.phase = TurnPhase.DRAW; // Draw is automatic, so keep processing
                     newState.isProcessing = true;
                     break;
-                case TurnPhase.DRAW:
-                    newState.phase = TurnPhase.STRIKE;
-                    newState.isProcessing = false;
+                case TurnPhase.DRAW: {
+                    const player = newState.players[newState.currentPlayerId];
+                    const canAttackUnits = player.units.filter(u => 
+                        !cardHasAbility(u, 'entrenched') &&
+                        (u.turnPlayed < newState.turn || cardHasAbility(u, 'charge'))
+                    );
+
+                    if (canAttackUnits.length === 0) {
+                        addLogEntry(`${player.name} has no units able to strike and skips combat.`);
+                        newState.phase = TurnPhase.END;
+                    } else {
+                        newState.phase = TurnPhase.STRIKE;
+                    }
+                    newState.isProcessing = true; // Let App effect handle next step
                     break;
+                }
                 case TurnPhase.STRIKE:
                     if (action.payload?.strike) {
                         newState.phase = TurnPhase.BLOCK;
@@ -690,7 +705,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 );
                 addLogEntry(`Roll ${newState.rollCount}: [${newState.dice.filter(d=>!d.isKept && !d.isSpent).map(d=>d.value).join(', ')}]`);
             }
-            newState.isProcessing = false;
             return newState;
         }
         
@@ -699,7 +713,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             if (die && !die.isSpent) {
                 die.isKept = action.payload.keep;
             }
-            newState.isProcessing = false;
             return newState;
         }
         
@@ -787,7 +800,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             
             afterEffectState = processDestroyedUnits(afterEffectState, log);
             
-            afterEffectState.isProcessing = false;
             log.forEach(addLogEntry);
 
             return afterEffectState;
@@ -825,7 +837,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     log.push(`${card.name} is spent and moved to the graveyard.`);
                 }
                 
-                afterEffectState.isProcessing = false;
                 log.forEach(addLogEntry);
                 return afterEffectState;
             }

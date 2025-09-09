@@ -368,6 +368,9 @@ const App: React.FC = () => {
         const isDefenderAi = (defenderId === 0 && player0isAi) || (defenderId === 1 && player1isAi);
         if (isDefenderAi) {
             handleAiTurn(defenderId);
+        } else {
+            // Defender is human, AI attacker is waiting. Allow human interaction.
+            dispatch({ type: 'AI_ACTION' }); // Set isProcessing to false
         }
     } else {
         const isCurrentPlayerAi = (state.currentPlayerId === 0 && player0isAi) || (state.currentPlayerId === 1 && player1isAi);
@@ -405,6 +408,7 @@ const App: React.FC = () => {
       <GameBoard
         gameState={state}
         isSpectator={gameMode === 'aiVsAi'}
+        gameMode={gameMode}
         onDieClick={handleDieClick}
         onRoll={handleRoll}
         onHandCardClick={handleHandCardClick}
