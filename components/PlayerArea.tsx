@@ -14,11 +14,14 @@ const PlayerArea: React.FC<{
     isCardActivatable: (card: CardInGame) => boolean;
     onActivateCard: (card: CardInGame) => void;
     lastActivatedCardId: string | null;
+    lastTriggeredCardId: string | null;
     onExamineCard: (card: CardInGame) => void;
     selectedBlockerId?: string | null;
     blockAssignments?: Map<string, string>;
     setHoveredAttackerId: (id: string | null) => void;
-}> = ({ player, players, gameState, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, onExamineCard, selectedBlockerId, blockAssignments, setHoveredAttackerId }) => {
+    hoveredAttackerId?: string | null;
+    isCurrent: boolean;
+}> = ({ player, players, gameState, onCardClick, targetingCard, isCardActivatable, onActivateCard, lastActivatedCardId, lastTriggeredCardId, onExamineCard, selectedBlockerId, blockAssignments, setHoveredAttackerId, hoveredAttackerId, isCurrent }) => {
     
     const { phase, currentPlayerId, combatants } = gameState;
     const backRowCards = [...player.locations, ...player.artifacts];
@@ -39,6 +42,8 @@ const PlayerArea: React.FC<{
         
         const isPlayerDefender = phase === TurnPhase.BLOCK && player.id !== currentPlayerId;
         const isPotentialBlocker = isPlayerDefender && card.type === CardType.UNIT && !card.abilities?.entrenched && !isBlocker;
+        const isPotentialBlockerForHover = isPotentialBlocker && !!hoveredAttackerId;
+
 
         const isPlayerAttackerInStrikePhase = phase === TurnPhase.STRIKE && player.id === currentPlayerId;
         const isPotentialAttacker = isPlayerAttackerInStrikePhase && card.type === CardType.UNIT && !card.abilities?.entrenched;
@@ -68,6 +73,7 @@ const PlayerArea: React.FC<{
                 effectiveStrength={effectiveStrength}
                 effectiveDurability={effectiveDurability}
                 isActivating={lastActivatedCardId === card.instanceId}
+                isTriggered={lastTriggeredCardId === card.instanceId}
                 rallyBonus={rallyBonus}
                 synergyBonus={synergyBonus}
                 onExamine={onExamineCard}
@@ -75,17 +81,18 @@ const PlayerArea: React.FC<{
                 isBlocker={isBlocker}
                 isSelectedAsBlocker={isSelectedAsBlocker}
                 isPotentialBlocker={isPotentialBlocker}
+                isPotentialBlockerForHover={isPotentialBlockerForHover}
                 blockingTargetName={blockingTargetName}
                 isPotentialAttacker={isPotentialAttacker}
                 isTargetForBlocker={isTargetForBlocker}
-                onMouseEnter={canBeHoveredForCombatPreview ? () => setHoveredAttackerId(card.instanceId) : undefined}
-                onMouseLeave={canBeHoveredForCombatPreview ? () => setHoveredAttackerId(null) : undefined}
+                onMouseEnter={isAttacking ? () => setHoveredAttackerId(card.instanceId) : (canBeHoveredForCombatPreview ? () => setHoveredAttackerId(card.instanceId) : undefined)}
+                onMouseLeave={isAttacking ? () => setHoveredAttackerId(null) : (canBeHoveredForCombatPreview ? () => setHoveredAttackerId(null) : undefined)}
             />
         );
     };
     
     return (
-        <div className="flex-grow w-full flex flex-col items-center justify-center p-1 sm:p-2 min-h-[16rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_70%)]">
+        <div className={`flex-grow w-full flex flex-col items-center justify-center p-1 min-h-[16rem] bg-[radial-gradient(ellipse_at_center,_rgba(26,9,58,0.3)_0%,_rgba(13,2,33,0)_70%)] rounded-lg border-2 transition-colors duration-500 ${isCurrent ? 'animate-active-player-border border-vivid-cyan/20' : 'border-transparent'}`}>
             {allCards.length > 0 ? (
                  <div className="w-full h-full flex flex-col justify-center items-center gap-y-4">
                     {backRowCards.length > 0 && <div className="flex flex-wrap gap-2 md:gap-4 items-center justify-center w-full">
@@ -101,4 +108,4 @@ const PlayerArea: React.FC<{
         </div>
     );
 };
-export default PlayerArea;
+export default React.memo(PlayerArea);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Die as DieType, GameState } from '../game/types';
 import { LastActionType } from '../game/types';
@@ -103,4 +104,4 @@ const Die: React.FC<DieProps> = ({ die, onClick, isRolling = false, isHighlighte
   );
 };
 
-export default Die;
+export default React.memo(Die);

@@ -2,6 +2,7 @@
 
 
 
+
 export enum CardType {
   UNIT = 'Unit',
   EVENT = 'Event',
@@ -131,6 +132,7 @@ export interface GameState {
   isProcessing: boolean;
   extraTurns: number;
   lastActionDetails?: { type: LastActionType; spentDiceIds: number[] } | null;
+  lastTriggeredCardId?: string | null;
   actionHistory: ActionHistoryEntry[];
   combatants?: { attackerId: string; blockerId: string | null }[] | null;
 }

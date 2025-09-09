@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 import { CardInGame, Player } from '../game/types';
 import Card from './Card';
 
@@ -6,79 +7,73 @@ interface HandProps {
     player: Player;
     isCurrentPlayer: boolean;
     onCardClick: (card: CardInGame) => void;
-    onGraveyardCardClick: (card: CardInGame) => void;
     isCardPlayable: (card: CardInGame) => boolean;
-    isCardReclaimable: (card: CardInGame) => boolean;
     isCardEvokeable: (card: CardInGame) => boolean;
     onEvokeClick: (card: CardInGame) => void;
     isCardAmplifiable: (card: CardInGame) => boolean;
     onAmplifyClick: (card: CardInGame) => void;
     onExamineCard: (card: CardInGame) => void;
     setHoveredCardInHand: (card: CardInGame | null) => void;
+    isSpectator?: boolean;
 }
 
 export const Hand: React.FC<HandProps> = ({
-    player, isCurrentPlayer, onCardClick, onGraveyardCardClick, isCardPlayable, isCardReclaimable,
-    isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, onExamineCard, setHoveredCardInHand
+    player, isCurrentPlayer, onCardClick, isCardPlayable,
+    isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, onExamineCard, setHoveredCardInHand,
+    isSpectator = false,
 }) => {
-    const [view, setView] = useState<'hand' | 'reclaim'>('hand');
-
-    const reclaimableCards = player.graveyard
-        .filter(c => c.abilities?.reclaim)
-        .map(c => ({ ...c, source: 'graveyard' as const }));
-
     const handCards = player.hand.map(c => ({ ...c, source: 'hand' as const }));
 
-    const cardsToShow = view === 'hand' ? handCards : reclaimableCards;
-    const title = view === 'hand' ? 'Hand' : 'Reclaimable';
-    const count = cardsToShow.length;
+    const getCardStyle = (index: number, total: number): React.CSSProperties => {
+        if (total <= 1) return { transform: 'translateY(0px)' };
+        
+        const maxAngle = 45;
+        const anglePerCard = Math.min(maxAngle / total, 8);
+        const rotation = (index - (total - 1) / 2) * anglePerCard;
+        
+        const translateYArc = Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 30;
+        
+        return {
+            transform: `rotate(${rotation}deg) translateY(${translateYArc}px)`,
+            transformOrigin: 'bottom center',
+            transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+        };
+    };
 
     return (
-        <div className="w-full h-[16rem] bg-arcane-surface/70 backdrop-blur-sm border-t-2 border-arcane-border p-2 flex flex-col">
-            <div className="flex justify-center items-center gap-4 mb-2 flex-shrink-0">
-                <button 
-                    onClick={() => setView('hand')}
-                    disabled={view === 'hand'}
-                    className={`px-4 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${view === 'hand' ? 'bg-vivid-pink text-arcane-bg' : 'bg-arcane-border hover:bg-arcane-primary'}`}
-                >
-                    Hand ({handCards.length})
-                </button>
-                <button 
-                    onClick={() => setView('reclaim')}
-                    disabled={view === 'reclaim'}
-                     className={`px-4 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${view === 'reclaim' ? 'bg-vivid-yellow text-arcane-bg' : 'bg-arcane-border hover:bg-arcane-primary'}`}
-                >
-                    Reclaim ({reclaimableCards.length})
-                </button>
-            </div>
-            
-            <div className="flex-grow overflow-x-auto overflow-y-hidden w-full flex items-center justify-center">
-                 {cardsToShow.length > 0 ? (
-                    <div className="flex items-end justify-center gap-4 px-4 h-full pb-2">
-                        {cardsToShow.map((card, index) => (
-                             <div 
-                                key={card.instanceId} 
-                                className="flex-shrink-0 transition-transform duration-200 hover:-translate-y-4"
-                                onMouseEnter={() => setHoveredCardInHand(card)}
-                                onMouseLeave={() => setHoveredCardInHand(null)}
-                            >
-                                <Card
-                                    card={card}
-                                    inHand={true}
-                                    isPlayable={isCurrentPlayer && (view === 'hand' ? isCardPlayable(card) : isCardReclaimable(card))}
-                                    onClick={() => view === 'hand' ? onCardClick(card) : onGraveyardCardClick(card)}
-                                    onEvoke={view === 'hand' && card.abilities?.evoke ? () => onEvokeClick(card) : undefined}
-                                    isEvokeable={view === 'hand' && isCurrentPlayer && isCardEvokeable(card)}
-                                    onAmplify={view === 'hand' && card.abilities?.amplify ? () => onAmplifyClick(card) : undefined}
-                                    isAmplifiable={view === 'hand' && isCurrentPlayer && isCardAmplifiable(card)}
-                                    origin={card.source}
-                                    onExamine={onExamineCard}
-                                />
-                            </div>
-                        ))}
-                    </div>
+        <div className={`w-full h-full flex flex-col items-center justify-end ${isSpectator ? 'pointer-events-none' : 'pointer-events-auto'}`}>
+            {/* Card Area */}
+            <div className="flex-grow w-full flex items-end justify-center px-4 relative h-[16rem]">
+                 {handCards.length > 0 ? (
+                     handCards.map((card, index) => {
+                        const canClick = !isSpectator && isCurrentPlayer;
+                        return (
+                         <div 
+                            key={card.instanceId} 
+                            className="absolute bottom-0 h-full hover:z-30 hover:!scale-110 hover:!-translate-y-12 hover:!rotate-0"
+                            style={{
+                                ...getCardStyle(index, handCards.length),
+                                marginLeft: `${(index - (handCards.length - 1) / 2) * (handCards.length > 6 ? 60 : 100)}px`
+                            }}
+                            onMouseEnter={() => setHoveredCardInHand(card)}
+                            onMouseLeave={() => setHoveredCardInHand(null)}
+                        >
+                            <Card
+                                card={card}
+                                inHand={true}
+                                isPlayable={canClick && isCardPlayable(card)}
+                                onClick={canClick ? () => onCardClick(card) : undefined}
+                                onEvoke={canClick && card.abilities?.evoke ? () => onEvokeClick(card) : undefined}
+                                isEvokeable={canClick && isCardEvokeable(card)}
+                                onAmplify={canClick && card.abilities?.amplify ? () => onAmplifyClick(card) : undefined}
+                                isAmplifiable={canClick && isCardAmplifiable(card)}
+                                origin={card.source}
+                                onExamine={onExamineCard}
+                            />
+                        </div>
+                    )})
                  ) : (
-                    <div className="w-full text-center text-arcane-primary/60 italic text-lg">{title} is empty.</div>
+                    <div className="w-full text-center text-arcane-primary/60 italic text-lg">Hand is empty.</div>
                  )}
             </div>
         </div>

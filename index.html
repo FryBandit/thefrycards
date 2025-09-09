@@ -49,6 +49,8 @@
               'flash-damage': 'flash-damage 0.5s ease-in-out',
               'pulse-selected': 'pulse-selected 1.5s ease-in-out infinite',
               'background-pan': 'background-pan 30s ease-in-out infinite',
+              'active-player-border': 'active-player-border 2.5s ease-in-out infinite',
+              'pulse-target-glow': 'pulse-target-glow 2s ease-in-out infinite',
             },
             keyframes: {
               'pulse-bright': {
@@ -107,6 +109,14 @@
                   transform: 'scale(1.03)',
                 },
               },
+              'pulse-target-glow': {
+                '0%, 100%': {
+                  boxShadow: '0 0 6px #f038ff, 0 0 12px #f038ff',
+                },
+                '50%': {
+                  boxShadow: '0 0 12px #f038ff, 0 0 24px #f038ff, 0 0 32px #f038ff',
+                },
+              },
               'pulse-selected': {
                 '0%, 100%': { transform: 'scale(1.05)', boxShadow: '0 0 8px #3b82f6, 0 0 16px #3b82f6' },
                 '50%': { transform: 'scale(1.1)', boxShadow: '0 0 16px #3b82f6, 0 0 24px #3b82f6, 0 0 32px #3b82f6' },
@@ -133,7 +143,11 @@
                 '0%': { backgroundPosition: '0% 50%' },
                 '50%': { backgroundPosition: '100% 50%' },
                 '100%': { backgroundPosition: '0% 50%' },
-              }
+              },
+              'active-player-border': {
+                '0%, 100%': { borderColor: 'rgba(0, 245, 212, 0.2)' },
+                '50%': { borderColor: 'rgba(0, 245, 212, 0.7)' },
+              },
             }
           },
         },
@@ -144,6 +158,7 @@
         background-image: radial-gradient(ellipse at top, #1a093a, #0d0221 70%);
         animation: background-pan 30s ease-in-out infinite;
         background-size: 200% 200%;
+        perspective: 1200px;
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">

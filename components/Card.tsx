@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -20,6 +21,7 @@ interface CardProps {
   effectiveDurability?: number;
   origin?: 'hand' | 'graveyard';
   isActivating?: boolean;
+  isTriggered?: boolean;
   rallyBonus?: number;
   synergyBonus?: number;
   onExamine: (card: CardInGame) => void;
@@ -27,6 +29,7 @@ interface CardProps {
   isBlocker?: boolean;
   isSelectedAsBlocker?: boolean;
   isPotentialBlocker?: boolean;
+  isPotentialBlockerForHover?: boolean;
   blockingTargetName?: string;
   isPotentialAttacker?: boolean;
   isTargetForBlocker?: boolean;
@@ -52,8 +55,8 @@ const StatDisplay: React.FC<{ baseValue: number; modifier: number; isStrength?: 
 const Card: React.FC<CardProps> = ({ 
     card, displayMode = 'full', isPlayable, isTargetable, inHand, onClick, isActivatable, onActivate,
     isEvokeable, onEvoke, isAmplifiable, onAmplify, effectiveStrength, effectiveDurability,
-    origin, isActivating, rallyBonus = 0, synergyBonus = 0, onExamine,
-    isAttacking, isBlocker, isSelectedAsBlocker, isPotentialBlocker, blockingTargetName,
+    origin, isActivating, isTriggered, rallyBonus = 0, synergyBonus = 0, onExamine,
+    isAttacking, isBlocker, isSelectedAsBlocker, isPotentialBlocker, isPotentialBlockerForHover, blockingTargetName,
     isPotentialAttacker, isTargetForBlocker, onMouseEnter, onMouseLeave
 }) => {
     const isUnit = card.type === CardType.UNIT;
@@ -76,12 +79,13 @@ const Card: React.FC<CardProps> = ({
 
     if (isPlayable) stateClasses += ' cursor-pointer animate-pulse-playable';
     else if (inHand && !isPlayable) stateClasses += ' opacity-70';
-    if (isTargetable) stateClasses += ' ring-4 ring-offset-2 ring-offset-arcane-bg ring-vivid-pink shadow-vivid-pink scale-105';
+    if (isTargetable) stateClasses += ' ring-4 ring-offset-2 ring-offset-arcane-bg ring-vivid-pink shadow-vivid-pink scale-105 animate-pulse-target-glow';
     if (isTargetForBlocker) stateClasses += ' ring-4 ring-offset-2 ring-offset-arcane-bg ring-yellow-400 shadow-yellow-400 scale-105 cursor-pointer';
     if (isPotentialBlocker) stateClasses += ' cursor-pointer hover:ring-4 hover:ring-blue-400 hover:scale-105';
+    if (isPotentialBlockerForHover) stateClasses += ' ring-4 ring-blue-300 animate-pulse';
     if (isPotentialAttacker) stateClasses += ' hover:ring-4 hover:ring-red-400 hover:scale-105';
     if (isSelectedAsBlocker) stateClasses += ' ring-4 ring-blue-500 shadow-blue-500 scale-105 animate-pulse-selected';
-    if (isActivating) stateClasses += ' animate-pulse-bright';
+    if (isActivating || isTriggered) stateClasses += ' animate-pulse-bright';
 
     const renderActionButton = (text: string, action?: () => void, enabled?: boolean, color = 'bg-vivid-yellow', textColor = 'text-arcane-bg') => {
         if (!action || !enabled || isOnBoard) return null;
@@ -146,7 +150,10 @@ const Card: React.FC<CardProps> = ({
                     <div className="flex justify-between items-end">
                          <div className={`flex flex-wrap gap-1 items-center transition-opacity ${isOnBoard ? 'opacity-0 group-hover:opacity-100' : ''}`}>
                            {origin === 'graveyard' ? (
-                                <div className="bg-vivid-yellow text-arcane-bg px-2 py-0.5 rounded-sm font-mono text-xs font-bold">RECLAIM</div>
+                                <div className="flex flex-wrap gap-1 items-center">
+                                    <div className="bg-vivid-yellow text-arcane-bg px-2 py-0.5 rounded-sm font-mono text-xs font-bold">RECLAIM</div>
+                                    {renderDiceCost(card.abilities?.reclaim?.cost)}
+                                </div>
                             ) : renderDiceCost(card.abilities?.augment ? card.abilities.augment.cost : card.dice_cost)}
                         </div>
 

@@ -871,20 +871,5 @@ export const cardDefinitions: CardDefinition[] = [
     card_set: "Volume #2",
     author: "Fry",
     imageUrl: "https://cdn.midjourney.com/video/0a7f029f-4455-44bf-94f7-789ff22f2770/1.mp4"
-  },
-  {
-    id: 300,
-    name: "Synergy Soldier",
-    type: CardType.UNIT,
-    dice_cost: [{ type: DiceCostType.EXACT_VALUE, count: 2, value: 4 }],
-    strength: 2,
-    durability: 3,
-    moraleValue: 4,
-    text: "Synergy: Gains +1 Strength for each other 'Rainbow Riot Squad' card you control.",
-    abilities: { "synergy": { "card_set": "Rainbow Riot Squad", "effect": { "type": "BUFF_STRENGTH", "amount": 1 } } },
-    rarity: "Uncommon",
-    flavor_text: "We're stronger together.",
-    card_set: "Rainbow Riot Squad",
-    author: "AI",
-    imageUrl: "https://cdn.midjourney.com/d547ebb7-c7f2-41c6-94e3-0b4603eeb6d6/0_0.png"
   }
+]

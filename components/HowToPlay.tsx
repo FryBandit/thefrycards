@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { KEYWORD_DEFINITIONS } from '../game/keywords';
 import KeywordText from './KeywordText';
 
 interface HowToPlayProps {
-  onPlay: () => void;
+  onStartGame: (mode: 'playerVsAi' | 'aiVsAi') => void;
   onReturn: () => void;
   isGameInProgress: boolean;
 }
@@ -20,7 +21,7 @@ const KeywordDefinition: React.FC<{ name: string }> = ({ name }) => {
     );
 }
 
-const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, onReturn, isGameInProgress }) => {
+const HowToPlay: React.FC<HowToPlayProps> = ({ onStartGame, onReturn, isGameInProgress }) => {
   // We can group keywords for better organization on the page.
   const keywordGroups = {
       "Unique & Game-Changing": ['Obliterate', 'Vanish', 'Warp', 'Chain Reaction'],
@@ -43,20 +44,26 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, onReturn, isGameInProgres
         </div>
         
         <div className="text-center my-8">
-            <div className="mb-8 flex justify-center space-x-4">
+            <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">
                 {isGameInProgress && (
                      <button
                         onClick={onReturn}
-                        className="bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase"
+                        className="w-full sm:w-auto bg-arcane-border text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-primary transition-colors text-xl transform hover:scale-105 border-2 border-arcane-border uppercase"
                     >
                         Return to Game
                     </button>
                 )}
-                <button
-                    onClick={onPlay}
-                    className="bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase"
+                 <button
+                    onClick={() => onStartGame('playerVsAi')}
+                    className="w-full sm:w-auto bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase"
                 >
-                    Start New Game
+                    Play vs AI
+                </button>
+                <button
+                    onClick={() => onStartGame('aiVsAi')}
+                    className="w-full sm:w-auto bg-arcane-primary text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-arcane-secondary transition-colors text-xl transform hover:scale-105 border-2 border-vivid-cyan uppercase"
+                >
+                    Watch AI vs AI
                 </button>
             </div>
         </div>
@@ -102,7 +109,7 @@ const HowToPlay: React.FC<HowToPlayProps> = ({ onPlay, onReturn, isGameInProgres
 
           <Section title="Game Zones">
             <div className="space-y-2">
-                <p><strong>Graveyard (Archive):</strong> When your non-token cards are destroyed, played as an Event, or discarded, they go here. Cards in the Graveyard can be brought back with abilities like <strong>Reclaim</strong>.</p>
+                <p><strong>Graveyard (Archive):</strong> When your non-token cards are destroyed, played as an Event, or discarded, they go here. You can view your Graveyard using the icon on your player panel. Cards in the Graveyard can be brought back with abilities like <strong>Reclaim</strong>.</p>
                 <p><strong>Oblivion (The Aether):</strong> The "removed from game" zone. Cards sent here cannot be retrieved. The following are sent to Oblivion: <strong>Tokens</strong> when they leave the field, cards played via <strong>Reclaim</strong> when they leave the field, and any card affected by an ability that specifically says to "Banish" it (like <strong>Obliterate</strong>).</p>
             </div>
           </Section>

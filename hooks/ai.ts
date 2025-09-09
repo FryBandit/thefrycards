@@ -34,7 +34,7 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
     let threat = strength * 1.5 + durability * 0.5;
 
     // Keyword threat assessment
-    if (unit.abilities?.phasing) threat += strength * 1.5;
+    if (unit.abilities?.phasing) threat += strength * 2.0;
     if (unit.abilities?.siphon) threat += (unit.abilities.siphon || 0) * 2.5;
     if (unit.abilities?.immutable) threat += 15;
     if (unit.abilities?.venomous) threat += 8;
@@ -59,41 +59,43 @@ const getUnitThreat = (unit: CardInGame, owner: Player, opponent: Player): numbe
 }
 
 
-const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, turn: number, target?: CardInGame | null): number => {
+const getCardScore = (card: CardInGame, aiPlayer: Player, opponentPlayer: Player, turn: number, target?: CardInGame | null): number => {
     let score = 0;
     const isLowHealth = aiPlayer.morale < 10;
-    const opponentBoardThreat = humanPlayer.units.reduce((sum, u) => sum + getUnitThreat(u, humanPlayer, aiPlayer), 0);
-    const opponentHasStrongBoard = opponentBoardThreat > 10 || humanPlayer.units.length > 2;
+    const opponentBoardThreat = opponentPlayer.units.reduce((sum, u) => sum + getUnitThreat(u, opponentPlayer, aiPlayer), 0);
+    const opponentHasStrongBoard = opponentBoardThreat > 10 || opponentPlayer.units.length > 2;
 
     if(target) {
-        const targetIsOpponent = humanPlayer.units.some(u => u.instanceId === target.instanceId);
-        const targetThreat = getUnitThreat(target, targetIsOpponent ? humanPlayer : aiPlayer, targetIsOpponent ? aiPlayer : humanPlayer);
+        const targetIsOpponent = opponentPlayer.units.some(u => u.instanceId === target.instanceId);
+        let targetThreat = getUnitThreat(target, targetIsOpponent ? opponentPlayer : aiPlayer, targetIsOpponent ? aiPlayer : opponentPlayer);
+        if (target.abilities?.phasing) targetThreat *= 1.5;
+        if (target.abilities?.siphon) targetThreat *= 1.3;
         
         if (card.abilities?.damage || card.abilities?.snipe) {
             let damage = card.abilities.damage || card.abilities.snipe || 0;
-            const { durability } = getEffectiveStats(target, humanPlayer);
+            const { durability } = getEffectiveStats(target, opponentPlayer);
             score += targetThreat * 1.2;
             if (durability - target.damage <= damage) {
                 score += targetThreat * 1.5 + (target.abilities?.fragile ? 10 : 0);
             }
         }
         if (card.abilities?.banish) {
-            score += targetThreat * 2.5;
+            score += targetThreat * 3.0; // Increased priority
         }
         if (card.abilities?.corrupt || card.abilities?.weaken) {
             const reduction = card.abilities.corrupt || card.abilities.weaken || 0;
-            score += Math.min(getEffectiveStats(target, humanPlayer).strength, reduction) * 2.5;
+            score += Math.min(getEffectiveStats(target, opponentPlayer).strength, reduction) * 2.5;
         }
         if (card.abilities?.recall && target.damage > 0) {
-            score += 5 + getUnitThreat(target, aiPlayer, humanPlayer) * 0.8;
+            score += 5 + getUnitThreat(target, aiPlayer, opponentPlayer) * 0.8;
         }
         if (card.abilities?.augment) {
             score += 8 + targetThreat * 0.5; // Augmenting a high-threat unit is good
         }
     }
     
-    if (card.abilities?.barrage && humanPlayer.units.length > 0) {
-        const potentialDamage = humanPlayer.units.reduce((acc, unit) => {
+    if (card.abilities?.barrage && opponentPlayer.units.length > 0) {
+        const potentialDamage = opponentPlayer.units.reduce((acc, unit) => {
             if (unit.abilities?.immutable) return acc;
             return acc + (card.abilities?.barrage || 0);
         }, 0);
@@ -102,16 +104,16 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
 
     if (card.abilities?.exhaust) {
         // Exhaust is more valuable if the opponent has a large hand or few cards left in deck.
-        const handValue = Math.max(0, humanPlayer.hand.length - 2) * 2;
-        const deckValue = humanPlayer.deck.length < 5 ? 15 : 5;
+        const handValue = Math.max(0, opponentPlayer.hand.length - 2) * 2;
+        const deckValue = opponentPlayer.deck.length < 5 ? 15 : 5;
         score += 15 + handValue + deckValue;
     }
-    if (card.abilities?.discard) score += card.abilities.discard * Math.min(humanPlayer.hand.length, 4) * 1.5;
-    if (card.abilities?.purge && humanPlayer.graveyard.length > 1) score += Math.min(card.abilities.purge, humanPlayer.graveyard.length) * 2.5;
+    if (card.abilities?.discard) score += card.abilities.discard * Math.min(opponentPlayer.hand.length, 4) * 1.5;
+    if (card.abilities?.purge && opponentPlayer.graveyard.length > 1) score += Math.min(card.abilities.purge, opponentPlayer.graveyard.length) * 2.5;
     if (card.abilities?.disrupt) score += 12;
     if (card.abilities?.obliterate) {
         const selfHarm = aiPlayer.units.filter(u => u.instanceId !== card.instanceId && !u.abilities?.immutable).length;
-        const opponentHarm = humanPlayer.units.filter(u => !u.abilities?.immutable).length;
+        const opponentHarm = opponentPlayer.units.filter(u => !u.abilities?.immutable).length;
         score += (opponentHarm > selfHarm) ? (opponentHarm - selfHarm) * 15 : -20;
     }
     if (card.abilities?.vanish) score += 8;
@@ -124,17 +126,24 @@ const getCardScore = (card: CardInGame, aiPlayer: Player, humanPlayer: Player, t
     }
     if (card.abilities?.landmark && !aiPlayer.locations.some(l => l.abilities?.landmark)) score += 5;
     if (card.type === CardType.UNIT) {
-        score += 5 + getUnitThreat(card, aiPlayer, humanPlayer) * 0.5;
+        score += 5 + getUnitThreat(card, aiPlayer, opponentPlayer) * 0.5;
         if (aiPlayer.units.length < 2) {
-            score += 8; // Prioritize board presence
+            score += 10; // Prioritize board presence
         }
     }
     if (card.abilities?.overload) score += Math.floor(aiPlayer.graveyard.length / (card.abilities.overload.per || 2)) * card.abilities.overload.amount * 1.2;
     if (card.abilities?.phasing) score += getEffectiveStats(card, aiPlayer).strength * 1.5;
+    if (card.abilities?.synergy) {
+         const cardSet = card.abilities.synergy.card_set;
+         const synergyCount = [...aiPlayer.units, ...aiPlayer.locations, ...aiPlayer.artifacts]
+                .filter(c => c.instanceId !== card.instanceId && c.card_set === cardSet)
+                .length;
+         if (synergyCount > 0) score += synergyCount * 3;
+    }
     score += card.moraleValue ?? 0;
-    if (card.abilities?.malice) score -= card.abilities.malice * 2;
+    if (card.abilities?.malice) score -= card.abilities.malice * 2.5;
     if (card.abilities?.bounty) score -= card.abilities.bounty.amount * 2.5;
-    if (card.abilities?.instability) score -= 8;
+    if (card.abilities?.instability) score -= 10;
 
     return score;
 }
@@ -155,7 +164,7 @@ const countDiceForCost = (costs: DiceCost[]): number => {
 
 
 // Determines which dice are the most valuable to keep by looking at the top potential plays
-const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Player, humanPlayer: Player, turn: number): Die[] => {
+const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Player, opponentPlayer: Player, turn: number): Die[] => {
     if (hand.length === 0) return [];
     
     const diceToConsider = dice.filter(d => !d.isSpent);
@@ -178,7 +187,7 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
     
     // Hard AI: Analyze hand for best possible plays
     const sortedHand = [...hand]
-        .sort((a, b) => getCardScore(b, aiPlayer, humanPlayer, turn) - getCardScore(a, aiPlayer, humanPlayer, turn));
+        .sort((a, b) => getCardScore(b, aiPlayer, opponentPlayer, turn) - getCardScore(a, aiPlayer, opponentPlayer, turn));
     
     const topCards = sortedHand.slice(0, 3);
     if (topCards.length === 0) return [];
@@ -210,17 +219,21 @@ const determineBestDiceToKeep = (hand: CardInGame[], dice: Die[], aiPlayer: Play
 }
 
 
-export const getAiAction = (state: GameState): AIAction | null => {
-    if (!state.isProcessing || state.winner) return null;
-
+export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | null => {
     const { phase, dice, rollCount, players, turn, combatants, currentPlayerId } = state;
-    const aiPlayer = players[1];
-    const humanPlayer = players[0];
+    
+    const aiPlayer = players[aiPlayerId];
+    const opponentPlayer = players[1 - aiPlayerId];
+    
     const availableDice = dice.filter(d => !d.isSpent);
 
     if (phase === TurnPhase.AI_MULLIGAN) {
-        const hand = aiPlayer.hand;
+        const playerToDecide = players.find(p => !p.hasMulliganed);
+        if (!playerToDecide) return { type: 'ADVANCE_PHASE' }; // Both have decided, advance state
+        
+        const hand = playerToDecide.hand;
         if (hand.length === 0) return { type: 'AI_MULLIGAN', payload: { mulligan: false } };
+
         const unitCount = hand.filter(c => c.type === CardType.UNIT).length;
         const curve = hand.map(c => countDiceForCost(c.dice_cost));
         const hasLowCurve = curve.some(c => c <= 2);
@@ -229,8 +242,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return { type: 'AI_MULLIGAN', payload: { mulligan: shouldMulligan } };
     }
     
-    if (phase === TurnPhase.BLOCK && currentPlayerId !== aiPlayer.id) {
-        const attackers = combatants!.map(c => humanPlayer.units.find(u => u.instanceId === c.attackerId)!).filter(Boolean);
+    if (phase === TurnPhase.BLOCK && currentPlayerId !== aiPlayerId) {
+        const attackers = combatants!.map(c => opponentPlayer.units.find(u => u.instanceId === c.attackerId)!).filter(Boolean);
         let availableBlockers = aiPlayer.units.filter(u => !u.abilities?.entrenched);
         const assignments: { [blockerId: string]: string } = {};
 
@@ -238,7 +251,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const blockableAttackers = attackers.filter(a => !a.abilities?.phasing);
 
         // Sort attackers by threat so we deal with the most dangerous ones first.
-        blockableAttackers.sort((a, b) => getUnitThreat(b, humanPlayer, aiPlayer) - getUnitThreat(a, humanPlayer, aiPlayer));
+        blockableAttackers.sort((a, b) => getUnitThreat(b, opponentPlayer, aiPlayer) - getUnitThreat(a, opponentPlayer, aiPlayer));
         
         // --- Main Blocking Loop ---
         // For each attacker, find the best blocker.
@@ -248,7 +261,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
             let bestBlocker: CardInGame | null = null;
             let bestScore = -1000; // Start with a very low score
 
-            const attackerStats = getEffectiveStats(attacker, humanPlayer, { isStrikePhase: true });
+            const attackerStats = getEffectiveStats(attacker, opponentPlayer, { isStrikePhase: true });
 
             for (const blocker of availableBlockers) {
                 const blockerStats = getEffectiveStats(blocker, aiPlayer, { isStrikePhase: true });
@@ -257,8 +270,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
                 const blockerDies = attackerStats.strength >= blockerStats.durability - blocker.damage;
 
                 let currentScore = 0;
-                const attackerThreat = getUnitThreat(attacker, humanPlayer, aiPlayer);
-                const blockerThreat = getUnitThreat(blocker, aiPlayer, humanPlayer);
+                const attackerThreat = getUnitThreat(attacker, opponentPlayer, aiPlayer);
+                const blockerThreat = getUnitThreat(blocker, aiPlayer, opponentPlayer);
 
                 // Base score on threat exchange
                 if (attackerDies && !blockerDies) { // Favorable trade: kill without dying
@@ -278,7 +291,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
                     }
                 }
                 if (blocker.abilities?.shield && !blocker.shieldUsedThisTurn) {
-                    currentScore += 5;
+                    currentScore += 8;
                 }
                 if(blockerThreat > 15 && !attackerDies) { // Avoid blocking with a high-value unit if it won't kill the attacker
                     currentScore -= 10;
@@ -301,18 +314,18 @@ export const getAiAction = (state: GameState): AIAction | null => {
         }
         
         // --- Lethal Damage Check ---
-        const unblockedDamageFromUnblockable = unblockableAttackers.reduce((sum, a) => sum + getEffectiveStats(a, humanPlayer, { isStrikePhase: true }).strength, 0);
+        const unblockedDamageFromUnblockable = unblockableAttackers.reduce((sum, a) => sum + getEffectiveStats(a, opponentPlayer, { isStrikePhase: true }).strength, 0);
         const remainingBlockableAttackers = blockableAttackers.filter(a => !Object.values(assignments).includes(a.instanceId));
-        const unblockedDamageFromBlockable = remainingBlockableAttackers.reduce((sum, a) => sum + getEffectiveStats(a, humanPlayer, { isStrikePhase: true }).strength, 0);
+        const unblockedDamageFromBlockable = remainingBlockableAttackers.reduce((sum, a) => sum + getEffectiveStats(a, opponentPlayer, { isStrikePhase: true }).strength, 0);
         let totalIncomingDamage = unblockedDamageFromUnblockable + unblockedDamageFromBlockable;
 
         if (totalIncomingDamage >= aiPlayer.morale && availableBlockers.length > 0) {
             // We're facing lethal, must block as much as possible, even with bad trades.
-            remainingBlockableAttackers.sort((a, b) => getEffectiveStats(b, humanPlayer, { isStrikePhase: true }).strength - getEffectiveStats(a, humanPlayer, { isStrikePhase: true }).strength);
+            remainingBlockableAttackers.sort((a, b) => getEffectiveStats(b, opponentPlayer, { isStrikePhase: true }).strength - getEffectiveStats(a, opponentPlayer, { isStrikePhase: true }).strength);
             for (const attacker of remainingBlockableAttackers) {
                 if (availableBlockers.length === 0) break;
                 // Sacrifice lowest threat unit to block highest threat attacker
-                availableBlockers.sort((a,b) => getUnitThreat(a, aiPlayer, humanPlayer) - getUnitThreat(b, aiPlayer, humanPlayer));
+                availableBlockers.sort((a,b) => getUnitThreat(a, aiPlayer, opponentPlayer) - getUnitThreat(b, aiPlayer, opponentPlayer));
                 const blockerToSacrifice = availableBlockers.shift()!;
                 if (!assignments[blockerToSacrifice.instanceId]) {
                     assignments[blockerToSacrifice.instanceId] = attacker.instanceId;
@@ -323,8 +336,8 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return { type: 'DECLARE_BLOCKS', payload: { assignments } };
     }
 
-    if (currentPlayerId !== 1) return null;
-    if (phase === TurnPhase.BLOCK) return { type: 'AI_ACTION' };
+    if (currentPlayerId !== aiPlayerId) return null; // Not this AI's turn to act
+    if (phase === TurnPhase.BLOCK) return null; // Attacker is waiting
 
     if (phase === TurnPhase.ROLL_SPEND) {
         if (rollCount === 0) return { type: 'ROLL_DICE' };
@@ -339,7 +352,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         
         aiPlayer.graveyard.forEach(card => {
             if (card.abilities?.reclaim && checkDiceCost({ ...card, dice_cost: card.abilities.reclaim.cost }, availableDice).canPay) {
-                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn) * 0.9, description: `Reclaim ${card.name}`});
+                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isReclaimed: true } } }, score: getCardScore(card, aiPlayer, opponentPlayer, turn) * 0.9, description: `Reclaim ${card.name}`});
             }
         });
         
@@ -347,14 +360,14 @@ export const getAiAction = (state: GameState): AIAction | null => {
             // Normal Play
             if (checkDiceCost(card, availableDice).canPay) {
                 if (card.abilities?.requiresTarget) {
-                    [...aiPlayer.units, ...humanPlayer.units].forEach(target => {
+                    [...aiPlayer.units, ...opponentPlayer.units, ...aiPlayer.artifacts, ...opponentPlayer.artifacts].forEach(target => {
                         const targetOwner = players.find(p => [...p.units, ...p.artifacts, ...p.locations].some(u => u.instanceId === target.instanceId))!;
                         if (isCardTargetable(card, target, aiPlayer, targetOwner)) {
-                             possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId } }, score: getCardScore(card, aiPlayer, humanPlayer, turn, target), description: `Play ${card.name} on ${target.name}` });
+                             possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId } }, score: getCardScore(card, aiPlayer, opponentPlayer, turn, target), description: `Play ${card.name} on ${target.name}` });
                         }
                     });
                 } else {
-                    possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card } }, score: getCardScore(card, aiPlayer, humanPlayer, turn), description: `Play ${card.name}` });
+                    possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card } }, score: getCardScore(card, aiPlayer, opponentPlayer, turn), description: `Play ${card.name}` });
                 }
             }
 
@@ -362,10 +375,10 @@ export const getAiAction = (state: GameState): AIAction | null => {
             if (card.abilities?.amplify) {
                 const combinedCost = { ...card, dice_cost: (card.dice_cost || []).concat(card.abilities.amplify.cost || []) };
                 if (checkDiceCost(combinedCost, availableDice).canPay) {
-                    const score = getCardScore(card, aiPlayer, humanPlayer, turn) + 15; // Amplify is powerful
+                    const score = getCardScore(card, aiPlayer, opponentPlayer, turn) + 15; // Amplify is powerful
                     const amplifiedCard = { ...card, abilities: { ...card.abilities, requiresTarget: card.abilities.requiresTarget || card.abilities.amplify.requiresTarget } };
                     if (amplifiedCard.abilities.requiresTarget) {
-                        [...aiPlayer.units, ...humanPlayer.units].forEach(target => {
+                        [...aiPlayer.units, ...opponentPlayer.units, ...aiPlayer.artifacts, ...opponentPlayer.artifacts].forEach(target => {
                             const targetOwner = players.find(p => [...p.units, ...p.artifacts, ...p.locations].some(u => u.instanceId === target.instanceId))!;
                             if (isCardTargetable(amplifiedCard, target, aiPlayer, targetOwner)) {
                                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAmplified: true } } }, score, description: `Amplify ${card.name} on ${target.name}` });
@@ -379,11 +392,13 @@ export const getAiAction = (state: GameState): AIAction | null => {
 
             // Evoke Play
             if (card.abilities?.evoke && checkDiceCost({ ...card, dice_cost: card.abilities.evoke.cost }, availableDice).canPay) {
-                let score = 8;
-                // @ts-ignore
-                if(card.abilities.evoke.effect?.type === 'draw_card') {
-                    score = 5 + (7 - aiPlayer.hand.length); // More valuable when hand is empty
+                let score = 5;
+                const effect = card.abilities.evoke.effect;
+                if (effect && effect.type === 'draw_card') {
+                    score += (7 - aiPlayer.hand.length) * 2; // More valuable when hand is small
                 }
+                // Discourage evoking if better plays exist by comparing it to the card's base value
+                score = Math.min(score, getCardScore(card, aiPlayer, opponentPlayer, turn) - 5);
                 possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, options: { isEvoked: true } } }, score, description: `Evoke ${card.name}` });
             }
 
@@ -391,7 +406,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
             if (card.abilities?.augment && checkDiceCost({ ...card, dice_cost: card.abilities.augment.cost }, availableDice).canPay) {
                 aiPlayer.units.forEach(target => {
                      if (isCardTargetable(card, target, aiPlayer, aiPlayer)) {
-                         possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAugmented: true } } }, score: getCardScore(card, aiPlayer, humanPlayer, turn, target), description: `Augment ${target.name} with ${card.name}` });
+                         possiblePlays.push({ action: { type: 'PLAY_CARD', payload: { card, targetInstanceId: target.instanceId, options: { isAugmented: true } } }, score: getCardScore(card, aiPlayer, opponentPlayer, turn, target), description: `Augment ${target.name} with ${card.name}` });
                      }
                 });
             }
@@ -404,7 +419,7 @@ export const getAiAction = (state: GameState): AIAction | null => {
         }
 
         if (rollCount < state.maxRolls) {
-            const diceToKeep = determineBestDiceToKeep(aiPlayer.hand, dice, aiPlayer, humanPlayer, turn);
+            const diceToKeep = determineBestDiceToKeep(aiPlayer.hand, dice, aiPlayer, opponentPlayer, turn);
             const diceToKeepIds = new Set(diceToKeep.map(d => d.id));
             for(const die of dice) {
                 if (!die.isSpent && die.isKept !== diceToKeepIds.has(die.id)) {
@@ -421,9 +436,9 @@ export const getAiAction = (state: GameState): AIAction | null => {
         const unitsThatCanStrike = aiPlayer.units.filter(u => !u.abilities?.entrenched);
         if (unitsThatCanStrike.length === 0) return { type: 'ADVANCE_PHASE', payload: { strike: false } };
         const totalAIStrikeThreat = unitsThatCanStrike.reduce((sum, unit) => sum + getEffectiveStats(unit, aiPlayer, { isStrikePhase: true }).strength, 0);
-        if (totalAIStrikeThreat >= humanPlayer.morale) return { type: 'ADVANCE_PHASE', payload: { strike: true } };
-        const totalHumanBoardStrength = humanPlayer.units.reduce((sum, u) => sum + getEffectiveStats(u, humanPlayer).strength, 0);
-        const shouldStrike = totalAIStrikeThreat > totalHumanBoardStrength || aiPlayer.units.length >= humanPlayer.units.length + 1;
+        if (totalAIStrikeThreat >= opponentPlayer.morale) return { type: 'ADVANCE_PHASE', payload: { strike: true } };
+        const totalHumanBoardStrength = opponentPlayer.units.reduce((sum, u) => sum + getEffectiveStats(u, opponentPlayer).strength, 0);
+        const shouldStrike = totalAIStrikeThreat > totalHumanBoardStrength || aiPlayer.units.length >= opponentPlayer.units.length + 1;
         return { type: 'ADVANCE_PHASE', payload: { strike: shouldStrike } };
     }
 
@@ -431,6 +446,6 @@ export const getAiAction = (state: GameState): AIAction | null => {
         return { type: 'ADVANCE_PHASE' };
     }
 
-    console.warn(`AI action logic fell through for phase: ${phase}. Advancing phase.`);
+    // Failsafe action to prevent the AI from ever getting stuck.
     return { type: 'ADVANCE_PHASE' };
 }
