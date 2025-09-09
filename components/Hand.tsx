@@ -17,7 +17,7 @@ interface HandProps {
     isSpectator?: boolean;
 }
 
-export const Hand: React.FC<HandProps> = ({
+const Hand: React.FC<HandProps> = ({
     player, isCurrentPlayer, onCardClick, isCardPlayable,
     isCardEvokeable, onEvokeClick, isCardAmplifiable, onAmplifyClick, onExamineCard, 
     setHoveredCardInHand, hoveredCardInHand,
@@ -95,3 +95,5 @@ export const Hand: React.FC<HandProps> = ({
         </div>
     );
 };
+
+export default React.memo(Hand);

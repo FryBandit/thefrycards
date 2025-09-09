@@ -5,7 +5,7 @@ import DiceTray from './DiceTray';
 import PlayerInfoPanel from './PlayerInfoPanel';
 import { CombatPreviewTooltip } from './CombatPreviewTooltip';
 import PlayerArea from './PlayerArea';
-import { Hand } from './Hand';
+import Hand from './Hand';
 import Card from './Card';
 
 interface GameBoardProps {
