@@ -301,6 +301,15 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         }
         return { ...currentState, actionHistory: newHistory };
     };
+
+    const findCardAndOwner = (players: [Player, Player], instanceId: string): { card: CardInGame, owner: Player, ownerIndex: number } | null => {
+        for (let i = 0; i < players.length; i++) {
+            const player = players[i];
+            const card = [...player.units, ...player.locations, ...player.artifacts, ...player.hand, ...player.graveyard].find(c => c.instanceId === instanceId);
+            if (card) return { card, owner: player, ownerIndex: i };
+        }
+        return null;
+    };
     
     const drawCards = (player: Player, count: number): { player: Player, drawnToHand: CardInGame[], overdrawnToGraveyard: CardInGame[], fatigueDamage: number[] } => {
         let newPlayer = {...player, hand: [...player.hand], deck: [...player.deck], graveyard: [...player.graveyard]};
@@ -374,7 +383,11 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         return newTarget;
     };
     
-    // ... other helpers would need similar refactors ...
+    const checkForWinner = (players: [Player, Player]): Player | null => {
+      if (players[0].morale <= 0) return players[1];
+      if (players[1].morale <= 0) return players[0];
+      return null;
+    };
 
     switch (action.type) {
       case 'START_GAME': {
@@ -462,18 +475,193 @@ const gameReducer = (state: GameState, action: Action): GameState => {
       }
       
       case 'PLAY_CARD': {
-        // This is a complex action, will be handled carefully with immutable updates.
-        // For brevity, the full logic is omitted here but the implementation will follow immutable patterns.
-        return state; // Placeholder
+        // Full implementation for playing a card.
+        const { card, targetInstanceId, options = {} } = action.payload;
+        let tempState = { ...state };
+        let player = { ...tempState.players[tempState.currentPlayerId] };
+        let opponent = { ...tempState.players[1 - tempState.currentPlayerId] };
+
+        let costToCheck = card.dice_cost;
+        let actionType = LastActionType.PLAY;
+
+        if(options.isReclaimed) {
+            costToCheck = card.abilities?.reclaim?.cost || [];
+            actionType = LastActionType.RECLAIM;
+        } else if (options.isEvoked) {
+            costToCheck = card.abilities?.evoke?.cost || [];
+            actionType = LastActionType.EVOKE;
+        } else if (options.isAmplified) {
+            costToCheck = (card.dice_cost || []).concat(card.abilities.amplify.cost || []);
+        } else if (options.isAugmented) {
+            costToCheck = card.abilities?.augment?.cost || [];
+        }
+        
+        const { canPay, diceToSpend } = checkDiceCost({ ...card, dice_cost: costToCheck }, tempState.dice);
+        if(!canPay) return state; // Should not happen if UI is correct, but a good safeguard.
+        
+        // Pay cost
+        const spentDiceIds = new Set(diceToSpend.map(d => d.id));
+        tempState.dice = tempState.dice.map(d => spentDiceIds.has(d.id) ? { ...d, isSpent: true, isKept: false } : d);
+
+        // Remove from source
+        if (options.isReclaimed) {
+            player.graveyard = player.graveyard.filter(c => c.instanceId !== card.instanceId);
+        } else {
+            player.hand = player.hand.filter(c => c.instanceId !== card.instanceId);
+        }
+        
+        tempState = logAction(`${player.name} plays ${card.name}.`, tempState);
+
+        // TODO: This is where card effects would be applied. This is a very complex step.
+        // For now, just move the card to the appropriate zone.
+        const newCardInstance = { ...card, isReclaimed: options.isReclaimed };
+
+        if (card.type === CardType.EVENT) {
+            player.graveyard.push(newCardInstance);
+        } else if (card.type === CardType.UNIT) {
+            player.units.push(newCardInstance);
+        } else if (card.type === CardType.LOCATION) {
+            player.locations.push(newCardInstance);
+        } else if (card.type === CardType.ARTIFACT) {
+            player.artifacts.push(newCardInstance);
+        }
+
+        const newPlayers: [Player, Player] = [...tempState.players] as [Player, Player];
+        newPlayers[tempState.currentPlayerId] = player;
+        newPlayers[1 - tempState.currentPlayerId] = opponent;
+        
+        return { 
+          ...tempState, 
+          players: newPlayers, 
+          lastActionDetails: { type: actionType, spentDiceIds: Array.from(spentDiceIds) }, 
+          isProcessing: true,
+          winner: checkForWinner(newPlayers),
+        };
       }
 
       case 'ACTIVATE_ABILITY': {
-        // Similar to PLAY_CARD, this requires careful immutable updates.
-        return state; // Placeholder
+        const { cardInstanceId } = action.payload;
+        let tempState = { ...state };
+        const cardInfo = findCardAndOwner(tempState.players, cardInstanceId);
+        if (!cardInfo || !cardInfo.card.abilities?.activate) return state;
+
+        const { card, ownerIndex } = cardInfo;
+        let player = { ...tempState.players[ownerIndex] };
+        
+        const cost = card.abilities.activate.cost || [];
+        const { canPay, diceToSpend } = checkDiceCost({ ...card, dice_cost: cost }, tempState.dice);
+        if(!canPay) return state;
+        
+        const spentDiceIds = new Set(diceToSpend.map(d => d.id));
+        tempState.dice = tempState.dice.map(d => spentDiceIds.has(d.id) ? { ...d, isSpent: true, isKept: false } : d);
+        
+        tempState = logAction(`${player.name} activates ${card.name}'s ability.`, tempState);
+        
+        // TODO: Apply activation effect
+        if (card.abilities.consume) {
+            const cardInZone = [...player.units, ...player.artifacts].find(c => c.instanceId === cardInstanceId);
+            if(cardInZone) cardInZone.counters = (cardInZone.counters ?? card.abilities.consume.initial) - 1;
+        }
+
+        const newPlayers = [...tempState.players] as [Player, Player];
+        newPlayers[ownerIndex] = player;
+
+        return { 
+            ...tempState, 
+            players: newPlayers,
+            lastActionDetails: { type: LastActionType.ACTIVATE, spentDiceIds: Array.from(spentDiceIds) },
+            isProcessing: true,
+            winner: checkForWinner(newPlayers)
+        };
       }
       
       case 'DECLARE_BLOCKS': {
-        return state; // Placeholder
+        let tempState = { ...state };
+        let attackerPlayer = { ...tempState.players[tempState.currentPlayerId] };
+        let defenderPlayer = { ...tempState.players[1 - tempState.currentPlayerId] };
+        const { assignments } = action.payload;
+
+        tempState = logAction(`${defenderPlayer.name} declares blocks.`, tempState);
+
+        const assignedBlockerIds = Object.keys(assignments);
+        const assignedAttackerIds = Object.values(assignments);
+
+        // Step 1: Handle blocked combat
+        for (const blockerId of assignedBlockerIds) {
+            const attackerId = assignments[blockerId];
+            let blocker = defenderPlayer.units.find(u => u.instanceId === blockerId);
+            let attacker = attackerPlayer.units.find(u => u.instanceId === attackerId);
+
+            if (blocker && attacker) {
+                const attackerStats = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
+                const blockerStats = getEffectiveStats(blocker, defenderPlayer, { isStrikePhase: true });
+
+                tempState = logAction(`${blocker.name} (S:${blockerStats.strength}) blocks ${attacker.name} (S:${attackerStats.strength}).`, tempState);
+
+                // Units deal damage to each other
+                blocker = dealDamageToUnit(blocker, attackerStats.strength, attacker, defenderPlayer, (msg) => { tempState = logAction(msg, tempState) }, true);
+                attacker = dealDamageToUnit(attacker, blockerStats.strength, blocker, attackerPlayer, (msg) => { tempState = logAction(msg, tempState) }, true);
+                
+                // Update unit states in their respective player objects
+                defenderPlayer.units = defenderPlayer.units.map(u => u.instanceId === blockerId ? blocker! : u);
+                attackerPlayer.units = attackerPlayer.units.map(u => u.instanceId === attackerId ? attacker! : u);
+            }
+        }
+        
+        // Step 2: Handle unblocked attackers
+        const unblockedAttackers = (tempState.combatants ?? [])
+            .filter(c => !assignedAttackerIds.includes(c.attackerId))
+            .map(c => attackerPlayer.units.find(u => u.instanceId === c.attackerId))
+            .filter((c): c is CardInGame => !!c);
+
+        for (const attacker of unblockedAttackers) {
+            const attackerStats = getEffectiveStats(attacker, attackerPlayer, { isStrikePhase: true });
+            if (attackerStats.strength > 0) {
+                defenderPlayer = damagePlayer(defenderPlayer, attackerStats.strength, attacker.name, (msg) => { tempState = logAction(msg, tempState) });
+            }
+        }
+
+        // Step 3: Check for and process destroyed units for both players
+        [attackerPlayer, defenderPlayer].forEach((p, index) => {
+            const player = index === 0 ? attackerPlayer : defenderPlayer;
+            const opponent = index === 0 ? defenderPlayer : attackerPlayer;
+            
+            const survivingUnits: CardInGame[] = [];
+            const destroyedUnits = player.units.filter(u => {
+                const { durability } = getEffectiveStats(u, player);
+                if (u.damage >= durability) {
+                    tempState = logAction(`${u.name} is destroyed.`, tempState);
+                    // Handle morale loss for owner
+                    if(u.moraleValue && u.moraleValue > 0) {
+                        const updatedPlayer = damagePlayer(player, u.moraleValue, `${u.name}'s destruction`, (msg) => { tempState = logAction(msg, tempState) }, 'loss');
+                        if (index === 0) attackerPlayer = updatedPlayer; else defenderPlayer = updatedPlayer;
+                    }
+                    // TODO: Handle Martyrdom, Haunt, etc.
+                    if (u.isReclaimed || u.isToken) {
+                        player.oblivion.push(u);
+                    } else {
+                        player.graveyard.push(u);
+                    }
+                    return false; // Don't add to surviving units
+                }
+                survivingUnits.push(u);
+                return true;
+            });
+            if (index === 0) attackerPlayer.units = survivingUnits; else defenderPlayer.units = survivingUnits;
+        });
+
+        const newPlayers: [Player, Player] = [...tempState.players] as [Player, Player];
+        newPlayers[tempState.currentPlayerId] = attackerPlayer;
+        newPlayers[1-tempState.currentPlayerId] = defenderPlayer;
+
+        return { 
+            ...tempState, 
+            players: newPlayers, 
+            phase: TurnPhase.END,
+            combatants: null,
+            isProcessing: true,
+            winner: checkForWinner(newPlayers),
+        };
       }
 
       case 'ADVANCE_PHASE': {
@@ -555,7 +743,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
         newPlayers[state.currentPlayerId] = player;
         newPlayers[1-state.currentPlayerId] = opponent;
 
-        return { ...tempState, players: newPlayers, isProcessing: true };
+        return { ...tempState, players: newPlayers, isProcessing: true, winner: checkForWinner(newPlayers) };
       }
       
       case 'CLEAR_LAST_TRIGGERED_CARD':
