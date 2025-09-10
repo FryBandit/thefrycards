@@ -61,6 +61,7 @@
               'background-pan': 'background-pan 30s ease-in-out infinite',
               'active-player-border': 'active-player-border 2.5s ease-in-out infinite',
               'pulse-target-glow': 'pulse-target-glow 2s ease-in-out infinite',
+              'text-glow': 'text-glow 4s ease-in-out infinite',
             },
             keyframes: {
               'pulse-bright': {
@@ -79,15 +80,15 @@
               },
               'roll-shake': {
                 '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
-                '10%': { transform: 'translate(-1px, -2px) rotate(-2deg)' },
-                '20%': { transform: 'translate(2px, 0px) rotate(3deg)' },
-                '30%': { transform: 'translate(-2px, 2px) rotate(0deg)' },
-                '40%': { transform: 'translate(1px, -1px) rotate(1deg)' },
-                '50%': { transform: 'translate(-1px, 2px) rotate(-1deg)' },
-                '60%': { transform: 'translate(-2px, 1px) rotate(0deg)' },
-                '70%': { transform: 'translate(2px, 1px) rotate(-2deg)' },
-                '80%': { transform: 'translate(-1px, -1px) rotate(2deg)' },
-                '90%': { transform: 'translate(2px, 2px) rotate(0deg)' },
+                '10%': { transform: 'translate(-2px, -3px) rotate(-3deg)' },
+                '20%': { transform: 'translate(3px, 1px) rotate(4deg)' },
+                '30%': { transform: 'translate(-3px, 3px) rotate(-1deg)' },
+                '40%': { transform: 'translate(2px, -2px) rotate(2deg)' },
+                '50%': { transform: 'translate(-2px, 3px) rotate(-2deg)' },
+                '60%': { transform: 'translate(-3px, 2px) rotate(0deg)' },
+                '70%': { transform: 'translate(3px, 2px) rotate(-3deg)' },
+                '80%': { transform: 'translate(-2px, -2px) rotate(3deg)' },
+                '90%': { transform: 'translate(3px, 3px) rotate(0deg)' },
               },
               'pulse-glow': {
                 '0%, 100%': { boxShadow: '0 0 5px #00f5d4, 0 0 10px #00f5d4, 0 0 15px #00f5d4' },
@@ -121,10 +122,12 @@
               },
               'pulse-target-glow': {
                 '0%, 100%': {
-                  boxShadow: '0 0 6px #f038ff, 0 0 12px #f038ff',
+                  boxShadow: '0 0 8px #f038ff, 0 0 16px #f038ff, inset 0 0 4px rgba(240, 56, 255, 0.5)',
+                  borderColor: '#f038ff'
                 },
                 '50%': {
-                  boxShadow: '0 0 12px #f038ff, 0 0 24px #f038ff, 0 0 32px #f038ff',
+                  boxShadow: '0 0 16px #f038ff, 0 0 32px #f038ff, 0 0 48px #f038ff, inset 0 0 8px rgba(240, 56, 255, 0.7)',
+                  borderColor: '#fef08a'
                 },
               },
               'pulse-selected': {
@@ -158,6 +161,10 @@
                 '0%, 100%': { borderColor: 'rgba(0, 245, 212, 0.2)' },
                 '50%': { borderColor: 'rgba(0, 245, 212, 0.7)' },
               },
+              'text-glow': {
+                '0%, 100%': { textShadow: '0 0 2px rgba(175, 175, 175, 0.5)' },
+                '50%': { textShadow: '0 0 5px rgba(220, 220, 220, 0.7)' },
+              },
             }
           },
         },
@@ -167,6 +174,20 @@
       body {
         background-color: #1a1a1a;
         background-image: url('https://www.transparenttextures.com/patterns/dark-stone-wall.png');
+      }
+      /* Custom scrollbar for card text */
+      .card-text-box::-webkit-scrollbar {
+        width: 4px;
+      }
+      .card-text-box::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .card-text-box::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 245, 212, 0.5); /* vivid-cyan with opacity */
+        border-radius: 4px;
+      }
+      .card-text-box::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(0, 245, 212, 0.8);
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -35,7 +35,7 @@ const Hand: React.FC<HandProps> = ({
         const baseRotation = (index - (total - 1) / 2) * anglePerCard;
         const ySign = isOpponentHand ? -1 : 1;
 
-        const baseTranslateY = ySign * Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 40; // Increased fan
+        const baseTranslateY = ySign * Math.sin(Math.abs(index - (total - 1) / 2) * (Math.PI / total)) * 50; // Increased fan
         
         const baseSpacing = 100;
         const minSpacing = 50;
@@ -52,7 +52,7 @@ const Hand: React.FC<HandProps> = ({
         return {
             transform: transform,
             transformOrigin: isOpponentHand ? 'top center' : 'bottom center',
-            transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+            transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
             zIndex: zIndex,
         };
     };

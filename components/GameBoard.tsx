@@ -215,7 +215,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         <div className="w-full h-full max-w-[1800px] max-h-[1000px] grid grid-cols-[80px_2fr_1fr_80px] grid-rows-[auto_1fr_1fr_auto] gap-4 bg-stone-bg p-4 rounded-lg border-4 border-stone-border shadow-2xl relative">
                 
             {/* Title */}
-            <div className="col-start-2 col-span-2 text-center py-1 font-cinzel text-2xl md:text-3xl tracking-[0.5em] text-stone-surface/80 uppercase">Runworn Battlefield</div>
+            <div className="col-start-2 col-span-2 text-center py-1 font-cinzel text-2xl md:text-3xl tracking-[0.5em] text-stone-surface/80 uppercase animate-text-glow">Runworn Battlefield</div>
 
             {/* Morale Tracks */}
             <div className="row-start-2 row-span-2"><PlayerInfoPanel player={opponent} isOpponent={true} /></div>

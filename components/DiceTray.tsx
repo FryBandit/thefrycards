@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// FIX: Import TurnPhase as a value, not just a type, to use it for comparisons.
 import { TurnPhase, type Die as DieType, type GameState } from '../game/types';
 import Die from './Die';
 

@@ -38,7 +38,12 @@ const PlayerInfoPanel: React.FC<PlayerInfoPanelProps> = ({ player, isOpponent = 
         <div className="h-full w-full bg-stone-border/50 flex flex-col items-center justify-between p-1 rounded-lg">
             <OrnateKnot />
             <div className="flex-grow flex flex-col items-center justify-around w-full relative">
-                <div className="absolute h-full w-1.5 bg-stone-surface/50 rounded-full top-0 left-1/2 -translate-x-1/2"></div>
+                <div className="absolute h-full w-1.5 bg-stone-surface/50 rounded-full top-0 left-1/2 -translate-x-1/2 overflow-hidden">
+                     <div 
+                        className={`absolute bottom-0 left-0 w-full ${colorClass} transition-all duration-500`}
+                        style={{ height: `${Math.max(0, (player.morale / 20) * 100)}%` }}
+                    ></div>
+                </div>
                 {numbers.map(num => {
                     const isCurrent = player.morale === num;
                     return (

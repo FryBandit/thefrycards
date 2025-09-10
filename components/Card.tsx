@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CardInGame, CardType } from '../game/types';
 import KeywordText from './KeywordText';
@@ -140,7 +139,7 @@ const Card: React.FC<CardProps> = ({
                 </div>
 
                 {/* Body - Text Box */}
-                <div className={`absolute left-2 right-2 top-10 bottom-12 bg-black/80 backdrop-blur-md p-1 rounded text-xs font-mono text-vivid-yellow/90 overflow-y-auto transition-opacity duration-200 opacity-0 group-hover:opacity-100`}>
+                <div className={`card-text-box absolute left-2 right-2 top-10 bottom-12 bg-black/80 backdrop-blur-md p-1 rounded text-xs font-mono text-vivid-yellow/90 overflow-y-auto transition-opacity duration-200 opacity-0 group-hover:opacity-100`}>
                     <KeywordText text={card.text} />
                 </div>
                 

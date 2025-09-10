@@ -183,7 +183,7 @@ export const cardDefinitions: CardDefinition[] = [
       "gain_morale": 3,
       "amplify": {
         "cost": [{ "type": "EXACT_VALUE", "count": 1, "value": 6 }],
-        "effect": { "type": "WEAKEN", "amount": 3 },
+        "effect": { "weaken": 3 },
         "requiresTarget": true
       }
     },
