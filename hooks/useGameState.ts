@@ -334,6 +334,12 @@ const drawCards = (player: Player, count: number): { player: Player, drawnCards:
     return { player, drawnCards };
 };
 
+const VALID_EFFECT_KEYS = new Set([
+    'draw', 'discard', 'damage', 'weaken', 'corrupt', 'banish', 'gain_morale',
+    'exhaust', 'prophecy', 'disrupt', 'recall', 'spike', 'resonance',
+    'chain_reaction', 'obliterate', 'reconstruct'
+]);
+
 const applyCardEffects = (
     state: GameState,
     payload: { effect: { [key: string]: any }, sourceCard: CardInGame, target?: CardInGame | null },
@@ -345,6 +351,8 @@ const applyCardEffects = (
     const opponent = newState.players[1 - newState.currentPlayerId];
 
     for (const [key, value] of Object.entries(effect)) {
+        if (!VALID_EFFECT_KEYS.has(key)) continue;
+
         switch(key) {
             case 'draw': {
                 const { player: updatedPlayer } = drawCards(player, value as number);
@@ -488,6 +496,31 @@ const applyCardEffects = (
                      log.push(`Chain Reaction fails. Revealed card was not an Event.`);
                      player.deck = restOfDeck;
                 }
+                break;
+            }
+            case 'reconstruct': {
+                const cardToReconstruct = target ?? sourceCard;
+                if (cardToReconstruct.type === CardType.UNIT) {
+                    cardToReconstruct.damage = 0;
+                    log.push(`${sourceCard.name} reconstructs ${cardToReconstruct.name}, removing all damage.`);
+                }
+                break;
+            }
+            case 'obliterate': {
+                log.push(`${sourceCard.name} obliterates the battlefield!`);
+                newState.players.forEach(p => {
+                    const unitsToObliterate = p.units.filter(u => !cardHasAbility(u, 'immutable'));
+                    p.units = p.units.filter(u => cardHasAbility(u, 'immutable'));
+                    p.oblivion.push(...unitsToObliterate);
+
+                    if (p.id !== player.id) {
+                        const moraleLoss = unitsToObliterate.reduce((total, unit) => total + (unit.moraleValue || 0), 0);
+                        if (moraleLoss > 0) {
+                            p.morale -= moraleLoss;
+                            log.push(`${p.name} loses ${moraleLoss} Morale from the obliteration.`);
+                        }
+                    }
+                });
                 break;
             }
         }
@@ -660,28 +693,61 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             
             switch (newState.phase) {
                 case TurnPhase.START: {
-                    // This phase is automatic. isProcessing must be true to allow the App effect loop to continue for both AI and Player.
-                    // For the player, the App effect will see a non-processing phase (like ROLL_SPEND) and set isProcessing to false.
-                    newState.phase = TurnPhase.ROLL_SPEND;
-                    
                     const player = newState.players[newState.currentPlayerId];
                     const numDiceToRoll = NUM_DICE + (player.diceModifier || 0);
                     player.diceModifier = 0; // Reset modifier after use
                     
                     newState.dice = Array.from({ length: numDiceToRoll }, (_, i) => ({
                         id: i,
-                        value: 0, // Will be blank until first roll
+                        value: 0,
                         isKept: false,
                         isSpent: false,
                     }));
                     newState.rollCount = 0;
                     newState.maxRolls = MAX_ROLLS_PER_TURN;
 
+                    const currentPlayer = newState.players[newState.currentPlayerId];
+                    const blessingCards = [...currentPlayer.locations, ...currentPlayer.artifacts];
+                    let blessingLog: string[] = [];
+                    blessingCards.forEach(card => {
+                        if (card.abilities?.blessing) {
+                            const effect = card.abilities.blessing.effect;
+                            if (!effect || !effect.type) return;
+
+                            blessingLog.push(`${card.name}'s Blessing triggers.`);
+                            newState.lastTriggeredCardId = card.instanceId;
+                            
+                            if (effect.type === 'DRAW_CARD') {
+                                const handSizeBefore = currentPlayer.hand.length;
+                                drawCards(currentPlayer, effect.value);
+                                if (currentPlayer.hand.length > handSizeBefore) {
+                                    blessingLog.push(`...drawing ${effect.value} card(s).`);
+                                } else {
+                                    blessingLog.push(`...hand is full, card goes to graveyard.`);
+                                }
+                            } else if (effect.type === 'PROPHECY') {
+                                newState.maxRolls += effect.value;
+                                blessingLog.push(`...gaining ${effect.value} extra roll(s).`);
+                            } else if (effect.type === 'DISCARD') {
+                                const opponent = newState.players[1 - newState.currentPlayerId];
+                                if (opponent.hand.length > 0) {
+                                    const cardToDiscard = opponent.hand.splice(Math.floor(Math.random() * opponent.hand.length), 1)[0];
+                                    opponent.graveyard.push(cardToDiscard);
+                                    blessingLog.push(`...forcing ${opponent.name} to discard ${cardToDiscard.name}.`);
+                                }
+                            }
+                        }
+                    });
+                    if (blessingLog.length > 0) {
+                        addLogEntry(blessingLog.join(' '));
+                    }
+                    
+                    newState.phase = TurnPhase.ROLL_SPEND;
                     newState.isProcessing = true;
                     break;
                 }
                 case TurnPhase.ROLL_SPEND:
-                    newState.phase = TurnPhase.DRAW; // Draw is automatic, so keep processing
+                    newState.phase = TurnPhase.DRAW;
                     newState.isProcessing = true;
                     break;
                 case TurnPhase.DRAW: {
@@ -690,9 +756,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         player.skipNextDrawPhase -= 1;
                         addLogEntry(`${player.name} skips their draw phase.`);
                     } else {
+                        const handSizeBeforeDraw = player.hand.length;
                         const { drawnCards } = drawCards(player, 1);
                         if (drawnCards.length > 0) {
-                            addLogEntry(`${player.name} draws a card.`);
+                            if(player.hand.length > handSizeBeforeDraw) {
+                                addLogEntry(`${player.name} draws a card.`);
+                            } else {
+                                addLogEntry(`${player.name}'s hand is full. The drawn card goes to the graveyard.`);
+                            }
                         } else {
                             addLogEntry(`${player.name} has no cards left and takes ${player.fatigueCounter} fatigue damage.`);
                         }
@@ -714,7 +785,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     } else {
                         newState.phase = TurnPhase.STRIKE;
                     }
-                    newState.isProcessing = true; // Let App effect handle next step
+                    newState.isProcessing = true;
                     break;
                 }
                 case TurnPhase.STRIKE:
@@ -736,14 +807,12 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     newState.isProcessing = true;
                     break;
                 case TurnPhase.END: {
-                    // Reset statuses for all units on board
                     newState.players.forEach(p => {
                         p.units.forEach(u => {
                             u.hasStruck = false;
                             u.shieldUsedThisTurn = false;
                         });
                     });
-                     // Switch players
                     newState.currentPlayerId = 1 - newState.currentPlayerId;
                     if (newState.currentPlayerId === 0) {
                         newState.turn++;
@@ -819,12 +888,26 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             newState.dice.forEach(d => { if(spentDiceIds.has(d.id)) d.isSpent = true; });
             newState.lastActionDetails = { type: actionType, spentDiceIds: Array.from(spentDiceIds) };
             
+            if (options.isAugmented && targetInstanceId) {
+                const targetUnit = player.units.find(u => u.instanceId === targetInstanceId);
+                if (targetUnit) {
+                    const cardToAttach = { ...card };
+                    if (!targetUnit.attachments) {
+                        targetUnit.attachments = [];
+                    }
+                    targetUnit.attachments.push(cardToAttach);
+                    
+                    let afterEffectState = processDestroyedUnits(newState, log);
+                    log.forEach(l => addLogEntry(l));
+                    return afterEffectState;
+                }
+            }
+            
             const cardToPlay: CardInGame = { ...card, isReclaimed: options.isReclaimed };
             if (cardToPlay.abilities?.consume) {
                 cardToPlay.counters = cardToPlay.abilities.consume.initial;
             }
 
-            // Move card to its zone BEFORE applying effects
             if (options.isEvoked) {
                 player.graveyard.push(cardToPlay);
             } else if (card.type === CardType.UNIT) {
@@ -835,7 +918,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             } else if (card.type === CardType.ARTIFACT) {
                 player.artifacts.push(cardToPlay);
             }
-            // Note: Normal Events are moved to graveyard after effects.
 
             let target: CardInGame | null = null;
             if (targetInstanceId) {
@@ -874,7 +956,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             const card = [...player.units, ...player.artifacts].find(c => c.instanceId === action.payload.cardInstanceId);
             if (card && card.abilities?.activate) {
                 if(card.type === CardType.UNIT && card.turnPlayed === newState.turn && !cardHasAbility(card, 'charge')) {
-                    return newState; // Summoning sickness
+                    return newState;
                 }
 
                 const cost = card.abilities.activate.cost;
@@ -899,8 +981,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                         }
                     }
                 }
+                
+                let effectToApply = { ...card.abilities.activate.effect };
+                if (effectToApply.type) {
+                    effectToApply[effectToApply.type] = effectToApply.value ?? true;
+                    delete effectToApply.type;
+                    if (effectToApply.hasOwnProperty('value')) {
+                        delete effectToApply.value;
+                    }
+                }
 
-                let afterEffectState = applyCardEffects(newState, { effect: card.abilities.activate.effect, sourceCard: card, target }, log);
+                let afterEffectState = applyCardEffects(newState, { effect: effectToApply, sourceCard: card, target }, log);
                 afterEffectState = processDestroyedUnits(afterEffectState, log);
 
                 if (card.abilities.consume && (card.counters ?? 0) <= 0) {
