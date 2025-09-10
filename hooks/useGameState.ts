@@ -693,53 +693,111 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             
             switch (newState.phase) {
                 case TurnPhase.START: {
-                    const player = newState.players[newState.currentPlayerId];
-                    const numDiceToRoll = NUM_DICE + (player.diceModifier || 0);
-                    player.diceModifier = 0; // Reset modifier after use
-                    
-                    newState.dice = Array.from({ length: numDiceToRoll }, (_, i) => ({
-                        id: i,
-                        value: 0,
-                        isKept: false,
-                        isSpent: false,
-                    }));
+                    const currentPlayer = newState.players[newState.currentPlayerId];
+                    const opponentPlayer = newState.players[1 - newState.currentPlayerId];
+                    let startPhaseLog: string[] = [];
+
+                    // 1. Vanish logic: Check for returning units
+                    const returningFromVanish: CardInGame[] = [];
+                    currentPlayer.vanishZone = currentPlayer.vanishZone.map(item => ({
+                        ...item,
+                        turnsRemaining: item.turnsRemaining - 1,
+                    })).filter(item => {
+                        if (item.turnsRemaining <= 0) {
+                            returningFromVanish.push(item.card);
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    if (returningFromVanish.length > 0) {
+                        for (const returningCard of returningFromVanish) {
+                            startPhaseLog.push(`${returningCard.name} returns from the void!`);
+                            returningCard.turnPlayed = newState.turn;
+                            if (returningCard.type === CardType.UNIT) {
+                                currentPlayer.units.push(returningCard);
+                            }
+                            newState = applyCardEffects(newState, { effect: returningCard.abilities, sourceCard: returningCard, target: null }, startPhaseLog);
+                            newState.lastTriggeredCardId = returningCard.instanceId;
+                        }
+                    }
+
+                    // 2. Decay logic: Units with Decay take damage
+                    const unitsWithDecay = currentPlayer.units.filter(u => cardHasAbility(u, 'decay'));
+                    if (unitsWithDecay.length > 0) {
+                        unitsWithDecay.forEach(unit => {
+                            unit.damage += 1;
+                            startPhaseLog.push(`${unit.name} takes 1 damage from Decay.`);
+                        });
+                        newState = processDestroyedUnits(newState, startPhaseLog);
+                    }
+
+                    // Dice setup for the turn
+                    const numDiceToRoll = NUM_DICE + (currentPlayer.diceModifier || 0);
+                    currentPlayer.diceModifier = 0;
+                    newState.dice = Array.from({ length: numDiceToRoll }, (_, i) => ({ id: i, value: 0, isKept: false, isSpent: false }));
                     newState.rollCount = 0;
                     newState.maxRolls = MAX_ROLLS_PER_TURN;
 
-                    const currentPlayer = newState.players[newState.currentPlayerId];
+                    // 3. Blessing logic
                     const blessingCards = [...currentPlayer.locations, ...currentPlayer.artifacts];
-                    let blessingLog: string[] = [];
                     blessingCards.forEach(card => {
                         if (card.abilities?.blessing) {
                             const effect = card.abilities.blessing.effect;
                             if (!effect || !effect.type) return;
 
-                            blessingLog.push(`${card.name}'s Blessing triggers.`);
+                            startPhaseLog.push(`${card.name}'s Blessing triggers.`);
                             newState.lastTriggeredCardId = card.instanceId;
                             
                             if (effect.type === 'DRAW_CARD') {
                                 const handSizeBefore = currentPlayer.hand.length;
                                 drawCards(currentPlayer, effect.value);
                                 if (currentPlayer.hand.length > handSizeBefore) {
-                                    blessingLog.push(`...drawing ${effect.value} card(s).`);
+                                    startPhaseLog.push(`...drawing ${effect.value} card(s).`);
                                 } else {
-                                    blessingLog.push(`...hand is full, card goes to graveyard.`);
+                                    startPhaseLog.push(`...hand is full, card goes to graveyard.`);
                                 }
                             } else if (effect.type === 'PROPHECY') {
                                 newState.maxRolls += effect.value;
-                                blessingLog.push(`...gaining ${effect.value} extra roll(s).`);
+                                startPhaseLog.push(`...gaining ${effect.value} extra roll(s).`);
                             } else if (effect.type === 'DISCARD') {
-                                const opponent = newState.players[1 - newState.currentPlayerId];
-                                if (opponent.hand.length > 0) {
-                                    const cardToDiscard = opponent.hand.splice(Math.floor(Math.random() * opponent.hand.length), 1)[0];
-                                    opponent.graveyard.push(cardToDiscard);
-                                    blessingLog.push(`...forcing ${opponent.name} to discard ${cardToDiscard.name}.`);
+                                if (opponentPlayer.hand.length > 0) {
+                                    const cardToDiscard = opponentPlayer.hand.splice(Math.floor(Math.random() * opponentPlayer.hand.length), 1)[0];
+                                    opponentPlayer.graveyard.push(cardToDiscard);
+                                    startPhaseLog.push(`...forcing ${opponentPlayer.name} to discard ${cardToDiscard.name}.`);
                                 }
+                            } else if (effect.type === 'DECAY') {
+                                // This blessing effect deals 1 damage to a random enemy unit
+                                if (opponentPlayer.units.length > 0) {
+                                    const targetUnit = opponentPlayer.units[Math.floor(Math.random() * opponentPlayer.units.length)];
+                                    targetUnit.damage += effect.value || 1;
+                                    startPhaseLog.push(`...inflicting ${effect.value || 1} decay damage to ${targetUnit.name}.`);
+                                    newState = processDestroyedUnits(newState, startPhaseLog);
+                                }
+                            } else if (effect.type === 'RECYCLE_UNIT') {
+                                const unitsInGrave = currentPlayer.graveyard.filter(c => c.type === CardType.UNIT);
+                                if (unitsInGrave.length > 0) {
+                                    const cardIndex = Math.floor(Math.random() * unitsInGrave.length);
+                                    const cardToRecycle = unitsInGrave[cardIndex];
+                                    currentPlayer.graveyard = currentPlayer.graveyard.filter(c => c.instanceId !== cardToRecycle.instanceId);
+                                    
+                                    if (currentPlayer.hand.length < MAX_HAND_SIZE) {
+                                        currentPlayer.hand.push(cardToRecycle);
+                                        startPhaseLog.push(`...recycling ${cardToRecycle.name} to hand.`);
+                                    } else {
+                                        currentPlayer.graveyard.push(cardToRecycle);
+                                        startPhaseLog.push(`...tried to recycle ${cardToRecycle.name}, but hand is full.`);
+                                    }
+                                }
+                            } else if (effect.type === 'DISRUPT') {
+                                opponentPlayer.diceModifier -= effect.value;
+                                startPhaseLog.push(`...disrupting ${opponentPlayer.name}, who will roll ${effect.value} fewer dice.`);
                             }
                         }
                     });
-                    if (blessingLog.length > 0) {
-                        addLogEntry(blessingLog.join(' '));
+                    
+                    if (startPhaseLog.length > 0) {
+                        startPhaseLog.forEach(l => addLogEntry(l));
                     }
                     
                     newState.phase = TurnPhase.ROLL_SPEND;
@@ -837,6 +895,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 );
                 addLogEntry(`Roll ${newState.rollCount}: [${newState.dice.filter(d=>!d.isKept && !d.isSpent).map(d=>d.value).join(', ')}]`);
             }
+            newState.isProcessing = true;
             return newState;
         }
         
@@ -888,10 +947,17 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             newState.dice.forEach(d => { if(spentDiceIds.has(d.id)) d.isSpent = true; });
             newState.lastActionDetails = { type: actionType, spentDiceIds: Array.from(spentDiceIds) };
             
+            const cardToPlay: CardInGame = { ...card, isReclaimed: options.isReclaimed };
+
+            if (cardHasAbility(cardToPlay, 'instability')) {
+                player.diceModifier -= 1;
+                addLogEntry(`${cardToPlay.name}'s Instability will cause ${player.name} to roll one fewer die next turn.`);
+            }
+
             if (options.isAugmented && targetInstanceId) {
                 const targetUnit = player.units.find(u => u.instanceId === targetInstanceId);
                 if (targetUnit) {
-                    const cardToAttach = { ...card };
+                    const cardToAttach = { ...cardToPlay };
                     if (!targetUnit.attachments) {
                         targetUnit.attachments = [];
                     }
@@ -903,7 +969,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 }
             }
             
-            const cardToPlay: CardInGame = { ...card, isReclaimed: options.isReclaimed };
+            if (cardHasAbility(cardToPlay, 'vanish')) {
+                const turns = cardToPlay.abilities.vanish.turns || 1;
+                player.vanishZone.push({ card: cardToPlay, turnsRemaining: turns });
+                addLogEntry(`${cardToPlay.name} vanishes and will return in ${turns} turn(s).`);
+                log.forEach(l => addLogEntry(l));
+                return newState;
+            }
+
             if (cardToPlay.abilities?.consume) {
                 cardToPlay.counters = cardToPlay.abilities.consume.initial;
             }
@@ -914,6 +987,14 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                 cardToPlay.turnPlayed = newState.turn;
                 player.units.push(cardToPlay);
             } else if (card.type === CardType.LOCATION) {
+                if (cardHasAbility(cardToPlay, 'landmark')) {
+                    const existingLandmarkIndex = player.locations.findIndex(l => cardHasAbility(l, 'landmark'));
+                    if (existingLandmarkIndex !== -1) {
+                        const oldLandmark = player.locations.splice(existingLandmarkIndex, 1)[0];
+                        player.graveyard.push(oldLandmark);
+                        addLogEntry(`${player.name} replaces ${oldLandmark.name} with ${cardToPlay.name}.`);
+                    }
+                }
                 player.locations.push(cardToPlay);
             } else if (card.type === CardType.ARTIFACT) {
                 player.artifacts.push(cardToPlay);
