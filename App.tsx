@@ -377,12 +377,9 @@ const App: React.FC = () => {
         if (isCurrentPlayerAi) {
             handleAiTurn(state.currentPlayerId);
         } else {
-            // Human Player's turn
-            if (state.phase === TurnPhase.START || state.phase === TurnPhase.DRAW) {
-                 timeoutId = window.setTimeout(() => dispatch({ type: 'ADVANCE_PHASE' }), 1200);
-            } else {
-                dispatch({ type: 'AI_ACTION' }); // Set isProcessing to false
-            }
+            // Human Player's turn. Don't auto-advance.
+            // Allow manual advance from START/DRAW via button.
+            dispatch({ type: 'AI_ACTION' }); // Set isProcessing to false
         }
     }
 
@@ -433,8 +430,10 @@ const App: React.FC = () => {
         onGraveyardCardClick={handleGraveyardCardClick}
         isCardReclaimable={isCardReclaimable}
         isCardEvokeable={isCardEvokeable}
+        // Fix: Pass the correct handler function `handleEvokeClick` for the `onEvokeClick` prop.
         onEvokeClick={handleEvokeClick}
         isCardAmplifiable={isCardAmplifiable}
+        // Fix: Pass the correct handler function `handleAmplifyClick` for the `onAmplifyClick` prop.
         onAmplifyClick={handleAmplifyClick}
         onShowHowToPlay={() => setView('howToPlay')}
       />

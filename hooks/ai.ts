@@ -511,7 +511,6 @@ export const getAiAction = (state: GameState, aiPlayerId: number): AIAction | nu
             
             const dieToToggle = dice.find(d => !d.isSpent && d.isKept !== diceToKeepIds.has(d.id));
             if (dieToToggle) {
-                // Fix: `d` was undefined in this scope. Changed to `dieToToggle`.
                 return { type: 'TOGGLE_DIE_KEPT', payload: { id: dieToToggle.id, keep: diceToKeepIds.has(dieToToggle.id) } };
             }
 

@@ -123,7 +123,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const canAdvancePhase = useMemo(() => {
     if(isSpectator || !isPlayerTurn) return false;
     if(targetingCard) return false;
-    if(phase === TurnPhase.ROLL_SPEND || phase === TurnPhase.END || phase === TurnPhase.DRAW) return true;
+    if(phase === TurnPhase.START || phase === TurnPhase.ROLL_SPEND || phase === TurnPhase.END || phase === TurnPhase.DRAW) return true;
     return false;
   }, [phase, isPlayerTurn, isSpectator, targetingCard]);
 
