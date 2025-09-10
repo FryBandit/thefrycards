@@ -693,6 +693,7 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             
             switch (newState.phase) {
                 case TurnPhase.START: {
+                    newState.isProcessing = true; // BUG FIX: Ensure processing is true at start of turn.
                     const currentPlayer = newState.players[newState.currentPlayerId];
                     const opponentPlayer = newState.players[1 - newState.currentPlayerId];
                     let startPhaseLog: string[] = [];
@@ -801,7 +802,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
                     }
                     
                     newState.phase = TurnPhase.ROLL_SPEND;
-                    newState.isProcessing = true;
                     break;
                 }
                 case TurnPhase.ROLL_SPEND:

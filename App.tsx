@@ -430,10 +430,8 @@ const App: React.FC = () => {
         onGraveyardCardClick={handleGraveyardCardClick}
         isCardReclaimable={isCardReclaimable}
         isCardEvokeable={isCardEvokeable}
-        // Fix: Pass the correct handler function `handleEvokeClick` for the `onEvokeClick` prop.
         onEvokeClick={handleEvokeClick}
         isCardAmplifiable={isCardAmplifiable}
-        // Fix: Pass the correct handler function `handleAmplifyClick` for the `onAmplifyClick` prop.
         onAmplifyClick={handleAmplifyClick}
         onShowHowToPlay={() => setView('howToPlay')}
       />
