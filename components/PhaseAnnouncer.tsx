@@ -8,7 +8,6 @@ interface PhaseAnnouncerProps {
 
 export const phaseStyles: { [key: string]: string } = {
     [TurnPhase.MULLIGAN]: 'text-vivid-yellow border-vivid-yellow/50',
-    [TurnPhase.AI_MULLIGAN]: 'text-vivid-yellow border-vivid-yellow/50',
     [TurnPhase.START]: 'text-white border-white/50',
     [TurnPhase.ROLL_SPEND]: 'text-vivid-cyan border-vivid-cyan/50',
     [TurnPhase.DRAW]: 'text-blue-400 border-blue-400/50',

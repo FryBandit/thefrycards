@@ -102,7 +102,7 @@ const App: React.FC = () => {
   };
 
   const handleMulliganChoice = (mulligan: boolean) => {
-    dispatch({ type: 'PLAYER_MULLIGAN_CHOICE', payload: { mulligan } });
+    dispatch({ type: 'MULLIGAN_CHOICE', payload: { mulligan, playerId: 0 } });
   }
 
   const handleDieClick = (id: number) => {
@@ -358,10 +358,16 @@ const App: React.FC = () => {
         }
     };
 
-    if (state.phase === TurnPhase.AI_MULLIGAN) {
+    if (state.phase === TurnPhase.MULLIGAN) {
         const actor = state.players.find(p => !p.hasMulliganed);
         if (actor) {
-            handleAiTurn(actor.id);
+            const isActorAi = (actor.id === 0 && player0isAi) || (actor.id === 1 && player1isAi);
+            if (isActorAi) {
+                handleAiTurn(actor.id);
+            } else {
+                // It's a human's turn to mulligan, so stop processing.
+                dispatch({ type: 'AI_ACTION' });
+            }
         }
     } else if (state.phase === TurnPhase.BLOCK) {
         const defenderId = 1 - state.currentPlayerId;
